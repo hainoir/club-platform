@@ -1,228 +1,29 @@
-"use client"
-import * as React from "react"
-import { Search, Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { createClient } from '@/utils/supabase/server';
+import MembersClient, { Member } from './MembersClient';
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/toast-simple"
-import { cn } from "@/lib/utils"
+export default async function MembersPage() {
+    const supabase = await createClient();
 
-type Member = {
-    id: string
-    name: string
-    studentId: string
-    role: "管理员" | "成员"
-    joinDate: string
-    status: "活跃" | "停用"
-}
+    // 从 Supabase 的 members 表中查询所有社团成员数据
+    const { data: membersData, error } = await supabase
+        .from('members')
+        .select('*')
+        .order('id', { ascending: true }); // Assume 'id' column exists
 
-const initialMembers: Member[] = [
-    { id: "1", name: "Alice Johnson", studentId: "20230001", role: "管理员", joinDate: "2023-09-01", status: "活跃" },
-    { id: "2", name: "Bob Smith", studentId: "20230045", role: "成员", joinDate: "2023-09-15", status: "活跃" },
-    { id: "3", name: "Charlie Davis", studentId: "20230102", role: "成员", joinDate: "2023-10-05", status: "停用" },
-    { id: "4", name: "Diana Prince", studentId: "20230211", role: "成员", joinDate: "2023-11-20", status: "活跃" },
-    { id: "5", name: "Ethan Hunt", studentId: "20230349", role: "成员", joinDate: "2023-12-01", status: "活跃" },
-]
-
-export default function MembersPage() {
-    const [members, setMembers] = React.useState<Member[]>(initialMembers)
-    const [searchQuery, setSearchQuery] = React.useState("")
-    const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-    const [editingMember, setEditingMember] = React.useState<Member | null>(null)
-    const [isSubmitting, setIsSubmitting] = React.useState(false) // Handle smooth loading state
-    const { toast } = useToast()
-
-    const filteredMembers = members.filter((m) =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.studentId.includes(searchQuery)
-    )
-
-    const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault()
-        const formData = new FormData(e.currentTarget)
-        const newMember: Member = {
-            id: editingMember ? editingMember.id : Math.random().toString(36).substr(2, 9),
-            name: formData.get("name") as string,
-            studentId: formData.get("studentId") as string,
-            role: formData.get("role") as "管理员" | "成员",
-            status: formData.get("status") as "活跃" | "停用",
-            joinDate: editingMember ? editingMember.joinDate : new Date().toISOString().split('T')[0],
-        }
-
-        setIsSubmitting(true)
-
-        // Simulate network latency for a highly polished prototype feel
-        setTimeout(() => {
-            if (editingMember) {
-                setMembers(members.map((m) => (m.id === editingMember.id ? newMember : m)))
-                toast({ title: "成员已更新", description: `${newMember.name} 的详细信息已成功更新。` })
-            } else {
-                setMembers([newMember, ...members])
-                toast({ title: "成员已添加", description: `${newMember.name} 已加入俱乐部。` })
-            }
-            setIsSubmitting(false)
-            setIsDialogOpen(false)
-            setEditingMember(null)
-        }, 600)
+    // 如果出错或没数据，你可以选择处理（比如传空数组进行容错或者显示错误）
+    if (error) {
+        console.error("获取成员数据失败:", error);
     }
 
-    const handleDelete = (id: string, name: string) => {
-        setMembers(members.filter((m) => m.id !== id))
-        toast({ title: "成员已删除", description: `${name} 已被移除。`, variant: "destructive" })
-    }
+    // 将数据库的数据映射为前端组件需要的结构
+    const members: Member[] = membersData?.map((m) => ({
+        id: String(m.id),
+        name: m.name,
+        studentId: m.studentId || "N/A", // 应对如果数据库还没加这列的情况
+        role: m.role || "成员",
+        joinDate: m.joinDate || "N/A",
+        status: m.status || "活跃"
+    })) || [];
 
-    const openEdit = (member: Member) => {
-        setEditingMember(member)
-        setIsDialogOpen(true)
-    }
-
-    const openCreate = () => {
-        setEditingMember(null)
-        setIsDialogOpen(true)
-    }
-
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-in-out">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">成员管理</h2>
-                    <p className="text-sm text-muted-foreground mt-1">查看和管理分支机构成员及权限。</p>
-                </div>
-                <Button onClick={openCreate} className="gap-2 shadow-sm transition-all">
-                    <Plus className="h-4 w-4" /> 添加新成员
-                </Button>
-            </div>
-
-            <div className="flex items-center gap-2 max-w-sm">
-                <div className="relative w-full">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="按姓名或学号搜索..."
-                        className="pl-8 bg-background shadow-sm max-w-sm"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-            </div>
-
-            <div className="border rounded-lg bg-card/50 backdrop-blur-sm shadow-sm overflow-hidden">
-                <Table>
-                    <TableHeader>
-                        <TableRow className="bg-muted/50">
-                            <TableHead>姓名</TableHead>
-                            <TableHead>学号</TableHead>
-                            <TableHead>角色</TableHead>
-                            <TableHead>加入日期</TableHead>
-                            <TableHead>状态</TableHead>
-                            <TableHead className="w-[80px]">操作</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredMembers.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                                    <div className="flex flex-col items-center gap-2">
-                                        <Search className="h-8 w-8 text-muted-foreground/50" />
-                                        <span>没有找到符合搜索条件的成员。</span>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            filteredMembers.map((member) => (
-                                <TableRow key={member.id} className="transition-colors hover:bg-muted/40">
-                                    <TableCell className="font-medium">{member.name}</TableCell>
-                                    <TableCell className="text-muted-foreground">{member.studentId}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={member.role === "管理员" ? "default" : "secondary"}>
-                                            {member.role}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground">{member.joinDate}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className={cn(
-                                            "bg-opacity-10 dark:bg-opacity-20",
-                                            member.status === "活跃"
-                                                ? "border-emerald-500/30 text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/50"
-                                                : "border-slate-300/50 text-slate-500 bg-slate-50 dark:text-slate-400 dark:bg-slate-800"
-                                        )}>
-                                            {member.status}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                    <span className="sr-only">打开菜单</span>
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-[160px]">
-                                                <DropdownMenuItem onClick={() => openEdit(member)}>
-                                                    <Pencil className="mr-2 h-4 w-4" /> 编辑信息
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => handleDelete(member.id, member.name)}>
-                                                    <Trash2 className="mr-2 h-4 w-4" /> 移除成员
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
-
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <form onSubmit={handleSave}>
-                        <DialogHeader>
-                            <DialogTitle>{editingMember ? "编辑成员" : "添加新成员"}</DialogTitle>
-                            <DialogDescription>
-                                {editingMember ? "在这里修改该成员的详细信息。" : "将新成员信息输入系统以为其分配访问权限。"}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-5 py-6">
-                            <div className="grid gap-2">
-                                <Label htmlFor="name">全名</Label>
-                                <Input id="name" name="name" placeholder="例如：张三" defaultValue={editingMember?.name} required />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="studentId">学号</Label>
-                                <Input id="studentId" name="studentId" placeholder="例如：20230101" defaultValue={editingMember?.studentId} required />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="role">平台角色</Label>
-                                    <select id="role" name="role" defaultValue={editingMember?.role || "成员"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none focus:ring-2 focus:ring-ring">
-                                        <option value="成员">成员</option>
-                                        <option value="管理员">管理员</option>
-                                    </select>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="status">账户状态</Label>
-                                    <select id="status" name="status" defaultValue={editingMember?.status || "活跃"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none focus:ring-2 focus:ring-ring">
-                                        <option value="活跃">活跃</option>
-                                        <option value="停用">停用</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-                            <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? "保存中..." : "保存记录"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-        </div>
-    )
+    return <MembersClient initialMembers={members} />;
 }
