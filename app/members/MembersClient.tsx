@@ -46,7 +46,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
             name: formData.get("name") as string,
             student_id: formData.get("student_id") as string || "N/A",
             role: formData.get("role") as string,
-            status: formData.get("status") as string || "活跃",
+            status: formData.get("status") as string || "active",
             join_date: editingMember?.join_date ? editingMember.join_date : new Date().toISOString().split('T')[0],
         }
 
@@ -133,21 +133,21 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                             filteredMembers.map((member) => (
                                 <TableRow key={member.id} className="transition-colors hover:bg-muted/40">
                                     <TableCell className="font-medium">{member.name}</TableCell>
-                                    <TableCell className="text-muted-foreground">{member.student_id || "-"}</TableCell>
+                                    <TableCell className="text-muted-foreground">{member.student_id ? member.student_id : "-"}</TableCell>
                                     <TableCell>
-                                        <Badge variant={member.role === "管理员" ? "default" : "secondary"}>
-                                            {member.role || "成员"}
+                                        <Badge variant={member.role === "admin" ? "default" : "secondary"}>
+                                            {member.role === "admin" ? "管理员" : "成员"}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">{member.join_date || "-"}</TableCell>
+                                    <TableCell className="text-muted-foreground">{member.join_date ? new Date(member.join_date).toLocaleDateString('zh-CN') : "-"}</TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={cn(
                                             "bg-opacity-10 dark:bg-opacity-20",
-                                            (member.status || "活跃") === "活跃"
+                                            (member.status || "active") === "active"
                                                 ? "border-emerald-500/30 text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/50"
                                                 : "border-slate-300/50 text-slate-500 bg-slate-50 dark:text-slate-400 dark:bg-slate-800"
                                         )}>
-                                            {member.status || "活跃"}
+                                            {member.status === "active" ? "活跃" : (member.status === "inactive" ? "停用" : "活跃")}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
@@ -196,16 +196,16 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="grid gap-2">
                                     <Label htmlFor="role">平台角色</Label>
-                                    <select id="role" name="role" defaultValue={editingMember?.role || "成员"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none focus:ring-2 focus:ring-ring">
-                                        <option value="成员">成员</option>
-                                        <option value="管理员">管理员</option>
+                                    <select id="role" name="role" defaultValue={editingMember?.role || "member"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none focus:ring-2 focus:ring-ring">
+                                        <option value="member">成员</option>
+                                        <option value="admin">管理员</option>
                                     </select>
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="status">账户状态</Label>
-                                    <select id="status" name="status" defaultValue={editingMember?.status || "活跃"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none focus:ring-2 focus:ring-ring">
-                                        <option value="活跃">活跃</option>
-                                        <option value="停用">停用</option>
+                                    <select id="status" name="status" defaultValue={editingMember?.status || "active"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none focus:ring-2 focus:ring-ring">
+                                        <option value="active">活跃</option>
+                                        <option value="inactive">停用</option>
                                     </select>
                                 </div>
                             </div>

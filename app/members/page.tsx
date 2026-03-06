@@ -19,9 +19,9 @@ export default async function MembersPage() {
     const members: Member[] = membersData?.map((m) => ({
         id: String(m.id),
         name: m.name,
-        studentId: m.studentId || "N/A", // 应对如果数据库还没加这列的情况
+        student_id: m.student_id || "N/A", // Changed from studentId to student_id
         role: m.role || "成员",
-        joinDate: m.joinDate || "N/A",
+        join_date: m.created_at || "N/A",  // Database usually defaults this to created_at
         status: m.status || "活跃"
     })) || [];
 
