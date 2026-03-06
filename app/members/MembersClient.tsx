@@ -15,9 +15,9 @@ import { cn } from "@/lib/utils"
 export type Member = {
     id: string
     name: string
-    studentId?: string
+    student_id?: string
     role: string
-    joinDate?: string
+    join_date?: string
     status?: string
 }
 
@@ -35,7 +35,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
 
     const filteredMembers = members.filter((m) =>
         m.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.studentId?.includes(searchQuery)
+        m.student_id?.includes(searchQuery)
     )
 
     const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -44,10 +44,10 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
         const newMember: Member = {
             id: editingMember ? editingMember.id : Math.random().toString(36).substr(2, 9),
             name: formData.get("name") as string,
-            studentId: formData.get("studentId") as string || "N/A",
+            student_id: formData.get("student_id") as string || "N/A",
             role: formData.get("role") as string,
             status: formData.get("status") as string || "活跃",
-            joinDate: editingMember?.joinDate ? editingMember.joinDate : new Date().toISOString().split('T')[0],
+            join_date: editingMember?.join_date ? editingMember.join_date : new Date().toISOString().split('T')[0],
         }
 
         setIsSubmitting(true)
@@ -133,13 +133,13 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                             filteredMembers.map((member) => (
                                 <TableRow key={member.id} className="transition-colors hover:bg-muted/40">
                                     <TableCell className="font-medium">{member.name}</TableCell>
-                                    <TableCell className="text-muted-foreground">{member.studentId || "-"}</TableCell>
+                                    <TableCell className="text-muted-foreground">{member.student_id || "-"}</TableCell>
                                     <TableCell>
                                         <Badge variant={member.role === "管理员" ? "default" : "secondary"}>
                                             {member.role || "成员"}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">{member.joinDate || "-"}</TableCell>
+                                    <TableCell className="text-muted-foreground">{member.join_date || "-"}</TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={cn(
                                             "bg-opacity-10 dark:bg-opacity-20",
@@ -191,7 +191,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="studentId">学号</Label>
-                                <Input id="studentId" name="studentId" placeholder="例如：20230101" defaultValue={editingMember?.studentId} />
+                                <Input id="studentId" name="student_id" placeholder="例如：20230101" defaultValue={editingMember?.student_id} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="grid gap-2">
