@@ -4,6 +4,8 @@ import { Search, Plus, MoreHorizontal, Pencil, Trash2, Download, ChevronLeft, Ch
 import { useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { useUserStore, ADMIN_ROLES } from "@/store/useUserStore"
+import { useDebounce } from "@/hooks/useDebounce"
+import { PostgrestError } from "@supabase/supabase-js"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -50,10 +52,33 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
     // 【面试考点：受控组件 (Controlled Components) 与 React 本地状态】
     // 凡是前端表格里面的 Input 框、搜索框录入等 UI 瞬时态，都通过 useState 手动接管。
     const [searchQuery, setSearchQuery] = React.useState("")
+    // 【系统学习：防抖性能拦截】防发疯引擎：用户拼写 "John" 不会触发四次表格过滤计算
+    const debouncedSearchQuery = useDebounce(searchQuery, 300)
+
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
     const [editingMember, setEditingMember] = React.useState<Member | null>(null)
     const [isSubmitting, setIsSubmitting] = React.useState(false) // 接管防抖与按钮 Loading 动画状态
     const { toast } = useToast()
+
+    // 【系统学习：React 19 乐观更新 (useOptimistic)】
+    // 通过 useOptimistic 包装原始的 members 状态。
+    // 在发起真实的网络请求前，我们调用 addOptimistic 立即“欺骗” UI 进行渲染。
+    // 如果后台请求由于网络波动耗时过长，用户体感上列表也已经变了，丝毫不卡顿。
+    const [optimisticMembers, addOptimistic] = React.useOptimistic<Member[], { action: 'delete' | 'add' | 'update', payload: any }>(
+        members,
+        (currentMembers, optimisticValue) => {
+            switch (optimisticValue.action) {
+                case 'delete':
+                    return currentMembers.filter(m => m.id !== optimisticValue.payload);
+                case 'update':
+                    return currentMembers.map(m => m.id === optimisticValue.payload.id ? optimisticValue.payload : m);
+                case 'add':
+                    return [...currentMembers, optimisticValue.payload];
+                default:
+                    return currentMembers;
+            }
+        }
+    );
 
     // 分页系统所依赖的状态机
     const [currentPage, setCurrentPage] = React.useState(1)
@@ -64,9 +89,9 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
     // 这在 React 中是极其严重的反模式（会导致二次无用渲染）。
     // 正确的做法如下：渲染期间通过底层的计算直接算出衍生变量 `filteredMembers`。
     // 当组件内任何状态变动重绘时，这里的 filter 都会用最新的数据自动算一次，绝对的 Single Source of Truth。
-    const filteredMembers = members.filter((m) =>
-        m.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.student_id?.includes(searchQuery)
+    const filteredMembers = optimisticMembers.filter((m) =>
+        m.name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        m.student_id?.includes(debouncedSearchQuery)
     )
 
     const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -79,55 +104,75 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
         const status = formData.get("status") as string || "active"
 
         setIsSubmitting(true)
+        // 乐观处理：不要等网络返回，直接先把窗给关了，提升顺滑度
+        setIsDialogOpen(false)
 
-        try {
-            if (editingMember) {
-                // 如果弹窗之前绑定了某位现存成员，则执行基于 id 的更新操作
-                const { error } = await supabase
-                    .from('members')
-                    .update({ name, student_id, role, department, status })
-                    .eq('id', editingMember.id)
+        React.startTransition(async () => {
+            try {
+                if (editingMember) {
+                    // 乐观更新 UI
+                    addOptimistic({ action: 'update', payload: { id: editingMember.id, name, student_id, role, department, status, join_date: editingMember.join_date } })
 
-                if (error) throw error;
-                toast({ title: "成员已更新", description: `${name} 的详细信息已成功更新。` })
-            } else {
-                // 否则说明是点击了左上角的“添加成员”按钮，执行增量写入
-                const { error } = await supabase
-                    .from('members')
-                    .insert([{ name, student_id, role, department, status }])
+                    // 如果弹窗之前绑定了某位现存成员，则执行基于 id 的更新操作
+                    const { error } = await supabase
+                        .from('members')
+                        .update({ name, student_id, role, department, status })
+                        .eq('id', editingMember.id)
 
-                if (error) {
-                    if (error.code === '23505') {
-                        throw new Error('该学号已存在于社团中');
+                    if (error) throw error;
+                    toast({ title: "成员已更新", description: `${name} 的详细信息已成功更新。` })
+                } else {
+                    // 乐观更新 UI：假造一个临时 ID 和当前时间，骗过本轮渲染
+                    addOptimistic({ action: 'add', payload: { id: `temp-${Date.now()}`, name, student_id, role, department, status, join_date: new Date().toISOString() } })
+
+                    // 否则说明是点击了左上角的“添加成员”按钮，执行增量写入
+                    const { error } = await supabase
+                        .from('members')
+                        .insert([{ name, student_id, role, department, status }])
+
+                    if (error) {
+                        if (error.code === '23505') {
+                            throw new Error('该学号已存在于社团中');
+                        }
+                        throw error;
                     }
-                    throw error;
+                    toast({ title: "成员已添加", description: `${name} 已加入俱乐部。` })
                 }
-                toast({ title: "成员已添加", description: `${name} 已加入俱乐部。` })
+
+                setEditingMember(null)
+
+                // 刷新当前路由，让外层的服务端组件重新获取最新数据 (服务器渲染完新页面后会覆盖我们的乐观状态)
+                router.refresh()
+
+            } catch (error: unknown) {
+                console.error('保存失败:', error);
+                // 【系统学习：Type 异常捕获与具体化 (Any 剥离)】
+                const pError = error as PostgrestError;
+                toast({ title: "保存失败", description: pError.message || (error as Error).message || "发生未知错误", variant: "destructive" })
+                // 发送失败的话把窗重新弹开供用户检修
+                setIsDialogOpen(true)
+            } finally {
+                setIsSubmitting(false)
             }
-
-            setIsSubmitting(false)
-            setIsDialogOpen(false)
-            setEditingMember(null)
-
-            // 刷新当前路由，让外层的服务端组件重新获取最新数据
-            router.refresh()
-
-        } catch (error: any) {
-            console.error('保存失败:', error);
-            toast({ title: "保存失败", description: error.message || "发生未知错误", variant: "destructive" })
-            setIsSubmitting(false)
-        }
+        });
     }
 
-    const handleDelete = async (id: string, name: string) => {
-        try {
-            const { error } = await supabase.from('members').delete().eq('id', id)
-            if (error) throw error;
-            toast({ title: "成员已删除", description: `${name} 已被移除。`, variant: "destructive" })
-            router.refresh()
-        } catch (error: any) {
-            toast({ title: "删除失败", description: error.message, variant: "destructive" })
-        }
+    const handleDelete = (id: string, name: string) => {
+        // 利用 startTransition 裹挟异步操作，让 useOptimistic 知道此乐观状态能延续到异步结束
+        React.startTransition(async () => {
+            // 乐观删除：网速再慢，用户点下删除按钮的瞬间这一行立刻在他眼前消失
+            addOptimistic({ action: 'delete', payload: id })
+
+            try {
+                const { error } = await supabase.from('members').delete().eq('id', id)
+                if (error) throw error;
+                toast({ title: "成员已删除", description: `${name} 已被移除。`, variant: "destructive" })
+                router.refresh()
+            } catch (error: unknown) {
+                const pError = error as PostgrestError;
+                toast({ title: "删除失败", description: pError.message || (error as Error).message, variant: "destructive" })
+            }
+        });
     }
 
     const openEdit = (member: Member) => {

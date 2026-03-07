@@ -3,7 +3,9 @@ import { Users, Activity, GraduationCap, CircleUserRound, CheckCircle2 } from "l
 import { createClient } from "@/utils/supabase/server"
 import { format, isAfter, subMonths, startOfMonth, endOfMonth } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import DashboardCharts from "./DashboardCharts" // 我们接下来将创建的 ECharts 客户端组件
+import DashboardCharts from "./DashboardCharts"
+import DashboardPie from "./DashboardPie"
+import DashboardAttendance from "./DashboardAttendance"
 
 /**
  * 【面试考点：React Server Components (RSC) 与服务端直出】
@@ -135,6 +137,34 @@ export default async function Dashboard() {
         { title: "总计签到人次", value: attendedCount || 0, description: "历史成功核销人次", icon: CheckCircle2 },
     ]
 
+    // 5. 部门分布 (Pie Chart Data)
+    const { data: deptData } = await supabase.from('members').select('department');
+    const deptCount: Record<string, number> = {};
+    deptData?.forEach(m => {
+        const dept = m.department || '未分配';
+        deptCount[dept] = (deptCount[dept] || 0) + 1;
+    });
+    const pieData = Object.entries(deptCount).map(([name, value]) => ({ name, value }));
+
+    // 6. 出勤率 (Attendance Data: 最近 5 场已结束活动)
+    const { data: recentAttendEvents } = await supabase
+        .from('events')
+        .select('title, event_attendees(is_attended)')
+        .lt('event_date', new Date().toISOString())
+        .order('event_date', { ascending: false })
+        .limit(5);
+
+    const attendanceData = (recentAttendEvents || []).map(e => {
+        const attendees = e.event_attendees as any[] || [];
+        const total = attendees.length;
+        const attended = attendees.filter(a => a.is_attended).length;
+        const rate = total > 0 ? Math.round((attended / total) * 100) : 0;
+        return {
+            name: e.title.length > 7 ? e.title.substring(0, 7) + '...' : e.title,
+            rate: rate
+        };
+    }).reverse();
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-in-out">
             <div className="flex items-center justify-between">
@@ -196,6 +226,29 @@ export default async function Dashboard() {
                                 ))
                             )}
                         </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* 新增的深度数据图表排版 */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <Card className="col-span-4 lg:col-span-3 bg-card/50 backdrop-blur-sm shadow-sm">
+                    <CardHeader>
+                        <CardTitle>各科室编制概况</CardTitle>
+                        <CardDescription>各部门现存成员人数及占比流向图。</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <DashboardPie data={pieData} />
+                    </CardContent>
+                </Card>
+
+                <Card className="col-span-4 lg:col-span-4 bg-card/50 backdrop-blur-sm shadow-sm">
+                    <CardHeader>
+                        <CardTitle>近期历史活动签到核销率</CardTitle>
+                        <CardDescription>最近 5 场历史活动的实际出勤人员占比直方图。</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <DashboardAttendance data={attendanceData} />
                     </CardContent>
                 </Card>
             </div>

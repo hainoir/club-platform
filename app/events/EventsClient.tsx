@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client"
 import { useUserStore, ADMIN_ROLES } from "@/store/useUserStore"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { PostgrestError } from "@supabase/supabase-js"
 
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -105,8 +106,9 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
             if (error) throw error;
             toast({ title: "活动已删除", description: `"${title}" 已被取消。`, variant: "destructive" })
             router.refresh()
-        } catch (error: any) {
-            toast({ title: "删除失败", description: error.message, variant: "destructive" })
+        } catch (error: unknown) {
+            const pError = error as PostgrestError;
+            toast({ title: "删除失败", description: pError.message || (error as Error).message, variant: "destructive" })
         }
     }
 
@@ -208,9 +210,10 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
 
             router.refresh()
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('保存失败:', error);
-            toast({ title: "保存失败", description: error.message || "发生未知错误", variant: "destructive" })
+            const pError = error as PostgrestError;
+            toast({ title: "保存失败", description: pError.message || (error as Error).message || "发生未知错误", variant: "destructive" })
             setIsSubmitting(false)
         }
     }
@@ -247,8 +250,9 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
                 toast({ title: "报名成功", description: `您已成功报名参加 "${event.title}"！` })
             }
             router.refresh()
-        } catch (error: any) {
-            toast({ title: "操作失败", description: error.message || "无法完成请求", variant: "destructive" })
+        } catch (error: unknown) {
+            const pError = error as PostgrestError;
+            toast({ title: "操作失败", description: pError.message || (error as Error).message || "无法完成请求", variant: "destructive" })
         }
     }
 
@@ -275,8 +279,9 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
                 setViewingEvent({ ...viewingEvent, attendeesList: updatedList, attendees: (updatedList?.length || 0) })
             }
             router.refresh()
-        } catch (error: any) {
-            toast({ title: "移除失败", description: error.message, variant: "destructive" })
+        } catch (error: unknown) {
+            const pError = error as PostgrestError;
+            toast({ title: "移除失败", description: pError.message || (error as Error).message, variant: "destructive" })
         }
     }
 
@@ -300,8 +305,9 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
                 setViewingEvent({ ...viewingEvent, attendeesList: updatedList })
             }
             router.refresh()
-        } catch (error: any) {
-            toast({ title: "状态更新失败", description: error.message, variant: "destructive" })
+        } catch (error: unknown) {
+            const pError = error as PostgrestError;
+            toast({ title: "状态更新失败", description: pError.message || (error as Error).message, variant: "destructive" })
         }
     }
 
