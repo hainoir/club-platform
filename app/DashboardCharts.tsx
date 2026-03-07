@@ -66,7 +66,9 @@ export default function DashboardCharts({ data }: DashboardChartsProps) {
                     type: 'line',
                     smooth: true,
                     lineStyle: { width: 3, color: '#6366f1' }, // Indigo
-                    showSymbol: false,
+                    itemStyle: { color: '#6366f1' }, // 修复数据点的外溢颜色
+                    showSymbol: true,
+                    symbolSize: 8,
                     areaStyle: {
                         opacity: 0.1,
                         color: {
@@ -82,7 +84,9 @@ export default function DashboardCharts({ data }: DashboardChartsProps) {
                     type: 'line',
                     smooth: true,
                     lineStyle: { width: 3, color: '#ec4899' }, // Pink
-                    showSymbol: false,
+                    itemStyle: { color: '#ec4899' }, // 修复数据点的外溢颜色
+                    showSymbol: true,
+                    symbolSize: 8,
                     areaStyle: {
                         opacity: 0.1,
                         color: {

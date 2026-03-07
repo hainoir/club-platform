@@ -7,6 +7,14 @@ interface DashboardPieProps {
     data: { name: string; value: number }[]
 }
 
+// 定义各部门专用的主题颜色 (对齐 MembersClient 的 Tailwind CSS Color Palette)
+const DEPT_COLORS: Record<string, string> = {
+    '开发部': '#3b82f6', // blue-500
+    '设计部': '#ec4899', // pink-500
+    '摄影部': '#f59e0b', // amber-500
+    '未分配': '#64748b'  // slate-500
+}
+
 export default function DashboardPie({ data }: DashboardPieProps) {
     const { resolvedTheme } = useTheme()
 
@@ -35,7 +43,11 @@ export default function DashboardPie({ data }: DashboardPieProps) {
                     itemStyle: {
                         borderRadius: 10,
                         borderColor: isDark ? '#18181b' : '#ffffff',
-                        borderWidth: 2
+                        borderWidth: 2,
+                        // 根据传入的数据名称(当前部门)动态分配颜色，如果不在字典里则使用默认石板灰
+                        color: function (params: any) {
+                            return DEPT_COLORS[params.name] || '#64748b'
+                        }
                     },
                     label: {
                         show: false,
