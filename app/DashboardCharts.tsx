@@ -13,6 +13,11 @@ interface DashboardChartsProps {
 
 export default function DashboardCharts({ data }: DashboardChartsProps) {
     const { resolvedTheme } = useTheme()
+    const [mounted, setMounted] = React.useState(false)
+
+    React.useEffect(() => {
+        setMounted(true)
+    }, [])
 
     const option = useMemo(() => {
         const isDark = resolvedTheme === 'dark'
@@ -100,6 +105,10 @@ export default function DashboardCharts({ data }: DashboardChartsProps) {
             ]
         }
     }, [data, resolvedTheme])
+
+    if (!mounted) {
+        return <div className="w-full h-[350px]" />
+    }
 
     return (
         <div className="w-full h-[350px]">

@@ -9,6 +9,11 @@ interface DashboardAttendanceProps {
 
 export default function DashboardAttendance({ data }: DashboardAttendanceProps) {
     const { resolvedTheme } = useTheme()
+    const [mounted, setMounted] = React.useState(false)
+
+    React.useEffect(() => {
+        setMounted(true)
+    }, [])
 
     const option = useMemo(() => {
         const isDark = resolvedTheme === 'dark'
@@ -57,6 +62,10 @@ export default function DashboardAttendance({ data }: DashboardAttendanceProps) 
             ]
         }
     }, [data, resolvedTheme])
+
+    if (!mounted) {
+        return <div className="w-full h-[300px]" />
+    }
 
     return (
         <div className="w-full h-[300px]">

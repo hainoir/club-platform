@@ -18,49 +18,36 @@ export default async function Dashboard() {
     // 实例化面向服务端的 Supabase 游标
     const supabase = await createClient()
 
-    // 1. 获取总成员数
-    const { count: totalMembers } = await supabase
-        .from('members')
-        .select('*', { count: 'exact', head: true })
-
-    // 2. 获取当前活跃成员数
-    const { count: activeMembers } = await supabase
-        .from('members')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
-
-    // 3. 即将举行的活动
     const now = new Date().toISOString()
-    const { data: upcomingEvents, count: upcomingCount } = await supabase
-        .from('events')
-        .select('title, event_date', { count: 'exact' })
-        .gt('event_date', now)
-        .order('event_date', { ascending: true })
+
+    // 1. 并发执行第一批所有的独立聚合及列表查询
+    const [
+        { count: totalMembers },
+        { count: activeMembers },
+        { data: upcomingEvents, count: upcomingCount },
+        { count: attendedCount },
+        { data: newMembers },
+        { data: recentEvents },
+        { data: deptData },
+        { data: recentAttendEvents }
+    ] = await Promise.all([
+        supabase.from('members').select('*', { count: 'exact', head: true }),
+        supabase.from('members').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('events').select('title, event_date', { count: 'exact' }).gt('event_date', now).order('event_date', { ascending: true }),
+        supabase.from('event_attendees').select('*', { count: 'exact', head: true }).eq('is_attended', true),
+        supabase.from('members').select('name, join_date').order('join_date', { ascending: false }).limit(3),
+        supabase.from('events').select('title, created_at').order('created_at', { ascending: false }).limit(3),
+        supabase.from('members').select('department'),
+        supabase.from('events').select('title, event_attendees(is_attended)').lt('event_date', now).order('event_date', { ascending: false }).limit(5)
+    ])
 
     const nextEventTitle = upcomingEvents && upcomingEvents.length > 0
         ? upcomingEvents[0].title
         : "暂无预告"
 
-    // 4. 总报名人次 (已签到)
-    const { count: attendedCount } = await supabase
-        .from('event_attendees')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_attended', true)
-
     // ========================================
     // 数据流缝合 (Recent Activity)
     // ========================================
-    const { data: newMembers } = await supabase
-        .from('members')
-        .select('name, join_date')
-        .order('join_date', { ascending: false })
-        .limit(3)
-
-    const { data: recentEvents } = await supabase
-        .from('events')
-        .select('title, created_at')
-        .order('created_at', { ascending: false })
-        .limit(3)
 
     const activities: Array<{ id: string, action: string, dateStr: string, rawDate: Date, type: 'member' | 'event' }> = []
 
@@ -102,6 +89,8 @@ export default async function Dashboard() {
     const newMembersData: number[] = []
     const eventsData: number[] = []
 
+    const historyPromises: any[] = []
+
     for (let i = 5; i >= 0; i--) {
         const targetDate = subMonths(new Date(), i)
         // format nicely as "10月"
@@ -110,18 +99,15 @@ export default async function Dashboard() {
         const start = startOfMonth(targetDate).toISOString()
         const end = endOfMonth(targetDate).toISOString()
 
-        const { count: mCount } = await supabase.from('members')
-            .select('*', { count: 'exact', head: true })
-            .gte('join_date', start)
-            .lte('join_date', end)
+        historyPromises.push(supabase.from('members').select('*', { count: 'exact', head: true }).gte('join_date', start).lte('join_date', end))
+        historyPromises.push(supabase.from('events').select('*', { count: 'exact', head: true }).gte('event_date', start).lte('event_date', end))
+    }
 
-        const { count: eCount } = await supabase.from('events')
-            .select('*', { count: 'exact', head: true })
-            .gte('event_date', start)
-            .lte('event_date', end)
+    const historyResults = await Promise.all(historyPromises)
 
-        newMembersData.push(mCount || 0)
-        eventsData.push(eCount || 0)
+    for (let i = 0; i < 6; i++) {
+        newMembersData.push(historyResults[i * 2]?.count || 0)
+        eventsData.push(historyResults[i * 2 + 1]?.count || 0)
     }
 
     const chartPayload = {
@@ -138,7 +124,6 @@ export default async function Dashboard() {
     ]
 
     // 5. 部门分布 (Pie Chart Data)
-    const { data: deptData } = await supabase.from('members').select('department');
     const deptCount: Record<string, number> = {};
     deptData?.forEach(m => {
         const dept = m.department || '未分配';
@@ -147,12 +132,7 @@ export default async function Dashboard() {
     const pieData = Object.entries(deptCount).map(([name, value]) => ({ name, value }));
 
     // 6. 出勤率 (Attendance Data: 最近 5 场已结束活动)
-    const { data: recentAttendEvents } = await supabase
-        .from('events')
-        .select('title, event_attendees(is_attended)')
-        .lt('event_date', new Date().toISOString())
-        .order('event_date', { ascending: false })
-        .limit(5);
+    // （数据已在顶部通过 Promise.all 并发获取至 recentAttendEvents）
 
     const attendanceData = (recentAttendEvents || []).map(e => {
         const attendees = e.event_attendees as any[] || [];
