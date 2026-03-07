@@ -7,7 +7,7 @@ export default async function EventsPage() {
     // Fetch all events from the Supabase 'events' table, joining with attendees
     const { data: eventsData, error } = await supabase
         .from('events')
-        .select('*, event_attendees(id, user_name, user_email)')
+        .select('*, event_attendees(id, user_name, user_email, is_attended)')
         .order('event_date', { ascending: true }); // Order by event date, earliest first
 
     if (error) {
@@ -48,6 +48,8 @@ export default async function EventsPage() {
             date: dateStr,
             time: timeStr,
             endTime: endTimeStr,
+            rawDate: e.event_date,
+            rawEndTime: e.end_time || null,
             location: e.location || "待定",
             isOnline: isOnline,
             description: e.description || "暂无描述",
