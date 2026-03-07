@@ -11,8 +11,9 @@
 - **核心框架**: [Next.js 15 (App Router)](https://nextjs.org/) - 利用最新的 React Server Components (RSC) 手法，带来丝滑的服务端渲染体验和极快的首屏直出（FCP）。
 - **组件系统**: [React 19](https://react.dev/) - 大量应用 Hooks、响应式流与不可变数据理念。
 - **UI & 样式**: [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) - 打造带有多彩暗黑模式 (Dark Mode) 与极简工业风的玻璃拟态组件。
-- **状态管理**: [Zustand](https://github.com/pmndrs/zustand) - 放弃沉重的 Redux/Context，采用极简的跨层级响应式状态库配合 LocalStorage 持久化管理 RBAC RBAC 鉴权机制。
+- **状态管理**: [Zustand](https://github.com/pmndrs/zustand) - 放弃沉重的 Redux/Context，采用极简的跨层级响应式状态库配合 LocalStorage 持久化管理 RBAC 鉴权机制。
 - **数据可视化**: [ECharts](https://echarts.apache.org/) - 用百度开源的专业渲染引擎绘制时间序列的大盘折线图。
+- **国际化与本地化**: 精细的中文化 UI 适配，覆盖所有仪表盘、动态流和管理表格界面。
 
 ### 后端与云服务 (Backend / BaaS)
 - **底层驱动**: [Supabase](https://supabase.com/) - 强悍的开源 Firebase 替代品，基于 PostgreSQL 强一致性结构。
@@ -37,6 +38,11 @@
 - **海报封面展示**：支持在平台端上传压缩高清活动大图展示头图。
 - **自动归档算子**：基于纯函数对活动设定的截止时间与系统 `new Date()` 自动侦测比对，对失效活动灰度渲染、禁用报名系统并沉底进入“历史长廊”折叠面板。
 - **乐观更新 (Optimistic UI) 签到闭环**：不仅成员可以自己一键报名/退出，身为**管理员**能够使用实时点名签到打卡并强制剥离失效成员的功能。在网络受限环境通过欺骗性渲染提前亮起签到成功标志。
+
+### 🛡️ 4. 企业级架构与性能优化 (Architecture & Performance)
+- **服务端并发处理 (Data Fetching)**：在 React Server Components 内全面利用 `Promise.all` 并行流消除网络请求瀑布流 (Waterfall)，将复杂大盘的 TTFB 压缩至单次网络延迟。
+- **水合无缝衔接 (Hydration Safety)**：针对 ECharts 和 Dark Mode 主题的 SSR 渲染差异引入了精确的组件挂载生命周期检测 (Mounted Hook)，彻底终结白屏亮瞎眼与颜色闪屏问题。
+- **强类型行级安全 (RLS)**：在 Supabase PostgreSQL 端基于 JWT 的动态载荷强制转换 `text` 与 `bigint` 鉴权规则，确保非授权用户被严格拦截于数据库底层。
 
 ---
 
@@ -68,9 +74,10 @@
 
 本项目绝非只是简单的 "Todo List"，其中包含了大量应对大厂实习生面试的关键考点，作者已在核心文件中利用 **`// 【系统学习】` 和 `// 【面试考点】` 标注了超过 20 处系统级难点讲解**。
 
-- **`app/page.tsx`**: 学习理解 React Server Component 与瀑布流请求破除。
+- **`app/page.tsx`**: 学习理解 React Server Component 与利用 `Promise.all` 破除瀑布流请求。
 - **`app/events/EventsClient.tsx`**: 探讨 useEffect 闭包陷阱、乐观更新以及前台校验防爆。
 - **`app/members/MembersClient.tsx`**: 看看受控组件、Zustand 持久化以及绝对的 “派生状态 (Derived State)” 滤镜写法。
 - **`middleware.ts`**: 如何写一个带静态前缀防误伤的高性能守卫。
+- **图表组件的水合 (Hydration)**: 学习如何使用 `mounted` 状态来消除 Next.js 的深色模式由于服务端渲染与客户端差异导致的水合异常闪屏 (FOUC)。
 
 *Built with passion, by Developer.*
