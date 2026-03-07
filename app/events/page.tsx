@@ -4,10 +4,10 @@ import EventsClient, { Event } from './EventsClient';
 export default async function EventsPage() {
     const supabase = await createClient();
 
-    // Fetch all events from the Supabase 'events' table
+    // Fetch all events from the Supabase 'events' table, joining with attendees
     const { data: eventsData, error } = await supabase
         .from('events')
-        .select('*')
+        .select('*, event_attendees(id, user_name, user_email)')
         .order('event_date', { ascending: true }); // Order by event date, earliest first
 
     if (error) {
@@ -26,25 +26,33 @@ export default async function EventsPage() {
             timeStr = dateObj.toLocaleTimeString("zh-CN", { hour: '2-digit', minute: '2-digit' });
         }
 
-        const isOnline = e.location?.includes("Zoom") || e.location?.includes("腾讯会议") || false;
-
-        // Derive type from description or title for the prototype frontend to look colorful
-        let determinedType: "工作坊" | "社交" | "讲座" = "讲座";
-        if (e.title?.includes("工作坊") || e.title?.includes("实战")) {
-            determinedType = "工作坊";
-        } else if (e.title?.includes("聚会") || e.title?.includes("启动会") || e.title?.includes("社交") || e.title?.includes("晚会")) {
-            determinedType = "社交";
+        let endTimeStr = undefined;
+        if (e.end_time) {
+            const endObj = new Date(e.end_time);
+            if (!isNaN(endObj.getTime())) {
+                endTimeStr = endObj.toLocaleTimeString("zh-CN", { hour: '2-digit', minute: '2-digit' });
+            }
         }
+
+        const isOnline = e.is_online || false;
+
+        // Use the actual type from DB, default to "讲座" if somehow not set
+        const determinedType = e.type || "讲座";
+
+        // Ensure attendees is safely treated as an array and counted
+        const attendeesList = Array.isArray(e.event_attendees) ? e.event_attendees : [];
 
         return {
             id: String(e.id),
             title: e.title || "未命名活动",
             date: dateStr,
             time: timeStr,
+            endTime: endTimeStr,
             location: e.location || "待定",
             isOnline: isOnline,
             description: e.description || "暂无描述",
-            attendees: 0, // In the real world, this could come from a JOIN with an attendees or RSVP table
+            attendees: attendeesList.length,
+            attendeesList: attendeesList,
             type: determinedType
         };
     }) || [];

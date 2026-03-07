@@ -21,6 +21,7 @@ export default async function MembersPage() {
         name: m.name,
         student_id: m.student_id || "N/A", // Changed from studentId to student_id
         role: m.role || "成员",
+        department: m.department || "未分配",
         join_date: m.created_at || "N/A",  // Database usually defaults this to created_at
         status: m.status || "活跃"
     })) || [];

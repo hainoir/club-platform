@@ -1,17 +1,32 @@
 "use client"
 import { useTheme } from "next-themes"
+import { useRouter } from "next/navigation"
 import { Moon, Sun, Bell, TerminalSquare, User, LogOut, Settings } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useUserStore } from "@/store/useUserStore"
+import { createClient } from "@/utils/supabase/client"
 
 export function Header({ className }: { className?: string }) {
     const { setTheme, theme } = useTheme()
+    const router = useRouter()
+    const supabase = createClient()
+    const { user, logout } = useUserStore()
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut()
+        logout()
+        router.push('/login')
+    }
 
     return (
         <header className={cn("flex items-center justify-between px-6 z-10", className)}>
             <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold tracking-tight hidden sm:block">欢迎回来，管理员 👋</h2>
+                <h2 className="text-lg font-semibold tracking-tight hidden sm:block">
+                    欢迎回来，{user?.name || "开发者"} 👋
+                </h2>
             </div>
 
             <div className="flex items-center gap-4">
@@ -39,8 +54,8 @@ export function Header({ className }: { className?: string }) {
                     <DropdownMenuContent className="w-56" align="end" forceMount>
                         <DropdownMenuLabel className="font-normal">
                             <div className="flex flex-col space-y-1">
-                                <p className="text-sm font-medium leading-none">管理员</p>
-                                <p className="text-xs leading-none text-muted-foreground">admin@frontendclub.com</p>
+                                <p className="text-sm font-medium leading-none">{user?.name || "用户"}</p>
+                                <p className="text-xs leading-none text-muted-foreground">{user?.email || "未绑定邮箱"}</p>
                             </div>
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
@@ -53,7 +68,7 @@ export function Header({ className }: { className?: string }) {
                             <span>开发者面板</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                        <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive focus:text-destructive-foreground cursor-pointer">
                             <LogOut className="mr-2 h-4 w-4" />
                             <span>退出登录</span>
                         </DropdownMenuItem>
