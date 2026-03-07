@@ -68,10 +68,10 @@ export default function LoginForm() {
                 toast({ title: "注册请求成功", description: "请检查您的电子邮箱以验证账户（如需）。如果不用验证，您可以直接登录。" })
                 setIsLoginMode(true)
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 title: isLoginMode ? "登录失败" : "注册失败",
-                description: error.message || "账号或密码错误",
+                description: (error as Error).message || "账号或密码错误",
                 variant: "destructive"
             })
         } finally {

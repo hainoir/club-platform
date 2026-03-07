@@ -18,6 +18,9 @@ import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/toast-simple"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { EventCard } from "@/components/events/EventCard"
+import { EventModal } from "@/components/events/EventModal"
+import { AttendeesModal } from "@/components/events/AttendeesModal"
 
 export type Attendee = {
     id: string
@@ -72,6 +75,7 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
 
     // 管理报名名单弹窗的开闭以及当前正在检阅的活动主体
     const [isAttendeesDialogOpen, setIsAttendeesDialogOpen] = React.useState(false)
+    const [viewMode, setViewMode] = React.useState<"all" | "enrolled">("all")
     const [viewingEvent, setViewingEvent] = React.useState<Event | null>(null)
 
     const openCreate = () => {
@@ -318,106 +322,34 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
         return new Date(compareTime) < new Date();
     }
 
-    const upcomingEvents = events.filter(e => !isEventEnded(e));
+    const upcomingEvents = events.filter(e => {
+        if (isEventEnded(e)) return false;
+        if (viewMode === "enrolled" && !e.attendeesList?.some(a => a.user_email === user?.email)) return false;
+        return true;
+    });
     // 将已结束的活动剥离出来，并按结束时间降序排列 (新结束的在最前面)
-    const endedEvents = events.filter(e => isEventEnded(e)).sort((a, b) => {
+    const endedEvents = events.filter(e => {
+        if (!isEventEnded(e)) return false;
+        if (viewMode === "enrolled" && !e.attendeesList?.some(a => a.user_email === user?.email)) return false;
+        return true;
+    }).sort((a, b) => {
         const timeA = new Date(a.rawEndTime || a.rawDate || 0).getTime();
         const timeB = new Date(b.rawEndTime || b.rawDate || 0).getTime();
         return timeB - timeA;
     });
 
     const renderEventCard = (event: Event, isEnded: boolean) => (
-        <Card key={event.id} className={cn(
-            "flex flex-col overflow-hidden bg-card/50 backdrop-blur-sm border border-slate-200/60 dark:border-zinc-800/60 shadow-sm transition-all hover:shadow-md",
-            isEnded ? "opacity-70 grayscale-[30%]" : "hover:border-indigo-500/30"
-        )}>
-            {event.coverUrl ? (
-                <div className="w-full h-40 overflow-hidden bg-muted relative">
-                    <img src={event.coverUrl} alt={event.title} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
-                </div>
-            ) : (
-                <div className="w-full h-3 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20" />
-            )}
-            <CardHeader className={cn("pb-4", event.coverUrl ? "pt-4" : "")}>
-                <div className="flex justify-between items-start mb-2">
-                    <div className="flex gap-2 items-center">
-                        <Badge variant={
-                            event.type === "工作坊" ? "default" :
-                                event.type === "讲座" ? "secondary" : "outline"
-                        } className={event.type === "社交" ? "border-amber-500/50 text-amber-600 dark:text-amber-400" : ""}>
-                            {event.type}
-                        </Badge>
-                        {event.isOnline && (
-                            <Badge variant="outline" className="gap-1 border-emerald-500/30 text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/50">
-                                <Globe className="h-3 w-3" /> 线上
-                            </Badge>
-                        )}
-                        {isEnded && (
-                            <Badge variant="secondary" className="bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400">已结束</Badge>
-                        )}
-                    </div>
-                    {ADMIN_ROLES.includes(user?.role || '') && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 -mt-2 -mr-2">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">打开菜单</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[160px]">
-                                <DropdownMenuItem onClick={() => openEdit(event)}>
-                                    <Pencil className="mr-2 h-4 w-4" /> 编辑活动
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => handleDelete(event.id, event.title)}>
-                                    <Trash2 className="mr-2 h-4 w-4" /> 移除活动
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
-                </div>
-                <CardTitle className="text-xl leading-tight">{event.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 space-y-4">
-                <CardDescription className="text-sm">
-                    {event.description}
-                </CardDescription>
-                <div className="space-y-2 mt-4 text-sm text-slate-600 dark:text-slate-400">
-                    <div className="flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4 text-indigo-500 opacity-70" />
-                        <span>{event.date}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-indigo-500 opacity-70" />
-                        <span>{event.time}{event.endTime ? ` - ${event.endTime}` : ''}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-indigo-500 opacity-70" />
-                        <span className="truncate">{event.location}</span>
-                    </div>
-                </div>
-            </CardContent>
-            <CardFooter className="bg-slate-50/50 dark:bg-zinc-900/50 border-t p-4 flex items-center justify-between">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex items-center text-xs text-muted-foreground font-medium hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950 px-2 -ml-2 transition-colors cursor-pointer"
-                    onClick={() => openAttendeesList(event)}
-                >
-                    <Users className="mr-1.5 h-3.5 w-3.5" />
-                    {event.attendees} 人参加
-                </Button>
-
-                <Button
-                    size="sm"
-                    variant={isEnded ? "secondary" : event.attendeesList?.some(a => a.user_email === user?.email) ? "outline" : "secondary"}
-                    onClick={isEnded ? undefined : () => handleRSVP(event)}
-                    className="transition-all"
-                    disabled={isEnded}
-                >
-                    {isEnded ? "报名截止" : (event.attendeesList?.some(a => a.user_email === user?.email) ? "取消报名" : "立即报名")}
-                </Button>
-            </CardFooter>
-        </Card>
+        <EventCard
+            key={event.id}
+            event={event}
+            isEnded={isEnded}
+            isAdmin={ADMIN_ROLES.includes(user?.role || '')}
+            currentUserEmail={user?.email}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+            onAttendeesClick={openAttendeesList}
+            onRSVP={handleRSVP}
+        />
     );
 
     const exportAttendeesToCSV = () => {
@@ -452,11 +384,32 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
                     <h2 className="text-3xl font-bold tracking-tight">活动与课程</h2>
                     <p className="text-sm text-muted-foreground mt-1">即将举办的工作坊、讲座和俱乐部活动。</p>
                 </div>
-                {ADMIN_ROLES.includes(user?.role || '') && (
-                    <Button onClick={openCreate} className="gap-2 shadow-sm transition-all focus:ring-2">
-                        <Plus className="h-4 w-4" /> 创建活动
-                    </Button>
-                )}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div className="flex space-x-1 bg-muted/50 p-1 rounded-lg border">
+                        <Button
+                            variant={viewMode === "all" ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => setViewMode("all")}
+                            className="rounded-md text-xs sm:text-sm"
+                        >
+                            活动大厅
+                        </Button>
+                        <Button
+                            variant={viewMode === "enrolled" ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => setViewMode("enrolled")}
+                            className="rounded-md text-xs sm:text-sm disabled:opacity-50"
+                            disabled={!user}
+                        >
+                            我的报名 {!user && '(未登录)'}
+                        </Button>
+                    </div>
+                    {ADMIN_ROLES.includes(user?.role || '') && (
+                        <Button onClick={openCreate} className="gap-2 shadow-sm transition-all focus:ring-2">
+                            <Plus className="h-4 w-4" /> 创建活动
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -489,161 +442,25 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
                 </div>
             )}
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <form onSubmit={handleSave}>
-                        <DialogHeader>
-                            <DialogTitle>{editingEvent ? "编辑活动" : "创建新活动"}</DialogTitle>
-                            <DialogDescription>
-                                {editingEvent ? "修改当前活动的详细信息与时间。" : "安排一个新的工作坊、讲座或俱乐部社交活动。"}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-5 py-6">
-                            <div className="grid gap-2">
-                                <Label htmlFor="title">活动标题</Label>
-                                <Input id="title" name="title" placeholder="例如：高级 TypeScript" defaultValue={editingEvent?.title} required />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                    <Label>日期</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant={"outline"}
-                                                className={cn(
-                                                    "w-full justify-start text-left font-normal bg-background",
-                                                    !date && "text-muted-foreground"
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {date ? format(date, "PPP") : <span>选择一个日期</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={date}
-                                                onSelect={setDate}
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="time">开始时间</Label>
-                                        <Input id="time" name="time" type="time" defaultValue={editingEvent?.time} required />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="endTime">结束时间</Label>
-                                        <Input id="endTime" name="endTime" type="time" defaultValue={editingEvent?.endTime} />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="location">地点或会议链接</Label>
-                                <Input id="location" name="location" placeholder="101室或Zoom链接" defaultValue={editingEvent?.location} required />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="type">活动类型</Label>
-                                    <select id="type" name="type" defaultValue={editingEvent?.type || "工作坊"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none focus:ring-2 focus:ring-ring">
-                                        <option value="工作坊">工作坊</option>
-                                        <option value="讲座">讲座</option>
-                                        <option value="社交">社交</option>
-                                    </select>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="type_loc">形式</Label>
-                                    <select id="type_loc" name="type_loc" defaultValue={editingEvent?.isOnline ? "online" : "in_person"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none focus:ring-2 focus:ring-ring">
-                                        <option value="in_person">线下</option>
-                                        <option value="online">线上</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="cover">活动封面海报 (可选)</Label>
-                                <Input id="cover" name="cover" type="file" accept="image/*" className="cursor-pointer file:text-muted-foreground" />
-                                {editingEvent?.coverUrl && <p className="text-xs text-muted-foreground">保留为空以使用原海报。</p>}
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="description">简短描述</Label>
-                                <textarea
-                                    id="description"
-                                    name="description"
-                                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    placeholder="这个活动是关于什么的？"
-                                    defaultValue={editingEvent?.description}
-                                    required
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-                            <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? "保存中..." : "保存记录"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <EventModal
+                isOpen={isDialogOpen}
+                onClose={() => setIsDialogOpen(false)}
+                onSave={handleSave}
+                editingEvent={editingEvent}
+                isSubmitting={isSubmitting}
+                date={date}
+                setDate={setDate}
+            />
 
-            <Dialog open={isAttendeesDialogOpen} onOpenChange={setIsAttendeesDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex justify-between items-center pr-6">
-                            <span>报名名单：{viewingEvent?.title}</span>
-                            {ADMIN_ROLES.includes(user?.role || '') && (
-                                <Button onClick={exportAttendeesToCSV} variant="outline" size="sm" className="h-8 gap-1.5 px-3">
-                                    <Download className="h-3.5 w-3.5" />
-                                    导出名单
-                                </Button>
-                            )}
-                        </DialogTitle>
-                        <DialogDescription>
-                            目前共有 {viewingEvent?.attendees} 人报名参加此活动。
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4 space-y-2 max-h-[300px] overflow-y-auto">
-                        {(!viewingEvent?.attendeesList || viewingEvent.attendeesList.length === 0) ? (
-                            <p className="text-sm text-center text-muted-foreground py-4">暂无人员报名</p>
-                        ) : (
-                            viewingEvent.attendeesList.map((attendee) => (
-                                <div key={attendee.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors">
-                                    <div>
-                                        <p className="text-sm font-medium leading-none flex items-center gap-2">
-                                            {attendee.user_name}
-                                            {attendee.is_attended && <Badge variant="outline" className="text-[10px] h-6 px-1.5 bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400">已签到</Badge>}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground mt-1">{attendee.user_email}</p>
-                                    </div>
-                                    {ADMIN_ROLES.includes(user?.role || '') && (
-                                        <div className="flex items-center gap-1">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                title={attendee.is_attended ? "撤销签到" : "标记为已签到"}
-                                                className={cn("h-8 w-8", attendee.is_attended ? "text-emerald-500 hover:text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100" : "text-slate-400 hover:text-slate-600")}
-                                                onClick={() => handleToggleAttendance(attendee.id, !!attendee.is_attended, attendee.user_name)}
-                                            >
-                                                <CheckCircle2 className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground focus:bg-destructive focus:text-destructive-foreground"
-                                                onClick={() => handleRemoveAttendee(attendee.id, attendee.user_name)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <AttendeesModal
+                isOpen={isAttendeesDialogOpen}
+                onClose={() => setIsAttendeesDialogOpen(false)}
+                viewingEvent={viewingEvent}
+                isAdmin={ADMIN_ROLES.includes(user?.role || '')}
+                onExport={exportAttendeesToCSV}
+                onToggleAttendance={handleToggleAttendance}
+                onRemoveAttendee={handleRemoveAttendee}
+            />
         </div>
     )
 }

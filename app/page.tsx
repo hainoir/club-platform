@@ -89,7 +89,7 @@ export default async function Dashboard() {
     const newMembersData: number[] = []
     const eventsData: number[] = []
 
-    const historyPromises: any[] = []
+    const historyPromises: PromiseLike<{ count: number | null }>[] = []
 
     for (let i = 5; i >= 0; i--) {
         const targetDate = subMonths(new Date(), i)
@@ -135,7 +135,7 @@ export default async function Dashboard() {
     // （数据已在顶部通过 Promise.all 并发获取至 recentAttendEvents）
 
     const attendanceData = (recentAttendEvents || []).map(e => {
-        const attendees = e.event_attendees as any[] || [];
+        const attendees = (e.event_attendees as unknown as { is_attended: boolean }[]) || [];
         const total = attendees.length;
         const attended = attendees.filter(a => a.is_attended).length;
         const rate = total > 0 ? Math.round((attended / total) * 100) : 0;

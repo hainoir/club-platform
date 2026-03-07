@@ -1,83 +1,65 @@
-# 🚀 前端开发者俱乐部管理平台 (Frontend Developer Club Platform)
+# 🎓 校内社团全周期管理平台 (Club Platform)
 
-这是一个现代化、面向高校及技术社区的**硬核全栈社团管理系统**。
-项目旨在为社团管理层提供一站式的人员调配、活动生命周期管控与数据洞察视图。由前台交互式 Web 体验和底层的无服务器 (Serverless) 架构强强联合驱动。这也是一份绝佳的 **React + Next.js 全栈实习生简历级展示项目**。
+![Next.js](https://img.shields.io/badge/Next.js-15.0-black?style=for-the-badge&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
+![Supabase](https://img.shields.io/badge/Supabase-DB_%26_Auth-4FC08D?style=for-the-badge&logo=supabase)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css)
 
----
+一款基于最新前端工程化标准构建的一站式校园社团/部门管理系统。本项目作为**企业级架构示范案例**，深度集成 Next.js App Router 的高阶特性与 Supabase 强类型生态，为校园组织提供现代化、安全且极具扩展性的业务底座。
 
-## 🛠️ 技术栈与架构 (Tech Stack)
+## ✨ 核心亮点 (Engineering Excellence)
 
-### 前端生态 (Frontend)
-- **核心框架**: [Next.js 15 (App Router)](https://nextjs.org/) - 利用最新的 React Server Components (RSC) 手法，带来丝滑的服务端渲染体验和极快的首屏直出（FCP）。
-- **组件系统**: [React 19](https://react.dev/) - 大量应用 Hooks、响应式流与不可变数据理念。
-- **UI & 样式**: [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) - 打造带有多彩暗黑模式 (Dark Mode) 与极简工业风的玻璃拟态组件。
-- **状态管理**: [Zustand](https://github.com/pmndrs/zustand) - 放弃沉重的 Redux/Context，采用极简的跨层级响应式状态库配合 LocalStorage 持久化管理 RBAC 鉴权机制。
-- **数据可视化**: [ECharts](https://echarts.apache.org/) - 用百度开源的专业渲染引擎绘制时间序列的大盘折线图。
-- **国际化与本地化**: 精细的中文化 UI 适配，覆盖所有仪表盘、动态流和管理表格界面。
+### 1. 极致的类型与权限安全体系
+- **消除任何形式的 `any` 黑洞**：深度利用 Supabase 的 Typed Schema，将数据库建表的 Schema (Row / Insert / Update) 与前端组件Props形成闭环。不再有推论不到位的隐患，从网络请求的 Response 到组件强类型输入，达成100%覆盖。
+- **数据库级别的 Row-Level Security (RLS)**：不依赖脆弱的前端路由拦截（前端拦截仅用于 UX 提升），通过真实的 PostgreSQL RLS policy 强制保障所有请求（含 API 和 Client SSR）无法越权读写（见 `database/rls_policies.sql`）。
+- **去同步漂移的 Auth 状态管线**：封装全局 `AuthProvider`，每次装载强一致同步 Supabase HttpOnly Session 和内存缓存状态（Zustand persist），确保角色/权限信息不发生“短时时差渲染”。
 
-### 后端与云服务 (Backend / BaaS)
-- **底层驱动**: [Supabase](https://supabase.com/) - 强悍的开源 Firebase 替代品，基于 PostgreSQL 强一致性结构。
-- **核心中间件**: Next.js Edge Middleware 拦截非法未登录路由与令牌自刷新保活。
-- **对象直传**: 前端 File 对象通过预签名策略绕过服务器计算直通 Supabase Storage 云端桶。
+### 2. React 最佳实践与解耦重构
+- **解构巨型组件 (Decoupling)**：严格遵照单一职责原则，将原本厚重的 Client 聚合页面，抽象出 `<MemberModal>`、`<EventModal>`、`<AttendeesModal>`、`<EventCard>`，极大降低了长期维护的心智负担。
+- **智能的乐观更新 (Optimistic UI)**：以 `React.useOptimistic` 替代传统的 "loading锁" 结合 "等待请求" 的笨重循环。对于报名单增删、成员管理等重度交互场景，响应时间降至肉眼无法察觉的 0ms 并配合无刷新 Server Action 补全，提升应用丝滑度。
 
----
+### 3. Next.js App Router 前沿特性覆盖
+- **路由拦截与平行路由 (Intercepting & Parallel Routes)**：为活动图文介绍的“点开”场景，特地构建拦截路由 `(.)[id]` 与平级视图层 `@modal`。实现在同级页面唤起高定渲染弹窗的同时，分享 URL 即自动回退为SSR整页渲染 (`/[id]/page.tsx`)。
+- **静态增量再生 (ISR, Incremental Static Regeneration)**：配合平行路由的分享着陆页提取静态配置 `revalidate: 60`，使得活动宣传这种高并发/读多写少的页面自动受惠于 CDN 层边缘缓存，无需动用数据库即可毫秒级下发内容，提升SEO。
 
-## ✨ 核心业务模块 (Key Features)
-
-### � 1. 动态数据大盘 (Dashboard)
-- 破除静态渲染，实时侦听底层 PostgreSQL 的四大数据指标头。
-- **社团活力趋势折线图**：跨表（Members x Events）聚合最近 6 个月的当月招新数量与发起的活动频次，采用贝塞尔曲线渲染双轨数据走向。
-- **全站动态流 (Recent Activity)**：按时间轴倒叙交织出最新的人员加入记录与活动发布通告。
-
-### 👥 2. RBAC 人员与科层管理 (Member Management)
-- **多级权限字典**：主席团（红牌）、部长层（蓝牌）、普通干事（灰牌），支持部门分类派驻。
-- **复杂名单控制台**：搭载极速的客户端即时搜索、服务端动态筛选防白屏分页（Pagination）以及批量导出为 CSV (BOM-UTF8 处理防中文乱码) 的硬核导出指令。
-- **防越野机制**：深度的搜索游标控制，当结果收缩时分页指针自动拽回安全区。
-
-### 📅 3. 全生命周期活动集市 (Events Hub)
-- **海报封面展示**：支持在平台端上传压缩高清活动大图展示头图。
-- **自动归档算子**：基于纯函数对活动设定的截止时间与系统 `new Date()` 自动侦测比对，对失效活动灰度渲染、禁用报名系统并沉底进入“历史长廊”折叠面板。
-- **乐观更新 (Optimistic UI) 签到闭环**：不仅成员可以自己一键报名/退出，身为**管理员**能够使用实时点名签到打卡并强制剥离失效成员的功能。在网络受限环境通过欺骗性渲染提前亮起签到成功标志。
-
-### 🛡️ 4. 企业级架构与性能优化 (Architecture & Performance)
-- **服务端并发处理 (Data Fetching)**：在 React Server Components 内全面利用 `Promise.all` 并行流消除网络请求瀑布流 (Waterfall)，将复杂大盘的 TTFB 压缩至单次网络延迟。
-- **水合无缝衔接 (Hydration Safety)**：针对 ECharts 和 Dark Mode 主题的 SSR 渲染差异引入了精确的组件挂载生命周期检测 (Mounted Hook)，彻底终结白屏亮瞎眼与颜色闪屏问题。
-- **强类型行级安全 (RLS)**：在 Supabase PostgreSQL 端基于 JWT 的动态载荷强制转换 `text` 与 `bigint` 鉴权规则，确保非授权用户被严格拦截于数据库底层。
+### 4. 完整的业务闭环
+- **活动全生命周期流转**：从发布活动（包含强类型受控排期）、 Markdown 图文详细录入与 Supabase Storage 封面上云直传，到前排学生的自由“报名选课”，再到执行干事/管理员打开内置面板“查名勾选签到”与“一键导出 CSV 表格汇报”，逻辑全程自洽。
+- **全站响应的控制大盘**：内置通过 ECharts 封装的 Dashboard，使用 SSR 直出报表，囊括考勤出勤率漏斗、近6月入部趋势雷达与部门人数配比。
 
 ---
 
-## 🏃 部署与运行 (Getting Started)
+## 🚀 极速起步
 
-本项目严格规定了使用 `pnpm` 控制幽灵依赖与包尺寸。请确保你本地装有 [Node.js](https://nodejs.org/)(v20+)。
+**1. 克隆与安装依赖**
+本项目默认指定并推荐使用 `pnpm`：
+```bash
+git clone https://github.com/your-username/club-platform.git
+cd club-platform
+pnpm install
+```
 
-1. **拉取依赖**
-   \`\`\`bash
-   pnpm install
-   \`\`\`
+**2. 配置环境变量**
+在根目录创立 `.env.local` 并在其中填入 Supabase 控制台获取到的公钥和URL：
+```properties
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
 
-2. **环境变量配置**
-   你需要在项目根目录创建一个 `.env.local`，并填入你自己的 Supabase 公钥：
-   \`\`\`env
-   NEXT_PUBLIC_SUPABASE_URL=你的_URL
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=你的_ANON_KEY
-   \`\`\`
+**3. 执行数据库前置语句**
+前往你的 Supabase Dashboard 的 SQL Editor 中执行项目自带的安全规则防线：
+- `database/rls_policies.sql`
 
-3. **激发引擎**
-   \`\`\`bash
-   pnpm run dev
-   \`\`\`
-   运行后，访问 [http://localhost:3000](http://localhost:3000) 即可切入战斧巡航。
+**4. 运行实例**
+```bash
+pnpm run dev
+```
+打开 `http://localhost:3000` 即可开始探索。
 
 ---
 
-## 📖 面试与学习向导 (For Studying)
-
-本项目绝非只是简单的 "Todo List"，其中包含了大量应对大厂实习生面试的关键考点，作者已在核心文件中利用 **`// 【系统学习】` 和 `// 【面试考点】` 标注了超过 20 处系统级难点讲解**。
-
-- **`app/page.tsx`**: 学习理解 React Server Component 与利用 `Promise.all` 破除瀑布流请求。
-- **`app/events/EventsClient.tsx`**: 探讨 useEffect 闭包陷阱、乐观更新以及前台校验防爆。
-- **`app/members/MembersClient.tsx`**: 看看受控组件、Zustand 持久化以及绝对的 “派生状态 (Derived State)” 滤镜写法。
-- **`middleware.ts`**: 如何写一个带静态前缀防误伤的高性能守卫。
-- **图表组件的水合 (Hydration)**: 学习如何使用 `mounted` 状态来消除 Next.js 的深色模式由于服务端渲染与客户端差异导致的水合异常闪屏 (FOUC)。
-
-*Built with passion, by Developer.*
+## 🛠️ 质量验证管线 (CI / CD)
+本项目中内置了完备的 `.github/workflows/ci.yml`。每次提交 (Push) / 拉取请求 (PR) 到 `main` 分支时，将强制并行拉起 GitHub Actions 来审查：
+- `eslint` 语法违规
+- 严格模式下的 `tsc --noEmit` 双盲阻断测试
+- 容器化编译与 Build 验证
+以保障并延续此项目的工业级纯净度。

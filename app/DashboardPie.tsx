@@ -50,7 +50,7 @@ export default function DashboardPie({ data }: DashboardPieProps) {
                         borderColor: isDark ? '#18181b' : '#ffffff',
                         borderWidth: 2,
                         // 根据传入的数据名称(当前部门)动态分配颜色，如果不在字典里则使用默认石板灰
-                        color: function (params: any) {
+                        color: function (params: { name: string }) {
                             return DEPT_COLORS[params.name] || '#64748b'
                         }
                     },
