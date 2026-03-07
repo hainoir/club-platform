@@ -39,6 +39,7 @@ export type Event = {
     attendees: number
     attendeesList?: Attendee[]
     type: string
+    coverUrl?: string
 }
 
 interface EventsClientProps {
@@ -77,13 +78,17 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
     const openEdit = (event: Event) => {
         setEditingEvent(event)
 
-        // Helper: roughly parse "2026年3月15日" to a Date object
-        const d = event.date.replace(/年|月/g, '-').replace('日', '')
-        const parsedDate = new Date(d)
-        if (!isNaN(parsedDate.getTime())) {
-            setDate(parsedDate)
+        if (event.rawDate) {
+            setDate(new Date(event.rawDate))
         } else {
-            setDate(undefined)
+            // Helper fallback: roughly parse "2026年3月15日" to a Date object
+            const d = event.date.replace(/年|月/g, '-').replace('日', '')
+            const parsedDate = new Date(d)
+            if (!isNaN(parsedDate.getTime())) {
+                setDate(parsedDate)
+            } else {
+                setDate(undefined)
+            }
         }
 
         setIsDialogOpen(true)
@@ -112,6 +117,7 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
         const description = formData.get("description") as string;
         const type = formData.get("type") as string;
         const isOnline = formData.get("type_loc") === "online";
+        const coverFile = formData.get("cover") as File | null;
 
         // If user didn't select a date, require it
         if (!date) {
@@ -133,7 +139,28 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
             end_time = new Date(`${formattedDate}T${rawEndTime}:00`).toISOString();
         }
 
+        let finalCoverUrl = editingEvent?.coverUrl || null;
+
         try {
+            // Handle image upload if a file was selected
+            if (coverFile && coverFile.size > 0) {
+                const fileExt = coverFile.name.split('.').pop();
+                const fileName = `cover_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `${fileName}`;
+
+                const { error: uploadError } = await supabase.storage.from('events').upload(filePath, coverFile, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+                if (uploadError) {
+                    throw new Error(`图片上传失败: ${uploadError.message}`);
+                }
+
+                const { data: { publicUrl } } = supabase.storage.from('events').getPublicUrl(filePath);
+                finalCoverUrl = publicUrl;
+            }
+
             if (editingEvent) {
                 const { error } = await supabase
                     .from('events')
@@ -144,7 +171,8 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
                         end_time: end_time,
                         location: location,
                         type: type,
-                        is_online: isOnline
+                        is_online: isOnline,
+                        cover_url: finalCoverUrl
                     })
                     .eq('id', editingEvent.id)
                 if (error) throw error;
@@ -159,7 +187,8 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
                         end_time: end_time,
                         location: location,
                         type: type,
-                        is_online: isOnline
+                        is_online: isOnline,
+                        cover_url: finalCoverUrl
                     }])
                 if (error) throw error;
                 toast({ title: "活动已创建", description: `"${title}" 已成功安排。` })
@@ -283,7 +312,14 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
             "flex flex-col overflow-hidden bg-card/50 backdrop-blur-sm border border-slate-200/60 dark:border-zinc-800/60 shadow-sm transition-all hover:shadow-md",
             isEnded ? "opacity-70 grayscale-[30%]" : "hover:border-indigo-500/30"
         )}>
-            <CardHeader className="pb-4">
+            {event.coverUrl ? (
+                <div className="w-full h-40 overflow-hidden bg-muted relative">
+                    <img src={event.coverUrl} alt={event.title} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+                </div>
+            ) : (
+                <div className="w-full h-3 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20" />
+            )}
+            <CardHeader className={cn("pb-4", event.coverUrl ? "pt-4" : "")}>
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex gap-2 items-center">
                         <Badge variant={
@@ -505,6 +541,11 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
                                         <option value="online">线上</option>
                                     </select>
                                 </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="cover">活动封面海报 (可选)</Label>
+                                <Input id="cover" name="cover" type="file" accept="image/*" className="cursor-pointer file:text-muted-foreground" />
+                                {editingEvent?.coverUrl && <p className="text-xs text-muted-foreground">保留为空以使用原海报。</p>}
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="description">简短描述</Label>

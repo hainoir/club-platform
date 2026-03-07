@@ -55,7 +55,8 @@ export default async function EventsPage() {
             description: e.description || "暂无描述",
             attendees: attendeesList.length,
             attendeesList: attendeesList,
-            type: determinedType
+            type: determinedType,
+            coverUrl: e.cover_url || undefined
         };
     }) || [];
 
