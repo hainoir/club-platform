@@ -1,6 +1,6 @@
 "use client"
 import * as React from "react"
-import { Search, Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Pencil, Trash2, Download } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { useUserStore, ADMIN_ROLES } from "@/store/useUserStore"
@@ -117,6 +117,35 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
         setIsDialogOpen(true)
     }
 
+    const exportMembersToCSV = () => {
+        if (filteredMembers.length === 0) {
+            toast({ title: "导出失败", description: "当前搜索条件下没有可导出的成员空列表。", variant: "destructive" })
+            return;
+        }
+
+        const BOM = "\uFEFF";
+        const header = ["姓名", "学号", "角色", "部门", "加入日期", "状态"].join(",");
+
+        const rows = filteredMembers.map(m => {
+            const student_id = m.student_id ? `"${m.student_id}"` : "-";
+            const role = m.role === "admin" ? "管理员" : (m.role === "member" ? "成员" : m.role);
+            const join_date = m.join_date ? new Date(m.join_date).toLocaleDateString('zh-CN') : "-";
+            const status = m.status === "active" ? "活跃" : (m.status === "inactive" ? "停用" : "未知");
+            const dept = m.department || "未分配";
+            return `"${m.name}",${student_id},"${role}","${dept}","${join_date}","${status}"`;
+        });
+
+        const csvContent = BOM + [header, ...rows].join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `社团成员名单_${new Date().toLocaleDateString('zh-CN')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
     const openCreate = () => {
         setEditingMember(null)
         setIsDialogOpen(true)
@@ -130,9 +159,14 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                     <p className="text-sm text-muted-foreground mt-1">查看和管理分支机构成员及权限。</p>
                 </div>
                 {ADMIN_ROLES.includes(user?.role || '') && (
-                    <Button onClick={openCreate} className="gap-2 shadow-sm transition-all">
-                        <Plus className="h-4 w-4" /> 添加新成员
-                    </Button>
+                    <div className="flex gap-2 items-center">
+                        <Button onClick={exportMembersToCSV} variant="outline" className="gap-2 shadow-sm transition-all focus:ring-2 bg-background hover:bg-muted">
+                            <Download className="h-4 w-4" /> 导出成员
+                        </Button>
+                        <Button onClick={openCreate} className="gap-2 shadow-sm transition-all">
+                            <Plus className="h-4 w-4" /> 添加新成员
+                        </Button>
+                    </div>
                 )}
             </div>
 

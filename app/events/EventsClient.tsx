@@ -1,6 +1,6 @@
 "use client"
 import * as React from "react"
-import { CalendarIcon, MapPin, Clock, Plus, Users, Globe, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { CalendarIcon, MapPin, Clock, Plus, Users, Globe, MoreHorizontal, Pencil, Trash2, Download } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { useUserStore, ADMIN_ROLES } from "@/store/useUserStore"
@@ -237,6 +237,30 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
         }
     }
 
+    const exportAttendeesToCSV = () => {
+        if (!viewingEvent || !viewingEvent.attendeesList || viewingEvent.attendeesList.length === 0) {
+            toast({ title: "导出失败", description: "当前活动暂无人报名。", variant: "destructive" })
+            return;
+        }
+
+        const BOM = "\uFEFF";
+        const header = ["姓名", "关联邮箱"].join(",");
+
+        const rows = viewingEvent.attendeesList.map(a => {
+            return `"${a.user_name}","${a.user_email}"`;
+        });
+
+        const csvContent = BOM + [header, ...rows].join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `${viewingEvent.title}_报名名单_${new Date().toLocaleDateString('zh-CN')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-in-out">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -430,7 +454,15 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
             <Dialog open={isAttendeesDialogOpen} onOpenChange={setIsAttendeesDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                        <DialogTitle>报名名单：{viewingEvent?.title}</DialogTitle>
+                        <DialogTitle className="flex justify-between items-center pr-6">
+                            <span>报名名单：{viewingEvent?.title}</span>
+                            {ADMIN_ROLES.includes(user?.role || '') && (
+                                <Button onClick={exportAttendeesToCSV} variant="outline" size="sm" className="h-8 gap-1.5 px-3">
+                                    <Download className="h-3.5 w-3.5" />
+                                    导出名单
+                                </Button>
+                            )}
+                        </DialogTitle>
                         <DialogDescription>
                             目前共有 {viewingEvent?.attendees} 人报名参加此活动。
                         </DialogDescription>
