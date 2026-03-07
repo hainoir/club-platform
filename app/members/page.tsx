@@ -8,7 +8,7 @@ export default async function MembersPage() {
     const { data: membersData, error } = await supabase
         .from('members')
         .select('*')
-        .order('id', { ascending: true }); // Assume 'id' column exists
+        .order('id', { ascending: true }); // 按 ID 升序排列，保证新加入的成员在底部
 
     // 如果出错或没数据，你可以选择处理（比如传空数组进行容错或者显示错误）
     if (error) {
@@ -19,10 +19,10 @@ export default async function MembersPage() {
     const members: Member[] = membersData?.map((m) => ({
         id: String(m.id),
         name: m.name,
-        student_id: m.student_id || "N/A", // Changed from studentId to student_id
+        student_id: m.student_id || "N/A", // 映射数据库的下划线命名法到前端的驼峰或扁平字段
         role: m.role || "成员",
         department: m.department || "未分配",
-        join_date: m.created_at || "N/A",  // Database usually defaults this to created_at
+        join_date: m.created_at || "N/A",  // 将数据库自动生成的 created_at 作为入社时间
         status: m.status || "活跃"
     })) || [];
 

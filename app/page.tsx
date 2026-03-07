@@ -3,9 +3,17 @@ import { Users, Activity, GraduationCap, CircleUserRound, CheckCircle2 } from "l
 import { createClient } from "@/utils/supabase/server"
 import { format, isAfter, subMonths, startOfMonth, endOfMonth } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import DashboardCharts from "./DashboardCharts" // We will create this client component next
+import DashboardCharts from "./DashboardCharts" // 我们接下来将创建的 ECharts 客户端组件
 
+/**
+ * 【面试考点：React Server Components (RSC) 与服务端直出】
+ * 这是一个 Next.js 15 的服务端组件。它没有写 'use client'。
+ * 优势1: 所有的 supabase 查询都在服务器端执行，不消耗用户的手机算力，也不会暴露数据库结构。
+ * 优势2: 组件最终会被生成为纯 HTML 片段返回给浏览器，首屏渲染 (FCP) 快到极致，SEO 极佳。
+ * 优势3: 我们在这里进行了大约 7~8 次不同维度的数据库查询，它们几乎是在服务端“内网”里秒级完成的并发查询，完全去除了前端瀑布流拉数据的弊端。
+ */
 export default async function Dashboard() {
+    // 实例化面向服务端的 Supabase 游标
     const supabase = await createClient()
 
     // 1. 获取总成员数
@@ -84,6 +92,10 @@ export default async function Dashboard() {
     // ========================================
     // Chart Data Preparation (Last 6 Months)
     // ========================================
+    // 【面试考点：数据结构的变形派生 (Data Transformation)】
+    // 为了满足 Echarts 双折线图的需求，我们在服务端将关系型数据库的数据
+    // '打平' 成三个并行的一维数组: labels(X轴), members(Y1), events(Y2)。
+    // 这比在前端浏览器里循环计算性能要高出非常多。
     const chartLabels: string[] = []
     const newMembersData: number[] = []
     const eventsData: number[] = []

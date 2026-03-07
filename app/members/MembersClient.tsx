@@ -32,24 +32,38 @@ interface MembersClientProps {
 export default function MembersClient({ initialMembers }: MembersClientProps) {
     const router = useRouter()
     const supabase = createClient()
+
+    // 【面试考点：全局状态管理 (Zustand)】
+    // 我们避免了原生的 React Context 导致的组件树整体渲染地狱。
+    // 用极小的心智负担和几乎 0 模板代码把用户的 RBAC (基于角色的访问控制) 数据抓到了本地。
+    // 组件只会因为 `user` 这个解构字段发生变动而触发重绘。
     const { user } = useUserStore()
     const [members, setMembers] = React.useState<Member[]>(initialMembers)
 
-    // Sync local state when server component passes down new data via router.refresh()
+    // 【系统学习：服务端到客户端的数据同步】
+    // 监听从 Server Component 传来的 initialMembers 变化，并在变化时同步到本组件内部的 members state。
+    // 这点极其重要：它是实现通过 server_action 或者 router.refresh() 无声刷新界面的底层驱动力。
     React.useEffect(() => {
         setMembers(initialMembers)
     }, [initialMembers])
 
+    // 【面试考点：受控组件 (Controlled Components) 与 React 本地状态】
+    // 凡是前端表格里面的 Input 框、搜索框录入等 UI 瞬时态，都通过 useState 手动接管。
     const [searchQuery, setSearchQuery] = React.useState("")
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
     const [editingMember, setEditingMember] = React.useState<Member | null>(null)
-    const [isSubmitting, setIsSubmitting] = React.useState(false) // Handle smooth loading state
+    const [isSubmitting, setIsSubmitting] = React.useState(false) // 接管防抖与按钮 Loading 动画状态
     const { toast } = useToast()
 
-    // Pagination states
+    // 分页系统所依赖的状态机
     const [currentPage, setCurrentPage] = React.useState(1)
     const itemsPerPage = 7
 
+    // 【面试考点：派生状态 (Derived State) 的黄金准则】
+    // 新手喜欢用 `useEffect` 去监听 `searchQuery` 的变化然后 setFilteredMembers 来改变数组。
+    // 这在 React 中是极其严重的反模式（会导致二次无用渲染）。
+    // 正确的做法如下：渲染期间通过底层的计算直接算出衍生变量 `filteredMembers`。
+    // 当组件内任何状态变动重绘时，这里的 filter 都会用最新的数据自动算一次，绝对的 Single Source of Truth。
     const filteredMembers = members.filter((m) =>
         m.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         m.student_id?.includes(searchQuery)
@@ -68,7 +82,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
 
         try {
             if (editingMember) {
-                // Update existing
+                // 如果弹窗之前绑定了某位现存成员，则执行基于 id 的更新操作
                 const { error } = await supabase
                     .from('members')
                     .update({ name, student_id, role, department, status })
@@ -77,7 +91,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                 if (error) throw error;
                 toast({ title: "成员已更新", description: `${name} 的详细信息已成功更新。` })
             } else {
-                // Insert new
+                // 否则说明是点击了左上角的“添加成员”按钮，执行增量写入
                 const { error } = await supabase
                     .from('members')
                     .insert([{ name, student_id, role, department, status }])
@@ -158,7 +172,8 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
     const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
 
     React.useEffect(() => {
-        // Ensure currentPage doesn't exceed totalPages after filtering
+        // 【系统学习：边界防御 (Edge Cases)】
+        // 当过滤后的数据变少，导致总页数收缩时，必须强行把用户的 currentPage 给“拽”回合法区间，否则列表会渲染为空并报错。
         if (currentPage > totalPages && totalPages > 0) {
             setCurrentPage(totalPages);
         } else if (totalPages === 0 && currentPage !== 1) {
@@ -196,7 +211,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                         value={searchQuery}
                         onChange={(e) => {
                             setSearchQuery(e.target.value);
-                            setCurrentPage(1); // Reset page on search
+                            setCurrentPage(1); // 每次触发新搜索时强制回退到第一页，防止分页游标越界
                         }}
                     />
                 </div>

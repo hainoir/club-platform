@@ -52,20 +52,24 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
     const { user } = useUserStore()
     const [events, setEvents] = React.useState<Event[]>(initialEvents)
 
-    // Sync local state when server component passes down new data via router.refresh()
+    // 【面试考点：依赖数组 (Dependency Array) 与闭包陷阱】
+    // 凡是在 `useEffect` 里用到的外部变量都要填入下方的 `[]` 中。
+    // 这里监听了从 Server Component 传来的 initialEvents 变化，并在变化时同步到本组件内部的 events state。
+    // 这也是实现无需刷新页面即时展示最新修改结果（通过 server_action 或者 router.refresh() 触发）的核心密码。
     React.useEffect(() => {
         setEvents(initialEvents)
     }, [initialEvents])
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
     const [isSubmitting, setIsSubmitting] = React.useState(false)
-    const [showEndedEvents, setShowEndedEvents] = React.useState(false) // toggle for ended events
+    const [showEndedEvents, setShowEndedEvents] = React.useState(false) // 切换显示已历史归档的已结束活动
     const { toast } = useToast()
 
-    // Controlled state for DatePicker
+    // 【系统学习：受控组件 (Controlled Components)】
+    // 我们将复杂的日历组件 (DatePicker) 绑定到组件状态上。
     const [date, setDate] = React.useState<Date>()
     const [editingEvent, setEditingEvent] = React.useState<Event | null>(null)
 
-    // State for Attendees Management Dialog
+    // 管理报名名单弹窗的开闭以及当前正在检阅的活动主体
     const [isAttendeesDialogOpen, setIsAttendeesDialogOpen] = React.useState(false)
     const [viewingEvent, setViewingEvent] = React.useState<Event | null>(null)
 
@@ -81,7 +85,8 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
         if (event.rawDate) {
             setDate(new Date(event.rawDate))
         } else {
-            // Helper fallback: roughly parse "2026年3月15日" to a Date object
+            // 【系统学习：降级处理 (Fallback)】
+            // 当缺失标准时间戳时，尝试用正则粗略抠出中文字符来反序列化为 Date 对象
             const d = event.date.replace(/年|月/g, '-').replace('日', '')
             const parsedDate = new Date(d)
             if (!isNaN(parsedDate.getTime())) {
@@ -119,7 +124,8 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
         const isOnline = formData.get("type_loc") === "online";
         const coverFile = formData.get("cover") as File | null;
 
-        // If user didn't select a date, require it
+        // 【系统学习：前端表单校验 (Form Validation)】
+        // 虽然表单加了 required 属性，但在发起异步请求前，用 JS 做一次硬拦截是防御性编程的体现。
         if (!date) {
             toast({ title: "表单不完整", description: "请选择一个日期。", variant: "destructive" })
             setIsSubmitting(false)
@@ -131,7 +137,7 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
 
         let event_date = new Date(`${formattedDate}T${startTime}:00`).toISOString();
         if (event_date === 'Invalid Date') {
-            event_date = new Date().toISOString(); // fallback
+            event_date = new Date().toISOString(); // 若非合法字符串，降级回退采用当前时间
         }
 
         let end_time = null;
@@ -142,7 +148,9 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
         let finalCoverUrl = editingEvent?.coverUrl || null;
 
         try {
-            // Handle image upload if a file was selected
+            // 【系统学习：对象存储直传 (Direct Upload)】
+            // 发现客户端有真实的 File 时，不去麻烦后端（Next.js API），
+            // 直接由客户端直接上传至 Supabase Storage，并将公网返回的 publicUrl 拿出来备用。
             if (coverFile && coverFile.size > 0) {
                 const fileExt = coverFile.name.split('.').pop();
                 const fileName = `cover_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -259,7 +267,9 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
             if (error) throw error
             toast({ title: "移除成功", description: `已将 ${attendeeName} 从活动名单中移除。` })
 
-            // Optimistically update the UI if viewingEvent is open
+            // 【系统学习：乐观更新 (Optimistic UI)】
+            // 业界常用的前端体验优化技术。既然接口没报错就说明删成功了，
+            // 此时直接修改本地内存中的 `viewingEvent` 状态将其踢出数组，而不去傻等 router.refresh() 的全页数据回归。
             if (viewingEvent) {
                 const updatedList = viewingEvent.attendeesList?.filter(a => a.id !== attendeeId)
                 setViewingEvent({ ...viewingEvent, attendeesList: updatedList, attendees: (updatedList?.length || 0) })
@@ -280,6 +290,9 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
             if (error) throw error
             toast({ title: "状态更改", description: `已将 ${attendeeName} 标记为 ${!currentStatus ? '已签到' : '未签到'}。` })
 
+            // 【系统学习：不可变数据流 (Immutable Data)】
+            // React 严禁直接修改原对象。这里使用 .map() 映射出一个全新的列表，
+            // 并把当前操作人的签到状态翻转 (!currentStatus)，以此触发界面的安全重绘。
             if (viewingEvent) {
                 const updatedList = viewingEvent.attendeesList?.map(a =>
                     a.id === attendeeId ? { ...a, is_attended: !currentStatus } : a
@@ -292,7 +305,7 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
         }
     }
 
-    // Determine event status
+    // 【系统学习：纯函数算子】判断活动是否已结束（基于时间戳比对）
     const isEventEnded = (event: Event) => {
         if (!event.rawDate) return false;
         const compareTime = event.rawEndTime ? event.rawEndTime : event.rawDate;
@@ -300,7 +313,7 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
     }
 
     const upcomingEvents = events.filter(e => !isEventEnded(e));
-    // Sort ended events: newest ended first
+    // 将已结束的活动剥离出来，并按结束时间降序排列 (新结束的在最前面)
     const endedEvents = events.filter(e => isEventEnded(e)).sort((a, b) => {
         const timeA = new Date(a.rawEndTime || a.rawDate || 0).getTime();
         const timeB = new Date(b.rawEndTime || b.rawDate || 0).getTime();
