@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/ui/toast-simple"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
 import { AuthProvider } from "@/components/providers/AuthProvider"
+import { WebVitals } from "@/components/WebVitals"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -22,6 +23,7 @@ export default function RootLayout({
     return (
         <html lang="en" suppressHydrationWarning>
             <body className={inter.className}>
+                <WebVitals />
                 <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
                     <ToastProvider>
                         <AuthProvider>

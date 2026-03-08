@@ -6,6 +6,7 @@
 -- 1. 开启表的 RLS
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_attendees ENABLE ROW LEVEL SECURITY;
 
 -- 2. members 表策略
 -- 允许所有查询 (内部所有登录用户可互看)
@@ -87,3 +88,49 @@ USING (
     AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
   )
 );
+
+-- 4. event_attendees 表策略
+-- 允许所有查询 (内部所有登录用户可查看报名列表)
+CREATE POLICY "允许认证用户读取活动参与者列表" 
+ON event_attendees FOR SELECT 
+TO authenticated 
+USING (true);
+
+-- 允许用户自己报名或管理员代为报名
+CREATE POLICY "允许认证用户自行报名或管理员操作" 
+ON event_attendees FOR INSERT 
+TO authenticated 
+WITH CHECK (
+  auth.jwt()->>'email' = user_email
+  OR EXISTS (
+    SELECT 1 FROM members AS admin
+    WHERE admin.email = auth.jwt()->>'email'
+    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+
+-- 允许用户自己取消报名或管理员移除
+CREATE POLICY "允许认证用户取消报名或管理员操作" 
+ON event_attendees FOR DELETE 
+TO authenticated 
+USING (
+  auth.jwt()->>'email' = user_email
+  OR EXISTS (
+    SELECT 1 FROM members AS admin
+    WHERE admin.email = auth.jwt()->>'email'
+    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+
+-- 仅允许管理员更新（签到状态）
+CREATE POLICY "仅允许管理员更新报名状态" 
+ON event_attendees FOR UPDATE 
+TO authenticated 
+USING (
+  EXISTS (
+    SELECT 1 FROM members AS admin
+    WHERE admin.email = auth.jwt()->>'email'
+    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+

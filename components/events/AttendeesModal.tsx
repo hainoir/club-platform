@@ -27,18 +27,18 @@ export function AttendeesModal({
 }: AttendeesModalProps) {
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px]" aria-describedby="attendees-dialog-desc">
                 <DialogHeader>
-                    <DialogTitle className="flex justify-between items-center pr-6">
+                    <DialogTitle className="flex justify-between items-center pr-6" id="attendees-dialog-title">
                         <span>报名名单：{viewingEvent?.title}</span>
                         {isAdmin && (
-                            <Button onClick={onExport} variant="outline" size="sm" className="h-8 gap-1.5 px-3">
-                                <Download className="h-3.5 w-3.5" />
+                            <Button onClick={onExport} aria-label={`导出 ${viewingEvent?.title} 的名单为CSV`} variant="outline" size="sm" className="h-8 gap-1.5 px-3 focus:ring-2">
+                                <Download className="h-3.5 w-3.5" aria-hidden="true" />
                                 导出名单
                             </Button>
                         )}
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription id="attendees-dialog-desc">
                         目前共有 {viewingEvent?.attendees} 人报名参加此活动。
                     </DialogDescription>
                 </DialogHeader>
@@ -56,23 +56,26 @@ export function AttendeesModal({
                                     <p className="text-xs text-muted-foreground mt-1">{attendee.user_email}</p>
                                 </div>
                                 {isAdmin && (
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1" role="group" aria-label={`操作 ${attendee.user_name}`}>
                                         <Button
                                             variant="ghost"
                                             size="icon"
+                                            aria-label={attendee.is_attended ? `撤销 ${attendee.user_name} 的签到` : `标记 ${attendee.user_name} 为已签到`}
                                             title={attendee.is_attended ? "撤销签到" : "标记为已签到"}
-                                            className={cn("h-8 w-8", attendee.is_attended ? "text-emerald-500 hover:text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100" : "text-slate-400 hover:text-slate-600")}
+                                            className={cn("h-8 w-8 transition-colors", attendee.is_attended ? "text-emerald-500 hover:text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100" : "text-slate-400 hover:text-slate-600")}
                                             onClick={() => onToggleAttendance(attendee.id, !!attendee.is_attended, attendee.user_name)}
                                         >
-                                            <CheckCircle2 className="h-4 w-4" />
+                                            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                                         </Button>
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground focus:bg-destructive focus:text-destructive-foreground"
+                                            aria-label={`移除 ${attendee.user_name}`}
+                                            title="移除该成员"
+                                            className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground focus:bg-destructive focus:text-destructive-foreground transition-colors"
                                             onClick={() => onRemoveAttendee(attendee.id, attendee.user_name)}
                                         >
-                                            <Trash2 className="h-4 w-4" />
+                                            <Trash2 className="h-4 w-4" aria-hidden="true" />
                                         </Button>
                                     </div>
                                 )}
