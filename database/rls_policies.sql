@@ -42,6 +42,16 @@ WITH CHECK (
   )
 );
 
+-- 允许新落地的用户自行提交注册表单（限制只能写自己的邮箱且角色只能是会员）
+DROP POLICY IF EXISTS "允许新用户自助注册记录" ON members;
+CREATE POLICY "允许新用户自助注册记录" 
+ON members FOR INSERT 
+TO authenticated 
+WITH CHECK (
+  email = auth.jwt()->>'email'
+  AND role = 'member'
+);
+
 DROP POLICY IF EXISTS "允许管理员删除成员" ON members;
 CREATE POLICY "允许管理员删除成员" 
 ON members FOR DELETE 
@@ -145,3 +155,67 @@ USING (
     AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
   )
 );
+
+-- ==========================================================
+-- 5. Storage (文件存储) 策略
+-- 针对 events bucket (用于上传活动封面海报)
+-- 注意：需要先在 Supabase 控制台中创建名为 'events' 的 bucket
+-- ==========================================================
+
+-- 允许认证用户读取活动封面海报
+DROP POLICY IF EXISTS "events_bucket_read" ON storage.objects;
+CREATE POLICY "events_bucket_read"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (bucket_id = 'events');
+
+-- 仅允许管理员上传 (Insert) 图片
+DROP POLICY IF EXISTS "events_bucket_insert_admin" ON storage.objects;
+CREATE POLICY "events_bucket_insert_admin"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'events'
+  AND EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.email = auth.jwt()->>'email'
+      AND m.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+
+-- 仅允许管理员更新 (Update) 图片
+DROP POLICY IF EXISTS "events_bucket_update_admin" ON storage.objects;
+CREATE POLICY "events_bucket_update_admin"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (
+  bucket_id = 'events'
+  AND EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.email = auth.jwt()->>'email'
+      AND m.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+)
+WITH CHECK (
+  bucket_id = 'events'
+  AND EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.email = auth.jwt()->>'email'
+      AND m.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+
+-- 仅允许管理员删除 (Delete) 图片
+DROP POLICY IF EXISTS "events_bucket_delete_admin" ON storage.objects;
+CREATE POLICY "events_bucket_delete_admin"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'events'
+  AND EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.email = auth.jwt()->>'email'
+      AND m.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+

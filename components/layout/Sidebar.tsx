@@ -1,13 +1,14 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, CalendarDays, Code2 } from "lucide-react"
+import { LayoutDashboard, Users, CalendarDays, Code2, CalendarClock } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navigation = [
     { name: '仪表盘', href: '/', icon: LayoutDashboard },
     { name: '成员管理', href: '/members', icon: Users },
     { name: '活动与课程', href: '/events', icon: CalendarDays },
+    { name: '值班大厅', href: '/duty', icon: CalendarClock },
 ]
 
 export function Sidebar({ className }: { className?: string }) {

@@ -11,7 +11,7 @@
 
 ### 1. 极致的类型与权限安全体系
 - **消除任何形式的 `any` 黑洞**：深度利用 Supabase 的 Typed Schema，将数据库建表的 Schema (Row / Insert / Update) 与前端组件Props形成闭环。不再有推论不到位的隐患，从网络请求的 Response 到组件强类型输入，达成100%覆盖。
-- **数据库及存储级别的 Row-Level Security (RLS)**：不依赖脆弱的前端路由拦截（前端拦截仅用于 UX 提升），通过真实的 PostgreSQL RLS policy 强制保障所有请求（含表数据与 Storage bucket 存储对象）无法越权读写（见 `database/rls_policies.sql`，内含表级及 Storage policy 完整防线）。
+- **数据库及存储级别的 Row-Level Security (RLS)**：不依赖脆弱的前端路由拦截（前端拦截仅用于 UX 提升），通过真实的 PostgreSQL RLS policy 强制保障所有请求（含 API、Client SSR 以及 Storage bucket 越权访问）无法越权读写（见 `database/rls_policies.sql`，内含表级及 Storage policy 完整防线）。
 - **去同步漂移的 Auth 状态管线**：封装全局 `AuthProvider`，每次装载强一致同步 Supabase HttpOnly Session 和内存缓存状态（Zustand persist），确保角色/权限信息不发生“短时时差渲染”。
 
 ### 2. React 最佳实践与解耦重构

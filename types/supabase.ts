@@ -119,6 +119,124 @@ export interface Database {
                     }
                 ]
             }
+            duty_rosters: {
+                Row: {
+                    id: string
+                    member_id: string
+                    day_of_week: number
+                    period: number
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    member_id: string
+                    day_of_week: number
+                    period: number
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    member_id?: string
+                    day_of_week?: number
+                    period?: number
+                    created_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "duty_rosters_member_id_fkey"
+                        columns: ["member_id"]
+                        isOneToOne: false
+                        referencedRelation: "members"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
+            duty_logs: {
+                Row: {
+                    id: string
+                    member_id: string
+                    sign_in_time: string
+                    location_verified: boolean | null
+                    device_info: string | null
+                    week_number: number | null
+                }
+                Insert: {
+                    id?: string
+                    member_id: string
+                    sign_in_time?: string
+                    location_verified?: boolean | null
+                    device_info?: string | null
+                    week_number?: number | null
+                }
+                Update: {
+                    id?: string
+                    member_id?: string
+                    sign_in_time?: string
+                    location_verified?: boolean | null
+                    device_info?: string | null
+                    week_number?: number | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "duty_logs_member_id_fkey"
+                        columns: ["member_id"]
+                        isOneToOne: false
+                        referencedRelation: "members"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
+            duty_swaps: {
+                Row: {
+                    id: string
+                    requester_id: string
+                    target_id: string | null
+                    original_day: number
+                    original_period: number
+                    target_day: number | null
+                    target_period: number | null
+                    status: string | null
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    requester_id: string
+                    target_id?: string | null
+                    original_day: number
+                    original_period: number
+                    target_day?: number | null
+                    target_period?: number | null
+                    status?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    requester_id?: string
+                    target_id?: string | null
+                    original_day?: number
+                    original_period?: number
+                    target_day?: number | null
+                    target_period?: number | null
+                    status?: string | null
+                    created_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "duty_swaps_requester_id_fkey"
+                        columns: ["requester_id"]
+                        isOneToOne: false
+                        referencedRelation: "members"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "duty_swaps_target_id_fkey"
+                        columns: ["target_id"]
+                        isOneToOne: false
+                        referencedRelation: "members"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
         }
         Views: {
             [_ in never]: never

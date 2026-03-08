@@ -1,0 +1,216 @@
+-- ==========================================================
+-- Supabase Schema & RLS 策略文件: 值班表模块 (Duty Roster)
+-- ==========================================================
+
+-- 1. 创建枚举类型与数据表
+
+-- 1.1 duty_rosters (常规周排班池)
+CREATE TABLE IF NOT EXISTS public.duty_rosters (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  member_id uuid NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
+  day_of_week int2 NOT NULL CHECK (day_of_week BETWEEN 1 AND 5),
+  period int2 NOT NULL CHECK (period BETWEEN 1 AND 4),
+  created_at timestamptz DEFAULT now(),
+  -- 约束：同一个人在同一天同一节只能有一条排班记录
+  UNIQUE(day_of_week, period, member_id)
+);
+
+-- 1.2 duty_logs (值班打卡记录流水)
+CREATE TABLE IF NOT EXISTS public.duty_logs (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  member_id uuid NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
+  sign_in_time timestamptz DEFAULT now(),
+  location_verified boolean DEFAULT false,
+  device_info text,
+  week_number int4
+);
+
+-- 1.3 duty_swaps (换班/代班申请库)
+CREATE TABLE IF NOT EXISTS public.duty_swaps (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  requester_id uuid NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
+  target_id uuid REFERENCES public.members(id) ON DELETE CASCADE,
+  original_day int2 NOT NULL CHECK (original_day BETWEEN 1 AND 5),
+  original_period int2 NOT NULL CHECK (original_period BETWEEN 1 AND 4),
+  target_day int2 CHECK (target_day BETWEEN 1 AND 5),
+  target_period int2 CHECK (target_period BETWEEN 1 AND 4),
+  status text DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  created_at timestamptz DEFAULT now()
+);
+
+-- ==========================================================
+-- 2. 启用行级安全 (RLS)
+-- ==========================================================
+ALTER TABLE public.duty_rosters ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.duty_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.duty_swaps ENABLE ROW LEVEL SECURITY;
+
+-- ==========================================================
+-- 3. RLS 安全策略配置
+-- ==========================================================
+
+-- ----------------------------------------------------
+-- 表: duty_rosters (排班池)
+-- ----------------------------------------------------
+-- 允许所有认证用户自由查看排班情况
+DROP POLICY IF EXISTS "允许认证用户查看值班表" ON public.duty_rosters;
+CREATE POLICY "允许认证用户查看值班表"
+ON public.duty_rosters FOR SELECT
+TO authenticated
+USING (true);
+
+-- 允许管理员或本人报名排班
+DROP POLICY IF EXISTS "允许自己报名或管理员排班" ON public.duty_rosters;
+CREATE POLICY "允许自己报名或管理员排班"
+ON public.duty_rosters FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.id = member_id AND m.email = auth.jwt()->>'email'
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.members admin
+    WHERE admin.email = auth.jwt()->>'email'
+      AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+
+-- 允许自己取消排班或管理员删除
+DROP POLICY IF EXISTS "允许自己取消或管理员删除排班" ON public.duty_rosters;
+CREATE POLICY "允许自己取消或管理员删除排班"
+ON public.duty_rosters FOR DELETE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.id = member_id AND m.email = auth.jwt()->>'email'
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.members admin
+    WHERE admin.email = auth.jwt()->>'email'
+      AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+
+-- ----------------------------------------------------
+-- 表: duty_logs (打卡流水)
+-- ----------------------------------------------------
+-- 允许大家查看他人的打卡记录 (用于透明度和看板)
+DROP POLICY IF EXISTS "允许认证用户查看打卡记录" ON public.duty_logs;
+CREATE POLICY "允许认证用户查看打卡记录"
+ON public.duty_logs FOR SELECT
+TO authenticated
+USING (true);
+
+-- 允许自己提交打卡操作
+DROP POLICY IF EXISTS "允许自己提交打卡" ON public.duty_logs;
+CREATE POLICY "允许自己提交打卡"
+ON public.duty_logs FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.id = member_id AND m.email = auth.jwt()->>'email'
+  )
+);
+
+-- 仅允许管理员修改打卡记录 (例如补签或标记无效)
+DROP POLICY IF EXISTS "仅允许管理员修改打卡记录" ON public.duty_logs;
+CREATE POLICY "仅允许管理员修改打卡记录"
+ON public.duty_logs FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.members admin
+    WHERE admin.email = auth.jwt()->>'email'
+      AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.members admin
+    WHERE admin.email = auth.jwt()->>'email'
+      AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+
+-- 仅允许管理员删除打卡流水 (防作弊)
+DROP POLICY IF EXISTS "仅允许管理员删除打卡记录" ON public.duty_logs;
+CREATE POLICY "仅允许管理员删除打卡记录"
+ON public.duty_logs FOR DELETE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.members admin
+    WHERE admin.email = auth.jwt()->>'email'
+      AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+
+-- ----------------------------------------------------
+-- 表: duty_swaps (换班申请表)
+-- ----------------------------------------------------
+-- 允许查看大厅里的所有换班请求
+DROP POLICY IF EXISTS "允许认证用户查看换班请求" ON public.duty_swaps;
+CREATE POLICY "允许认证用户查看换班请求"
+ON public.duty_swaps FOR SELECT
+TO authenticated
+USING (true);
+
+-- 允许发起换班 (请求人必须是自己)
+DROP POLICY IF EXISTS "允许发起换班申请" ON public.duty_swaps;
+CREATE POLICY "允许发起换班申请"
+ON public.duty_swaps FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.id = requester_id AND m.email = auth.jwt()->>'email'
+  )
+);
+
+-- 允许更新换班状态 (申请人可以撤销，被申请人[target]可以同意/拒绝，管理员可以干预)
+DROP POLICY IF EXISTS "允许相关方修改换班状态" ON public.duty_swaps;
+CREATE POLICY "允许相关方修改换班状态"
+ON public.duty_swaps FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.id IN (requester_id, target_id) AND m.email = auth.jwt()->>'email'
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.members admin
+    WHERE admin.email = auth.jwt()->>'email'
+      AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.id IN (requester_id, target_id) AND m.email = auth.jwt()->>'email'
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.members admin
+    WHERE admin.email = auth.jwt()->>'email'
+      AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);
+
+-- 允许撤回(删除)自己发起的换班，或管理员直接清理
+DROP POLICY IF EXISTS "允许自己撤回或管理员删除换班请求" ON public.duty_swaps;
+CREATE POLICY "允许自己撤回或管理员删除换班请求"
+ON public.duty_swaps FOR DELETE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.members m
+    WHERE m.id = requester_id AND m.email = auth.jwt()->>'email'
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.members admin
+    WHERE admin.email = auth.jwt()->>'email'
+      AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+  )
+);

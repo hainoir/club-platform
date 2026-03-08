@@ -21,13 +21,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // 强制校验数据库中的最新权限，防止 zustand 缓存导致用户权限“漂移”或依然保留旧的过期高权限
                 const { data: memberData } = await supabase
                     .from('members')
-                    .select('role, name')
+                    .select('id, role, name')
                     .eq('email', session.user.email || '')
                     .single()
 
                 if (memberData) {
                     setUser({
-                        id: session.user.id,
+                        id: memberData.id, // <== 这里修正：存入基于 members 业务表的外键互通 id
                         email: session.user.email || '',
                         role: memberData.role,
                         name: memberData.name
