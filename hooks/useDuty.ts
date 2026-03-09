@@ -2,7 +2,7 @@ import { useState, useCallback, useTransition } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { Database } from '@/types/supabase';
 import { useToast } from '@/components/ui/toast-simple';
-import { useUserStore } from '@/store/useUserStore';
+import { useUserStore, ADMIN_ROLES } from '@/store/useUserStore';
 
 type DutyRoster = Database['public']['Tables']['duty_rosters']['Row'];
 type Member = Database['public']['Tables']['members']['Row'];
@@ -79,15 +79,21 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     }, [supabase]);
 
     // ------------------------------------------------------------------------
-    // 1. 排班操作 (报名/取消) - 带乐观更新
+    // 1. 排班操作 (指派/移除成员) - 仅管理员可操作，带乐观更新
     // ------------------------------------------------------------------------
-    const toggleDutySlot = useCallback(async (day: number, period: number) => {
+    const toggleDutySlot = useCallback(async (day: number, period: number, memberId: string, memberName: string) => {
         if (!user) {
             toast({ title: '尚未登录', description: '请先登录后再进行排班操作。', variant: 'destructive' });
             return;
         }
 
-        const existingSlot = rosters.find(r => r.day_of_week === day && r.period === period && r.member_id === user.id);
+        // 权限前置守卫：仅管理员可操作
+        if (!ADMIN_ROLES.includes(user.role || '')) {
+            toast({ title: '权限不足', description: '仅管理员可以进行排班操作。', variant: 'destructive' });
+            return;
+        }
+
+        const existingSlot = rosters.find(r => r.day_of_week === day && r.period === period && r.member_id === memberId);
         const isAdding = !existingSlot;
 
         // 乐观更新 UI
@@ -96,14 +102,14 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 // 添加占位符
                 const optimisticRoster: RosterWithMember = {
                     id: `temp-${Date.now()}`,
-                    member_id: user.id,
+                    member_id: memberId,
                     day_of_week: day,
                     period,
                     created_at: new Date().toISOString(),
                     member: {
-                        id: user.id,
-                        name: user.name || '本人',
-                        student_id: (user as any).student_id || null
+                        id: memberId,
+                        name: memberName,
+                        student_id: null
                     }
                 };
                 setRosters(prev => [...prev, optimisticRoster]);
@@ -118,21 +124,21 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 const { error } = await supabase
                     .from('duty_rosters')
                     .insert({
-                        member_id: user.id,
+                        member_id: memberId,
                         day_of_week: day,
                         period,
                     });
                 if (error) throw error;
-                toast({ title: '报名成功', description: `已成功认领周${day}第${period}大节的值班。` });
+                toast({ title: '指派成功', description: `已将 ${memberName} 安排到周${day}第${period}大节值班。` });
             } else {
                 const { error } = await supabase
                     .from('duty_rosters')
                     .delete()
-                    .eq('member_id', user.id)
+                    .eq('member_id', memberId)
                     .eq('day_of_week', day)
                     .eq('period', period);
                 if (error) throw error;
-                toast({ title: '已取消排班', description: '已撤销该时段的值班报名。' });
+                toast({ title: '已移除排班', description: `已将 ${memberName} 从该时段移除。` });
             }
             // 重新加载真实数据
             refreshRosters();

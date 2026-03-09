@@ -8,6 +8,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.members (
+    id,
     email, 
     name, 
     role, 
@@ -17,11 +18,12 @@ BEGIN
     join_date
   )
   VALUES (
+    NEW.id,
     NEW.email,
     -- 尝试从元数据中解析我们刚才在 signUp 时传入的 name 等参数，如果没有提供则给默认值
     COALESCE(NEW.raw_user_meta_data->>'name', '新成员'),
     'member',
-    NEW.raw_user_meta_data->>'student_id',
+    NULLIF(NEW.raw_user_meta_data->>'student_id', '')::bigint,
     NEW.raw_user_meta_data->>'department',
     'active',
     CURRENT_DATE

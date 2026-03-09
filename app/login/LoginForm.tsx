@@ -66,29 +66,53 @@ export default function LoginForm() {
                 router.push("/")
                 router.refresh()
             } else {
-                // 注册（携带自定义业务信息用于底层 trigger 落表）
+                // 注册（携带自定义业务信息用于底层 trigger 落表，防范 BigInt 获取到空字符串造成 DB 回滚）
                 const { data, error } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
                         data: {
-                            name: name,
-                            student_id: studentId,
-                            department: department
+                            name: name || null,
+                            student_id: studentId || null,
+                            department: department || null
                         }
                     }
                 })
 
                 if (error) throw error
 
-                // 如果注册成功，可以决定是否自动登入或者引导去验证邮箱
-                toast({ title: "注册请求成功", description: "请检查您的电子邮箱以验证账户（如需）。如果不用验证，您可以直接登录。" })
-                setIsLoginMode(true)
+                // 如果注册成功，尝试直接为其静默登入
+                const { error: signInErr } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                })
+
+                if (signInErr) {
+                    // 如果静默登入失败（大概率是因为 Supabase 后台开启了强制邮箱验证 Confirm email）
+                    toast({ title: "注册成功，需验证邮箱", description: "请检查您的电子邮箱以验证账户。完成后方可登录。" })
+                    setIsLoginMode(true)
+                } else {
+                    // 如果静默登入成功
+                    toast({ title: "注册并登录成功", description: "欢迎加入系统！" })
+                    router.push("/")
+                    router.refresh()
+                }
             }
         } catch (error: unknown) {
+            let errorMsg = (error as Error).message || "账号或密码错误"
+
+            // 将晦涩的英文翻译成中文报错体验
+            if (errorMsg.includes("Invalid login credentials")) {
+                errorMsg = "邮箱未注册或密码错误"
+            } else if (errorMsg.includes("User already registered")) {
+                errorMsg = "该邮箱已被注册，请直接登录"
+            } else if (errorMsg.includes("Email rate limit exceeded")) {
+                errorMsg = "请求过于频繁，请稍后再试或联系管理员"
+            }
+
             toast({
                 title: isLoginMode ? "登录失败" : "注册失败",
-                description: (error as Error).message || "账号或密码错误",
+                description: errorMsg,
                 variant: "destructive"
             })
         } finally {

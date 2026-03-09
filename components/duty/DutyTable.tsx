@@ -1,8 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RosterWithMember } from '@/hooks/useDuty';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { X, UserPlus, ChevronDown, Search } from 'lucide-react';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+
+// 简易成员类型（从 members 表选取的字段）
+export interface SimpleMember {
+    id: string;
+    name: string;
+    student_id: string | null;
+}
 
 const PERIODS = [
     { id: 1, label: '第一大节', time: '(8:00-9:35)' },
@@ -22,11 +35,107 @@ const DAYS = [
 interface DutyTableProps {
     rosters: RosterWithMember[];
     currentUserId?: string;
-    onToggleSlot: (day: number, period: number) => void;
+    isAdmin: boolean;
+    allMembers: SimpleMember[];
+    onAssignMember: (day: number, period: number, memberId: string, memberName: string) => void;
+    onRemoveMember: (day: number, period: number, memberId: string, memberName: string) => void;
     isPending?: boolean;
 }
 
-export function DutyTable({ rosters, currentUserId, onToggleSlot, isPending }: DutyTableProps) {
+// ------------------------------------------------------------------
+// 成员选择器 Popover（管理员专用）
+// ------------------------------------------------------------------
+function MemberPickerPopover({
+    allMembers,
+    existingMemberIds,
+    onSelect,
+    isPending,
+}: {
+    allMembers: SimpleMember[];
+    existingMemberIds: string[];
+    onSelect: (member: SimpleMember) => void;
+    isPending?: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState('');
+
+    // 过滤掉已在该时段的成员，并按搜索关键词过滤
+    const available = allMembers.filter(
+        m =>
+            !existingMemberIds.includes(m.id) &&
+            (m.name.toLowerCase().includes(search.toLowerCase()) ||
+                (m.student_id && m.student_id.includes(search)))
+    );
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isPending}
+                    className="w-full h-7 text-xs border-dashed text-muted-foreground hover:border-primary hover:text-primary"
+                >
+                    <UserPlus className="w-3 h-3 mr-1" />
+                    指派成员
+                    <ChevronDown className="w-3 h-3 ml-auto" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2" align="start">
+                {/* 搜索框 */}
+                <div className="relative mb-2">
+                    <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                        placeholder="搜索姓名或学号..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        className="h-8 pl-7 text-xs"
+                    />
+                </div>
+                {/* 成员列表 */}
+                <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {available.length === 0 ? (
+                        <p className="text-xs text-center text-muted-foreground py-3">
+                            {search ? '未找到匹配成员' : '所有成员已在该时段'}
+                        </p>
+                    ) : (
+                        available.map(member => (
+                            <button
+                                key={member.id}
+                                onClick={() => {
+                                    onSelect(member);
+                                    setOpen(false);
+                                    setSearch('');
+                                }}
+                                className="w-full text-left px-2 py-1.5 rounded-md text-xs hover:bg-accent transition-colors flex items-center justify-between group"
+                            >
+                                <span className="font-medium">{member.name}</span>
+                                {member.student_id && (
+                                    <span className="text-muted-foreground text-[10px]">
+                                        {member.student_id}
+                                    </span>
+                                )}
+                            </button>
+                        ))
+                    )}
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+// ------------------------------------------------------------------
+// 主排班表格
+// ------------------------------------------------------------------
+export function DutyTable({
+    rosters,
+    currentUserId,
+    isAdmin,
+    allMembers,
+    onAssignMember,
+    onRemoveMember,
+    isPending,
+}: DutyTableProps) {
     // 按照 [day][period] 的二维矩阵预处理数据
     const rosterMap = React.useMemo(() => {
         const map: Record<number, Record<number, RosterWithMember[]>> = {};
@@ -64,6 +173,7 @@ export function DutyTable({ rosters, currentUserId, onToggleSlot, isPending }: D
                             {DAYS.map(day => {
                                 const membersInSlot = rosterMap[day.id][period.id] || [];
                                 const isCurrentUserInSlot = membersInSlot.some(m => m.member_id === currentUserId);
+                                const existingMemberIds = membersInSlot.map(m => m.member_id);
 
                                 return (
                                     <td
@@ -78,42 +188,37 @@ export function DutyTable({ rosters, currentUserId, onToggleSlot, isPending }: D
                                                 <div
                                                     key={record.id}
                                                     className={cn(
-                                                        "inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset",
+                                                        "inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset gap-1",
                                                         record.member_id === currentUserId
                                                             ? "bg-primary/10 text-primary ring-primary/20"
                                                             : "bg-secondary text-secondary-foreground ring-border"
                                                     )}
                                                 >
                                                     {record.member.name}
+                                                    {/* 管理员可移除已排班成员 */}
+                                                    {isAdmin && (
+                                                        <button
+                                                            onClick={() => onRemoveMember(day.id, period.id, record.member_id, record.member.name)}
+                                                            disabled={isPending}
+                                                            className="ml-0.5 rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors"
+                                                            title={`移除 ${record.member.name}`}
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
 
-                                        {/* 操作区：自己在这个时段，显示取消；如果不在，且登录了，显示报名虚线框 */}
-                                        {currentUserId && (
+                                        {/* 管理员操作区：指派成员下拉选择器 */}
+                                        {isAdmin && (
                                             <div className="mt-auto pt-2">
-                                                {isCurrentUserInSlot ? (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => onToggleSlot(day.id, period.id)}
-                                                        disabled={isPending}
-                                                        className="w-full h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                    >
-                                                        取消排班
-                                                    </Button>
-                                                ) : (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => onToggleSlot(day.id, period.id)}
-                                                        disabled={isPending}
-                                                        className="w-full h-7 text-xs border-dashed text-muted-foreground hover:border-primary hover:text-primary"
-                                                    >
-                                                        <Plus className="w-3 h-3 mr-1" />
-                                                        报名该岗
-                                                    </Button>
-                                                )}
+                                                <MemberPickerPopover
+                                                    allMembers={allMembers}
+                                                    existingMemberIds={existingMemberIds}
+                                                    onSelect={(member) => onAssignMember(day.id, period.id, member.id, member.name)}
+                                                    isPending={isPending}
+                                                />
                                             </div>
                                         )}
                                     </td>

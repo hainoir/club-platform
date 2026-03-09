@@ -1,16 +1,21 @@
 'use client';
 
 import { useDuty, RosterWithMember } from '@/hooks/useDuty';
-import { DutyTable } from '@/components/duty/DutyTable';
+import { DutyTable, SimpleMember } from '@/components/duty/DutyTable';
 import { SignInCard } from '@/components/duty/SignInCard';
 import { SwapModal } from '@/components/duty/SwapModal';
-import { useUserStore } from '@/store/useUserStore';
+import { useUserStore, ADMIN_ROLES } from '@/store/useUserStore';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
-export default function DutyClient({ initialData }: { initialData: RosterWithMember[] }) {
+interface DutyClientProps {
+    initialData: RosterWithMember[];
+    initialMembers: SimpleMember[];
+}
+
+export default function DutyClient({ initialData, initialMembers }: DutyClientProps) {
     const dutyManager = useDuty(initialData);
     const {
         rosters,
@@ -25,6 +30,9 @@ export default function DutyClient({ initialData }: { initialData: RosterWithMem
     const supabase = createClient();
     const [hasSignedInToday, setHasSignedInToday] = useState(false);
     const [checkingSignIn, setCheckingSignIn] = useState(true);
+
+    // 判断当前用户是否为管理员
+    const isAdmin = ADMIN_ROLES.includes(user?.role || '');
 
     // 检查今天是否已签到
     useEffect(() => {
@@ -48,7 +56,7 @@ export default function DutyClient({ initialData }: { initialData: RosterWithMem
                     setHasSignedInToday(true);
                 }
             } catch (e) {
-                console.error('Failed to check sign-in status:', e);
+                console.error('检查签到状态失败:', e);
             } finally {
                 setCheckingSignIn(false);
             }
@@ -62,7 +70,10 @@ export default function DutyClient({ initialData }: { initialData: RosterWithMem
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">值班与考勤大厅</h2>
                     <p className="text-muted-foreground mt-2">
-                        点击排班单元格上方的 <span className="text-primary font-medium">虚线框</span> 抢注空闲班次，在指定时间内完成地理位置打卡。
+                        {isAdmin
+                            ? <>管理员模式：点击排班单元格下方的 <span className="text-primary font-medium">「指派成员」</span> 按钮来安排值班，点击成员标签旁的 <span className="text-destructive font-medium">✕</span> 移除排班。</>
+                            : '查看当前排班安排，在指定时间内完成地理位置打卡。'
+                        }
                     </p>
                 </div>
 
@@ -104,7 +115,10 @@ export default function DutyClient({ initialData }: { initialData: RosterWithMem
                     <DutyTable
                         rosters={rosters}
                         currentUserId={user?.id}
-                        onToggleSlot={toggleDutySlot}
+                        isAdmin={isAdmin}
+                        allMembers={initialMembers}
+                        onAssignMember={toggleDutySlot}
+                        onRemoveMember={toggleDutySlot}
                         isPending={isPending}
                     />
                 </div>
