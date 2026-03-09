@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Key, ArrowRight, Check, Send, ChevronDown, Search } from 'lucide-react';
+import { Key, ArrowRight, Check, Send, ChevronDown, Search, Clock } from 'lucide-react';
 import { useDuty } from '@/hooks/useDuty';
 import { useUserStore } from '@/store/useUserStore';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,19 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+
+// 格式化时间
+function formatTime(dateStr: string) {
+    const d = new Date(dateStr);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 interface KeyTransferCardProps {
     dutyManager: ReturnType<typeof useDuty>;
@@ -21,7 +34,10 @@ interface KeyTransferCardProps {
 
 export function KeyTransferCard({ dutyManager, allMembers }: KeyTransferCardProps) {
     const { user } = useUserStore();
-    const { keyTransfers, refreshKeyTransfers, submitKeyTransfer, confirmKeyTransfer } = dutyManager;
+    const { keyTransfers, rosters, refreshKeyTransfers, submitKeyTransfer, confirmKeyTransfer } = dutyManager;
+
+    // 当前用户是否持有钥匙
+    const userHasKey = rosters.some(r => r.member_id === user?.id && r.has_key);
 
     const [note, setNote] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,6 +77,10 @@ export function KeyTransferCard({ dutyManager, allMembers }: KeyTransferCardProp
                             <div className="flex flex-col">
                                 <span className="font-medium">{t.from_member?.name} 交给你</span>
                                 {t.note && <span className="text-xs text-muted-foreground mt-0.5">{t.note}</span>}
+                                <span className="text-[10px] text-muted-foreground mt-0.5 flex items-center">
+                                    <Clock className="w-2.5 h-2.5 mr-0.5" />
+                                    发起于 {formatTime(t.created_at)}
+                                </span>
                             </div>
                             <Button
                                 size="sm"
@@ -75,37 +95,58 @@ export function KeyTransferCard({ dutyManager, allMembers }: KeyTransferCardProp
                 </div>
             )}
 
-            {/* 发起交接 */}
-            <div className="space-y-2">
-                <Input
-                    placeholder="备注（可选）"
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
-                    className="text-sm h-9"
-                />
-                <MemberSelectButton
-                    allMembers={allMembers.filter(m => m.id !== user?.id)}
-                    onSelect={handleTransfer}
-                    isSubmitting={isSubmitting}
-                />
-            </div>
+            {/* 发起交接（仅持钥匙者可见） */}
+            {userHasKey ? (
+                <div className="space-y-2">
+                    <Input
+                        placeholder="备注（可选）"
+                        value={note}
+                        onChange={e => setNote(e.target.value)}
+                        className="text-sm h-9"
+                    />
+                    <MemberSelectButton
+                        allMembers={allMembers.filter(m => m.id !== user?.id)}
+                        onSelect={handleTransfer}
+                        isSubmitting={isSubmitting}
+                    />
+                </div>
+            ) : (
+                <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+                    您当前未持有钥匙，无法发起交接。
+                </p>
+            )}
 
             {/* 最近记录 */}
             {keyTransfers.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-border">
                     <p className="text-xs text-muted-foreground mb-2">最近交接记录</p>
-                    <div className="space-y-1.5">
-                        {keyTransfers.slice(0, 5).map(t => (
-                            <div key={t.id} className="flex items-center text-xs text-muted-foreground">
-                                <span>{t.from_member?.name || '?'}</span>
-                                <ArrowRight className="w-3 h-3 mx-1 shrink-0" />
-                                <span>{t.to_member?.name}</span>
-                                <Badge variant="outline" className="ml-auto text-[10px] h-5">
-                                    {t.status === 'confirmed' ? '已完成' : '待确认'}
-                                </Badge>
-                            </div>
-                        ))}
-                    </div>
+                    <TooltipProvider>
+                        <div className="space-y-1.5">
+                            {keyTransfers.slice(0, 5).map(t => (
+                                <Tooltip key={t.id}>
+                                    <TooltipTrigger asChild>
+                                        <div className="flex items-center text-xs text-muted-foreground cursor-default hover:text-foreground transition-colors py-0.5">
+                                            <span>{t.from_member?.name || '?'}</span>
+                                            <ArrowRight className="w-3 h-3 mx-1 shrink-0" />
+                                            <span>{t.to_member?.name}</span>
+                                            <Badge variant="outline" className="ml-auto text-[10px] h-5">
+                                                {t.status === 'confirmed' ? '已完成' : '待确认'}
+                                            </Badge>
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs">
+                                        <div className="space-y-1">
+                                            <div>发起时间：{formatTime(t.created_at)}</div>
+                                            {t.status === 'confirmed' && t.confirmed_at && (
+                                                <div>确认时间：{formatTime(t.confirmed_at)}</div>
+                                            )}
+                                            {t.note && <div>备注：{t.note}</div>}
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            ))}
+                        </div>
+                    </TooltipProvider>
                 </div>
             )}
         </div>

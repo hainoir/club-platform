@@ -9,8 +9,9 @@ import { KeyTransferCard } from '@/components/duty/KeyTransferCard';
 import { useUserStore, ADMIN_ROLES } from '@/store/useUserStore';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, KeyRound } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import React from 'react';
 
 interface DutyClientProps {
     initialData: RosterWithMember[];
@@ -118,8 +119,8 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                     <KeyTransferCard dutyManager={dutyManager} allMembers={initialMembers} />
                 </div>
 
-                {/* 右侧：课表级可视化 5x4 大表格 */}
-                <div className="lg:col-span-3 min-w-0 overflow-hidden">
+                {/* 右侧：课表级可视化 5x4 大表格 + 钥匙持有者 */}
+                <div className="lg:col-span-3 min-w-0 overflow-hidden space-y-4">
                     <DutyTable
                         rosters={rosters}
                         currentUserId={user?.id}
@@ -130,7 +131,48 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                         onToggleKey={toggleKey}
                         isPending={isPending}
                     />
+
+                    {/* 钥匙持有者摘要 */}
+                    <KeyHoldersSummary rosters={rosters} />
                 </div>
+            </div>
+        </div>
+    );
+}
+
+// 钥匙持有者摘要组件
+function KeyHoldersSummary({ rosters }: { rosters: RosterWithMember[] }) {
+    // 从排班记录中去重提取持有钥匙的成员
+    const keyHolders = React.useMemo(() => {
+        const map = new Map<string, string>();
+        rosters.forEach(r => {
+            if (r.has_key && !map.has(r.member_id)) {
+                map.set(r.member_id, r.member.name);
+            }
+        });
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    }, [rosters]);
+
+    return (
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-sm">
+                <KeyRound className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="font-medium text-muted-foreground">当前钥匙持有者：</span>
+                {keyHolders.length === 0 ? (
+                    <span className="text-muted-foreground">暂无</span>
+                ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                        {keyHolders.map(h => (
+                            <span
+                                key={h.id}
+                                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 ring-1 ring-inset ring-amber-300/50 dark:ring-amber-700/50"
+                            >
+                                <KeyRound className="w-3 h-3 mr-1" />
+                                {h.name}
+                            </span>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

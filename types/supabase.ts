@@ -314,6 +314,7 @@ export interface Database {
                     note: string | null
                     status: string
                     created_at: string
+                    confirmed_at: string | null
                 }
                 Insert: {
                     id?: string
@@ -322,6 +323,7 @@ export interface Database {
                     note?: string | null
                     status?: string
                     created_at?: string
+                    confirmed_at?: string | null
                 }
                 Update: {
                     id?: string
@@ -330,6 +332,7 @@ export interface Database {
                     note?: string | null
                     status?: string
                     created_at?: string
+                    confirmed_at?: string | null
                 }
                 Relationships: []
             }

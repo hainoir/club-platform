@@ -360,13 +360,13 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     // 4. 钥匙管理
     // ------------------------------------------------------------------------
 
-    // 管理员切换排班记录的钥匙持有状态
-    const toggleKey = async (rosterId: string, hasKey: boolean) => {
+    // 管理员切换某成员的钥匙持有状态（更新该成员所有排班记录）
+    const toggleKey = async (memberId: string, hasKey: boolean) => {
         try {
             const { error } = await supabase
                 .from('duty_rosters')
                 .update({ has_key: hasKey })
-                .eq('id', rosterId);
+                .eq('member_id', memberId);
 
             if (error) throw error;
             toast({ title: hasKey ? '已标记持有钥匙' : '已取消钥匙标记' });

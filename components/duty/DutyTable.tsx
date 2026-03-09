@@ -39,7 +39,7 @@ interface DutyTableProps {
     allMembers: SimpleMember[];
     onAssignMember: (day: number, period: number, memberId: string, memberName: string) => void;
     onRemoveMember: (day: number, period: number, memberId: string, memberName: string) => void;
-    onToggleKey?: (rosterId: string, hasKey: boolean) => void;
+    onToggleKey?: (memberId: string, hasKey: boolean) => void;
     isPending?: boolean;
 }
 
@@ -204,7 +204,7 @@ export function DutyTable({
                                                     {/* 管理员可切换钥匙状态 */}
                                                     {isAdmin && !record.has_key && onToggleKey && (
                                                         <button
-                                                            onClick={() => onToggleKey(record.id, true)}
+                                                            onClick={() => onToggleKey(record.member_id, true)}
                                                             className="ml-0.5 rounded-full p-0.5 opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:text-amber-500 transition-all"
                                                             title={`标记 ${record.member.name} 持有钥匙`}
                                                         >
@@ -213,7 +213,7 @@ export function DutyTable({
                                                     )}
                                                     {isAdmin && record.has_key && onToggleKey && (
                                                         <button
-                                                            onClick={() => onToggleKey(record.id, false)}
+                                                            onClick={() => onToggleKey(record.member_id, false)}
                                                             className="ml-0.5 rounded-full p-0.5 hover:bg-amber-200/50 hover:text-amber-700 transition-colors"
                                                             title={`取消 ${record.member.name} 的钥匙标记`}
                                                         >

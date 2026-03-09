@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS public.key_transfers (
   to_member_id uuid NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
   note text,
   status text DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed')),
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  confirmed_at timestamptz
 );
 
 -- ==========================================================
@@ -157,16 +158,13 @@ BEGIN
     RAISE EXCEPTION '只有接收人才能确认交接';
   END IF;
 
-  -- 更新交接状态
-  UPDATE public.key_transfers SET status = 'confirmed' WHERE id = p_transfer_id;
+  -- 更新交接状态和确认时间
+  UPDATE public.key_transfers SET status = 'confirmed', confirmed_at = now() WHERE id = p_transfer_id;
 
   -- 移除交出者的所有钥匙标记
-  UPDATE public.duty_rosters SET has_key = false WHERE member_id = v_transfer.from_member_id AND has_key = true;
+  UPDATE public.duty_rosters SET has_key = false WHERE member_id = v_transfer.from_member_id;
 
-  -- 标记接收者为钥匙持有人（如果接收者有排班的话，只标记一条）
-  UPDATE public.duty_rosters SET has_key = true
-  WHERE id = (
-    SELECT id FROM public.duty_rosters WHERE member_id = v_transfer.to_member_id LIMIT 1
-  );
+  -- 标记接收者为钥匙持有人（所有排班记录）
+  UPDATE public.duty_rosters SET has_key = true WHERE member_id = v_transfer.to_member_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
