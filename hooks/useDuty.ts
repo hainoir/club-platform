@@ -108,6 +108,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                     member_id: memberId,
                     day_of_week: day,
                     period,
+                    has_key: false,
                     created_at: new Date().toISOString(),
                     member: {
                         id: memberId,
@@ -355,20 +356,174 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             setIsSwapping(false);
         }
     };
+    // ------------------------------------------------------------------------
+    // 4. 钥匙管理
+    // ------------------------------------------------------------------------
+
+    // 管理员切换排班记录的钥匙持有状态
+    const toggleKey = async (rosterId: string, hasKey: boolean) => {
+        try {
+            const { error } = await supabase
+                .from('duty_rosters')
+                .update({ has_key: hasKey })
+                .eq('id', rosterId);
+
+            if (error) throw error;
+            toast({ title: hasKey ? '已标记持有钥匙' : '已取消钥匙标记' });
+            refreshRosters();
+        } catch (err: any) {
+            toast({ title: '操作失败', description: err.message, variant: 'destructive' });
+        }
+    };
+
+    // ------------------------------------------------------------------------
+    // 5. 请假与补班
+    // ------------------------------------------------------------------------
+    const [leaves, setLeaves] = useState<any[]>([]);
+
+    const refreshLeaves = useCallback(async () => {
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('duty_leaves')
+            .select('*, member:members!duty_leaves_member_id_fkey(id, name)')
+            .order('created_at', { ascending: false });
+
+        if (!error && data) {
+            setLeaves(data);
+        }
+    }, [supabase, user]);
+
+    // 提交请假申请（含补班安排）
+    const submitLeave = async (
+        day: number,
+        period: number,
+        reason: string,
+        penaltyShifts: number,
+        compensations: { day_of_week: number; period: number }[]
+    ) => {
+        if (!user) return false;
+        try {
+            // 1. 创建请假记录
+            const { data: leaveData, error: leaveError } = await supabase
+                .from('duty_leaves')
+                .insert({
+                    member_id: user.id,
+                    day_of_week: day,
+                    period: period,
+                    reason: reason || null,
+                    penalty_shifts: penaltyShifts,
+                })
+                .select('id')
+                .single();
+
+            if (leaveError) throw leaveError;
+
+            // 2. 创建补班安排
+            if (compensations.length > 0 && leaveData) {
+                const compRecords = compensations.map(c => ({
+                    leave_id: leaveData.id,
+                    member_id: user.id,
+                    day_of_week: c.day_of_week,
+                    period: c.period,
+                }));
+
+                const { error: compError } = await supabase
+                    .from('duty_compensations')
+                    .insert(compRecords);
+
+                if (compError) throw compError;
+            }
+
+            toast({
+                title: '请假申请已提交',
+                description: `周${DAYS_LABEL[day - 1]}第${period}大节，下周补${penaltyShifts}节。`
+            });
+            refreshLeaves();
+            return true;
+        } catch (err: any) {
+            toast({ title: '请假失败', description: err.message, variant: 'destructive' });
+            return false;
+        }
+    };
+
+    // ------------------------------------------------------------------------
+    // 6. 钥匙交接
+    // ------------------------------------------------------------------------
+    const [keyTransfers, setKeyTransfers] = useState<any[]>([]);
+
+    const refreshKeyTransfers = useCallback(async () => {
+        const { data, error } = await supabase
+            .from('key_transfers')
+            .select('*, from_member:members!key_transfers_from_member_id_fkey(id, name), to_member:members!key_transfers_to_member_id_fkey(id, name)')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (!error && data) {
+            setKeyTransfers(data);
+        }
+    }, [supabase]);
+
+    // 发起钥匙交接
+    const submitKeyTransfer = async (toMemberId: string, note: string) => {
+        if (!user) return false;
+        try {
+            const { error } = await supabase
+                .from('key_transfers')
+                .insert({
+                    from_member_id: user.id,
+                    to_member_id: toMemberId,
+                    note: note || null,
+                });
+
+            if (error) throw error;
+            toast({ title: '已发起钥匙交接', description: '等待接收人确认。' });
+            refreshKeyTransfers();
+            return true;
+        } catch (err: any) {
+            toast({ title: '发起失败', description: err.message, variant: 'destructive' });
+            return false;
+        }
+    };
+
+    // 确认接收钥匙
+    const confirmKeyTransfer = async (transferId: string) => {
+        if (!user) return;
+        try {
+            const { error } = await supabase.rpc('confirm_key_transfer', {
+                p_transfer_id: transferId,
+                p_confirmer_id: user.id,
+            });
+
+            if (error) throw error;
+            toast({ title: '钥匙交接完成！', description: '您已确认接收钥匙，排班表钥匙标记已更新。' });
+            refreshKeyTransfers();
+            refreshRosters();
+        } catch (err: any) {
+            toast({ title: '确认失败', description: err.message, variant: 'destructive' });
+        }
+    };
 
     return {
         rosters,
         swaps,
+        leaves,
+        keyTransfers,
         isPending,
         isSigningIn,
         isSwapping,
         toggleDutySlot,
+        toggleKey,
         performSignIn,
         refreshRosters,
         refreshSwaps,
+        refreshLeaves,
+        refreshKeyTransfers,
         submitSwapRequest,
         respondToSwap,
         volunteerForSwap,
-        rejectSwap
+        rejectSwap,
+        submitLeave,
+        submitKeyTransfer,
+        confirmKeyTransfer
     };
 }

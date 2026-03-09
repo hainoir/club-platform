@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { RosterWithMember } from '@/hooks/useDuty';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { X, UserPlus, ChevronDown, Search } from 'lucide-react';
+import { X, UserPlus, ChevronDown, Search, KeyRound } from 'lucide-react';
 import {
     Popover,
     PopoverContent,
@@ -39,6 +39,7 @@ interface DutyTableProps {
     allMembers: SimpleMember[];
     onAssignMember: (day: number, period: number, memberId: string, memberName: string) => void;
     onRemoveMember: (day: number, period: number, memberId: string, memberName: string) => void;
+    onToggleKey?: (rosterId: string, hasKey: boolean) => void;
     isPending?: boolean;
 }
 
@@ -134,6 +135,7 @@ export function DutyTable({
     allMembers,
     onAssignMember,
     onRemoveMember,
+    onToggleKey,
     isPending,
 }: DutyTableProps) {
     // 按照 [day][period] 的二维矩阵预处理数据
@@ -195,6 +197,29 @@ export function DutyTable({
                                                     )}
                                                 >
                                                     {record.member.name}
+                                                    {/* 钥匙标记 */}
+                                                    {record.has_key && (
+                                                        <KeyRound className="w-3 h-3 text-amber-500" />
+                                                    )}
+                                                    {/* 管理员可切换钥匙状态 */}
+                                                    {isAdmin && !record.has_key && onToggleKey && (
+                                                        <button
+                                                            onClick={() => onToggleKey(record.id, true)}
+                                                            className="ml-0.5 rounded-full p-0.5 opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:text-amber-500 transition-all"
+                                                            title={`标记 ${record.member.name} 持有钥匙`}
+                                                        >
+                                                            <KeyRound className="w-3 h-3" />
+                                                        </button>
+                                                    )}
+                                                    {isAdmin && record.has_key && onToggleKey && (
+                                                        <button
+                                                            onClick={() => onToggleKey(record.id, false)}
+                                                            className="ml-0.5 rounded-full p-0.5 hover:bg-amber-200/50 hover:text-amber-700 transition-colors"
+                                                            title={`取消 ${record.member.name} 的钥匙标记`}
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    )}
                                                     {/* 管理员可移除已排班成员 */}
                                                     {isAdmin && (
                                                         <button

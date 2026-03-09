@@ -128,6 +128,7 @@ export interface Database {
                     member_id: string
                     day_of_week: number
                     period: number
+                    has_key: boolean
                     created_at: string
                 }
                 Insert: {
@@ -135,6 +136,7 @@ export interface Database {
                     member_id: string
                     day_of_week: number
                     period: number
+                    has_key?: boolean
                     created_at?: string
                 }
                 Update: {
@@ -142,6 +144,7 @@ export interface Database {
                     member_id?: string
                     day_of_week?: number
                     period?: number
+                    has_key?: boolean
                     created_at?: string
                 }
                 Relationships: [
@@ -240,6 +243,96 @@ export interface Database {
                     }
                 ]
             }
+            duty_leaves: {
+                Row: {
+                    id: string
+                    member_id: string
+                    day_of_week: number
+                    period: number
+                    reason: string | null
+                    penalty_shifts: number
+                    status: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    member_id: string
+                    day_of_week: number
+                    period: number
+                    reason?: string | null
+                    penalty_shifts?: number
+                    status?: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    member_id?: string
+                    day_of_week?: number
+                    period?: number
+                    reason?: string | null
+                    penalty_shifts?: number
+                    status?: string
+                    created_at?: string
+                }
+                Relationships: []
+            }
+            duty_compensations: {
+                Row: {
+                    id: string
+                    leave_id: string
+                    member_id: string
+                    day_of_week: number
+                    period: number
+                    completed: boolean
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    leave_id: string
+                    member_id: string
+                    day_of_week: number
+                    period: number
+                    completed?: boolean
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    leave_id?: string
+                    member_id?: string
+                    day_of_week?: number
+                    period?: number
+                    completed?: boolean
+                    created_at?: string
+                }
+                Relationships: []
+            }
+            key_transfers: {
+                Row: {
+                    id: string
+                    from_member_id: string | null
+                    to_member_id: string
+                    note: string | null
+                    status: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    from_member_id?: string | null
+                    to_member_id: string
+                    note?: string | null
+                    status?: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    from_member_id?: string | null
+                    to_member_id?: string
+                    note?: string | null
+                    status?: string
+                    created_at?: string
+                }
+                Relationships: []
+            }
         }
         Views: {
             [_ in never]: never
@@ -249,6 +342,13 @@ export interface Database {
                 Args: {
                     p_swap_id: string
                     p_acceptor_id: string
+                }
+                Returns: undefined
+            }
+            confirm_key_transfer: {
+                Args: {
+                    p_transfer_id: string
+                    p_confirmer_id: string
                 }
                 Returns: undefined
             }

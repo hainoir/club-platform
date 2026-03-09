@@ -4,6 +4,8 @@ import { useDuty, RosterWithMember } from '@/hooks/useDuty';
 import { DutyTable, SimpleMember } from '@/components/duty/DutyTable';
 import { SignInCard } from '@/components/duty/SignInCard';
 import { SwapModal } from '@/components/duty/SwapModal';
+import { LeaveModal } from '@/components/duty/LeaveModal';
+import { KeyTransferCard } from '@/components/duty/KeyTransferCard';
 import { useUserStore, ADMIN_ROLES } from '@/store/useUserStore';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -22,6 +24,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
         isPending,
         isSigningIn,
         toggleDutySlot,
+        toggleKey,
         performSignIn,
         refreshRosters
     } = dutyManager;
@@ -93,7 +96,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
-                {/* 左侧：打卡机器与大厅操作区 */}
+                {/* 左侧：打卡、换班、请假、钥匙交接 */}
                 <div className="lg:col-span-1 space-y-6">
                     <SignInCard
                         onSignIn={performSignIn}
@@ -106,8 +109,13 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                         <p className="text-sm text-balance text-muted-foreground mb-4">
                             有临时的会议或请假？可以在这里发起换班请求给指定干事，或投放至公共代班池。
                         </p>
-                        <SwapModal dutyManager={dutyManager} />
+                        <div className="space-y-2">
+                            <SwapModal dutyManager={dutyManager} />
+                            <LeaveModal dutyManager={dutyManager} />
+                        </div>
                     </div>
+
+                    <KeyTransferCard dutyManager={dutyManager} allMembers={initialMembers} />
                 </div>
 
                 {/* 右侧：课表级可视化 5x4 大表格 */}
@@ -119,6 +127,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                         allMembers={initialMembers}
                         onAssignMember={toggleDutySlot}
                         onRemoveMember={toggleDutySlot}
+                        onToggleKey={toggleKey}
                         isPending={isPending}
                     />
                 </div>
@@ -126,3 +135,4 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
         </div>
     );
 }
+
