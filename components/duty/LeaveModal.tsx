@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -10,13 +10,14 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CalendarOff, Check } from 'lucide-react';
+import { CalendarOff, Check, KeyRound } from 'lucide-react';
 import { useToast } from '@/components/ui/toast-simple';
 import { useDuty } from '@/hooks/useDuty';
 import { useUserStore } from '@/store/useUserStore';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 const DAYS = ['一', '二', '三', '四', '五'];
 const PERIODS = [
@@ -34,18 +35,28 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const { user } = useUserStore();
-    const { rosters, submitLeave } = dutyManager;
+    const { rosters, submitLeave, submitSwapRequest } = dutyManager;
 
     // 步骤状态
     const [selectedRosterId, setSelectedRosterId] = useState('');
     const [penaltyShifts, setPenaltyShifts] = useState(1);
     const [selectedComps, setSelectedComps] = useState<{ day: number; period: number }[]>([]);
     const [reason, setReason] = useState('');
+    const [needSubstitute, setNeedSubstitute] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // 我的排班
     const myRosters = rosters.filter(r => r.member_id === user?.id)
         .sort((a, b) => a.day_of_week === b.day_of_week ? a.period - b.period : a.day_of_week - b.day_of_week);
+
+    // 当前选中的排班记录
+    const selectedRoster = useMemo(
+        () => myRosters.find(r => r.id === selectedRosterId),
+        [myRosters, selectedRosterId]
+    );
+
+    // 选中班次是否持有钥匙
+    const selectedHasKey = selectedRoster?.has_key ?? false;
 
     // 重置表单
     useEffect(() => {
@@ -54,8 +65,11 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
             setPenaltyShifts(1);
             setSelectedComps([]);
             setReason('');
+            setNeedSubstitute(false);
         }
     }, [open]);
+
+
 
     // 切换补班节次选择
     const toggleComp = (day: number, period: number) => {
@@ -79,8 +93,7 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
     }, [penaltyShifts]);
 
     const handleSubmit = async () => {
-        const roster = myRosters.find(r => r.id === selectedRosterId);
-        if (!roster) {
+        if (!selectedRoster) {
             toast({ title: '请选择班次', variant: 'destructive' });
             return;
         }
@@ -90,13 +103,25 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
         }
 
         setIsSubmitting(true);
+
+        // 1. 提交请假申请
         const success = await submitLeave(
-            roster.day_of_week,
-            roster.period,
+            selectedRoster.day_of_week,
+            selectedRoster.period,
             reason,
             penaltyShifts,
             selectedComps.map(c => ({ day_of_week: c.day, period: c.period }))
         );
+
+        // 2. 如果需要代班，自动创建代班请求
+        if (success && needSubstitute) {
+            await submitSwapRequest(
+                selectedRoster.day_of_week,
+                selectedRoster.period
+                // 不指定 targetId/targetDay/targetPeriod → 公开到代班大厅
+            );
+        }
+
         setIsSubmitting(false);
 
         if (success) {
@@ -143,6 +168,26 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
                                     </option>
                                 ))}
                             </select>
+                        )}
+                    </div>
+
+                    {/* 是否需要代班开关 */}
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/80 dark:border-amber-800 dark:bg-amber-950/30 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label htmlFor="need-substitute" className="text-sm font-medium flex items-center gap-2">
+                                <KeyRound className="w-4 h-4 text-amber-500" />
+                                是否需要人代替你来开关门？
+                            </label>
+                            <Switch
+                                id="need-substitute"
+                                checked={needSubstitute}
+                                onCheckedChange={setNeedSubstitute}
+                            />
+                        </div>
+                        {needSubstitute && (
+                            <p className="text-xs text-amber-600 dark:text-amber-500">
+                                提交后将自动发布代班请求至公共大厅，等待其他成员应答。
+                            </p>
                         )}
                     </div>
 
@@ -236,7 +281,7 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
                             onClick={handleSubmit}
                             disabled={!canSubmit || isSubmitting}
                         >
-                            {isSubmitting ? '提交中...' : '提交请假'}
+                            {isSubmitting ? '提交中...' : (needSubstitute ? '提交请假并发布代班' : '提交请假')}
                         </Button>
                     </div>
                 </div>
