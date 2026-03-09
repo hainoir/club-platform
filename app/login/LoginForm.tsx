@@ -30,6 +30,7 @@ export default function LoginForm() {
     const [name, setName] = React.useState("")
     const [studentId, setStudentId] = React.useState("")
     const [department, setDepartment] = React.useState("")
+    const [grade, setGrade] = React.useState("")
     const [isLoginMode, setIsLoginMode] = React.useState(true)
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -74,7 +75,8 @@ export default function LoginForm() {
                         data: {
                             name: name || null,
                             student_id: studentId || null,
-                            department: department || null
+                            department: department || null,
+                            grade: grade || null
                         }
                     }
                 })
@@ -188,6 +190,24 @@ export default function LoginForm() {
                                         <SelectItem value="设计部">设计部</SelectItem>
                                         <SelectItem value="开发部">开发部</SelectItem>
                                         <SelectItem value="摄影部">摄影部</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="grade">年级 <span className="text-muted-foreground text-xs font-normal">(必填)</span></Label>
+                                <Select
+                                    value={grade}
+                                    onValueChange={setGrade}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger id="grade">
+                                        <SelectValue placeholder="请选择您的年级" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="大一">大一</SelectItem>
+                                        <SelectItem value="大二">大二</SelectItem>
+                                        <SelectItem value="大三">大三</SelectItem>
+                                        <SelectItem value="大四">大四</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

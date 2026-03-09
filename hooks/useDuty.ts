@@ -28,6 +28,9 @@ const STUDIO_COORDS = {
 };
 const MAX_VALID_RADIUS_METERS = 50; // 最大允许偏差：50米
 
+// 星期标签，用于生成可读的提示信息
+const DAYS_LABEL = ['一', '二', '三', '四', '五'];
+
 /**
  * 计算两个经纬度之间的地球表面距离 (Haversine 公式)
  */
@@ -70,7 +73,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         const { data, error } = await supabase
             .from('duty_swaps')
             .select('*, requester:members!duty_swaps_requester_id_fkey(id, name), target:members!duty_swaps_target_id_fkey(id, name)')
-            .eq('status', 'pending')
+            .in('status', ['pending', 'accepted'])
             .order('created_at', { ascending: false });
 
         if (!error && data) {
@@ -266,15 +269,85 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         setIsSwapping(true);
         try {
             if (!accept) {
-                // 拒绝或撤销
+                // 撤销或删除请求
                 const { error } = await supabase.from('duty_swaps').delete().eq('id', swapId);
                 if (error) throw error;
                 toast({ title: '已移除请求', description: '该换班请求已被撤销或拒绝。' });
             } else {
-                // 暂时简单的接受逻辑：接受直接在客户端不涉及复杂事务的实现（因为 Supabase RPC 更好，我们这里妥协使用双阶段更新）
-                toast({ title: '接受调班...', description: '正在为您更新排班表(功能开发中)。' });
-                // 此处需写对应的 update / delete 逻辑闭环
+                // 管理员批准代班：调用 RPC 函数原子性完成排班转让
+                if (!ADMIN_ROLES.includes(user.role || '')) {
+                    toast({ title: '权限不足', description: '仅管理员可以审批换班请求。', variant: 'destructive' });
+                    setIsSwapping(false);
+                    return;
+                }
+
+                const swapRecord = swaps.find(s => s.id === swapId);
+                if (!swapRecord) {
+                    toast({ title: '请求不存在', description: '该换班请求可能已被撤销。', variant: 'destructive' });
+                    setIsSwapping(false);
+                    return;
+                }
+
+                // 调用 RPC，此时 RPC 内部使用 target_id（已由 volunteerForSwap 设置）
+                const { error: rpcError } = await supabase.rpc('accept_duty_swap', {
+                    p_swap_id: swapId,
+                    p_acceptor_id: swapRecord.target?.id || '',
+                });
+
+                if (rpcError) throw rpcError;
+
+                toast({
+                    title: '已批准代班',
+                    description: `${swapRecord.target?.name} 将接替 ${swapRecord.requester.name} 周${DAYS_LABEL[swapRecord.original_day - 1]}第${swapRecord.original_period}大节的值班。`
+                });
+
+                refreshRosters();
             }
+            refreshSwaps();
+        } catch (err: any) {
+            toast({ title: '操作失败', description: err.message, variant: 'destructive' });
+        } finally {
+            setIsSwapping(false);
+        }
+    };
+
+    // 普通用户应答代班请求（设置 target_id 和 status→accepted，等待管理员审批）
+    const volunteerForSwap = async (swapId: string) => {
+        if (!user) return;
+        setIsSwapping(true);
+        try {
+            const { error } = await supabase
+                .from('duty_swaps')
+                .update({ target_id: user.id, status: 'accepted' })
+                .eq('id', swapId);
+
+            if (error) throw error;
+
+            const swapRecord = swaps.find(s => s.id === swapId);
+            toast({
+                title: '已应答代班',
+                description: `您已应答 ${swapRecord?.requester.name || ''} 的代班请求，等待管理员审批。`
+            });
+            refreshSwaps();
+        } catch (err: any) {
+            toast({ title: '应答失败', description: err.message, variant: 'destructive' });
+        } finally {
+            setIsSwapping(false);
+        }
+    };
+
+    // 管理员驳回代班请求（将 accepted 退回 pending，清除 target_id）
+    const rejectSwap = async (swapId: string) => {
+        if (!user) return;
+        setIsSwapping(true);
+        try {
+            const { error } = await supabase
+                .from('duty_swaps')
+                .update({ target_id: null, status: 'pending' })
+                .eq('id', swapId);
+
+            if (error) throw error;
+            toast({ title: '已驳回', description: '该代班请求已退回大厅，等待他人重新应答。' });
             refreshSwaps();
         } catch (err: any) {
             toast({ title: '操作失败', description: err.message, variant: 'destructive' });
@@ -294,6 +367,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         refreshRosters,
         refreshSwaps,
         submitSwapRequest,
-        respondToSwap
+        respondToSwap,
+        volunteerForSwap,
+        rejectSwap
     };
 }

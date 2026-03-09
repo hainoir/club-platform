@@ -67,6 +67,7 @@ export function useMembers(initialMembers: Member[]) {
         const student_id = formData.get("student_id") as string || "N/A"
         const role = formData.get("role") as string
         const department = formData.get("department") as string || "未分配"
+        const grade = formData.get("grade") as string || ""
         const status = formData.get("status") as string || "active"
 
         setIsSubmitting(true)
@@ -75,21 +76,21 @@ export function useMembers(initialMembers: Member[]) {
         React.startTransition(async () => {
             try {
                 if (editingMember) {
-                    addOptimistic({ action: 'update', payload: { id: editingMember.id, name, student_id, role, department, status, join_date: editingMember.join_date } })
+                    addOptimistic({ action: 'update', payload: { id: editingMember.id, name, student_id, role, department, grade, status, join_date: editingMember.join_date } })
 
                     const { error } = await supabase
                         .from('members')
-                        .update({ name, student_id, role, department, status })
+                        .update({ name, student_id, role, department, grade, status })
                         .eq('id', editingMember.id)
 
                     if (error) throw error;
                     toast({ title: "成员已更新", description: `${name} 的详细信息已成功更新。` })
                 } else {
-                    addOptimistic({ action: 'add', payload: { id: `temp-${Date.now()}`, name, student_id, role, department, status, join_date: new Date().toISOString() } })
+                    addOptimistic({ action: 'add', payload: { id: `temp-${Date.now()}`, name, student_id, role, department, grade, status, join_date: new Date().toISOString() } })
 
                     const { error } = await supabase
                         .from('members')
-                        .insert([{ name, student_id, role, department, status }])
+                        .insert([{ name, student_id, role, department, grade, status }])
 
                     if (error) {
                         if (error.code === '23505') {
@@ -147,7 +148,7 @@ export function useMembers(initialMembers: Member[]) {
         }
 
         const BOM = "\uFEFF";
-        const header = ["姓名", "学号", "角色", "部门", "加入日期", "状态"].join(",");
+        const header = ["姓名", "学号", "角色", "部门", "年级", "加入日期", "状态"].join(",");
 
         const rows = filteredMembers.map(m => {
             const student_id = m.student_id ? `"${m.student_id}"` : "-";
@@ -155,7 +156,8 @@ export function useMembers(initialMembers: Member[]) {
             const join_date = m.join_date ? new Date(m.join_date).toLocaleDateString('zh-CN') : "-";
             const status = m.status === "active" ? "活跃" : (m.status === "inactive" ? "停用" : "未知");
             const dept = m.department || "未分配";
-            return `"${m.name}",${student_id},"${role}","${dept}","${join_date}","${status}"`;
+            const grade = m.grade || "未设置";
+            return `"${m.name}",${student_id},"${role}","${dept}","${grade}","${join_date}","${status}"`;
         });
 
         const csvContent = BOM + [header, ...rows].join("\n");

@@ -18,6 +18,7 @@ export type Member = {
     student_id?: string
     role: string
     department?: string
+    grade?: string
     join_date?: string
     status?: string
 }
@@ -86,6 +87,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                             <TableHead>学号</TableHead>
                             <TableHead>角色</TableHead>
                             <TableHead>部门</TableHead>
+                            <TableHead>年级</TableHead>
                             <TableHead>加入日期</TableHead>
                             <TableHead>状态</TableHead>
                             {ADMIN_ROLES.includes(user?.role || '') && <TableHead className="w-[80px]">操作</TableHead>}
@@ -94,7 +96,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                     <TableBody>
                         {filteredMembers.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                                     <div className="flex flex-col items-center gap-2">
                                         <Search className="h-8 w-8 text-muted-foreground/50" />
                                         <span>没有找到符合搜索条件的成员。</span>
@@ -126,6 +128,11 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                                                             : "border-slate-200 text-slate-600 bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:bg-slate-800/50" // 未分配或其他
                                             )}>
                                                 {member.department || "未分配"}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">
+                                                {member.grade || "未设置"}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">{member.join_date ? new Date(member.join_date).toLocaleDateString('zh-CN') : "-"}</TableCell>

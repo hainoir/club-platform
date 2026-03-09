@@ -8,11 +8,12 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, UserCircle2, ArrowRight } from 'lucide-react';
+import { RefreshCw, UserCircle2, ArrowRight, Clock, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast-simple';
 import { useDuty } from '@/hooks/useDuty';
-import { useUserStore } from '@/store/useUserStore';
+import { useUserStore, ADMIN_ROLES } from '@/store/useUserStore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 const DAYS = ['一', '二', '三', '四', '五'];
 
@@ -24,7 +25,9 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const { user } = useUserStore();
-    const { rosters, swaps, refreshSwaps, submitSwapRequest, respondToSwap, isSwapping } = dutyManager;
+    const { rosters, swaps, refreshSwaps, submitSwapRequest, respondToSwap, volunteerForSwap, rejectSwap, isSwapping } = dutyManager;
+
+    const isAdmin = ADMIN_ROLES.includes(user?.role || '');
 
     // 只提取出该用户本人的排班以供其选择
     const myRosters = rosters.filter(r => r.member_id === user?.id)
@@ -51,6 +54,79 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
         if (success) {
             setOpen(false);
         }
+    };
+
+    // 渲染每条请求的操作按钮
+    const renderActions = (req: typeof swaps[number]) => {
+        const isMine = req.requester_id === user?.id;
+        const isPending = req.status === 'pending';
+        const isAccepted = req.status === 'accepted';
+
+        // 请求人自己：可以撤回
+        if (isMine) {
+            return (
+                <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive h-8"
+                    onClick={() => respondToSwap(req.id, false)}
+                    disabled={isSwapping}
+                >
+                    撤回
+                </Button>
+            );
+        }
+
+        // 管理员看 accepted 状态：批准/驳回
+        if (isAdmin && isAccepted) {
+            return (
+                <div className="flex gap-1">
+                    <Button
+                        size="sm"
+                        className="h-8"
+                        onClick={() => respondToSwap(req.id, true)}
+                        disabled={isSwapping}
+                    >
+                        批准
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive h-8"
+                        onClick={() => rejectSwap(req.id)}
+                        disabled={isSwapping}
+                    >
+                        驳回
+                    </Button>
+                </div>
+            );
+        }
+
+        // pending 状态且不是自己的请求：可以应答
+        if (isPending) {
+            return (
+                <Button
+                    size="sm"
+                    className="h-8"
+                    onClick={() => volunteerForSwap(req.id)}
+                    disabled={isSwapping}
+                >
+                    帮他代班
+                </Button>
+            );
+        }
+
+        // accepted 状态但非管理员：显示等待审批
+        if (isAccepted) {
+            return (
+                <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:bg-amber-950/30">
+                    <Clock className="w-3 h-3 mr-1" />
+                    等待审批
+                </Badge>
+            );
+        }
+
+        return null;
     };
 
     return (
@@ -86,6 +162,7 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
                             <div className="space-y-3">
                                 {swaps.map(req => {
                                     const isMine = req.requester_id === user?.id;
+                                    const isAccepted = req.status === 'accepted';
                                     return (
                                         <div key={req.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
                                             <div className="flex flex-col">
@@ -96,30 +173,16 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
                                                 <span className="text-muted-foreground mt-1 flex items-center">
                                                     周{DAYS[req.original_day - 1]} 第{req.original_period}大节
                                                     <ArrowRight className="w-3 h-3 mx-1" />
-                                                    {req.target_id
-                                                        ? `指定与同学换班`
+                                                    {isAccepted
+                                                        ? <span className="text-amber-600 dark:text-amber-400 flex items-center">
+                                                            <CheckCircle2 className="w-3 h-3 mr-0.5" />
+                                                            {req.target?.name} 已应答
+                                                        </span>
                                                         : `公共代班寻人`}
                                                 </span>
                                             </div>
                                             <div>
-                                                {isMine ? (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="text-destructive h-8"
-                                                        onClick={() => respondToSwap(req.id, false)}
-                                                        disabled={isSwapping}
-                                                    >
-                                                        撤回
-                                                    </Button>
-                                                ) : (
-                                                    <Button
-                                                        size="sm"
-                                                        className="h-8"
-                                                    >
-                                                        帮他代班
-                                                    </Button>
-                                                )}
+                                                {renderActions(req)}
                                             </div>
                                         </div>
                                     )

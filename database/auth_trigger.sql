@@ -13,7 +13,8 @@ BEGIN
     name, 
     role, 
     student_id, 
-    department, 
+    department,
+    grade,
     status, 
     join_date
   )
@@ -25,6 +26,7 @@ BEGIN
     'member',
     NULLIF(NEW.raw_user_meta_data->>'student_id', '')::bigint,
     NEW.raw_user_meta_data->>'department',
+    NEW.raw_user_meta_data->>'grade',
     'active',
     CURRENT_DATE
   );

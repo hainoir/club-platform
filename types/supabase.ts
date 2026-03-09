@@ -17,6 +17,7 @@ export interface Database {
                     role: string
                     student_id: string | null
                     department: string | null
+                    grade: string | null
                     status: string | null
                     join_date: string | null
                     created_at: string
@@ -28,6 +29,7 @@ export interface Database {
                     role?: string
                     student_id?: string | null
                     department?: string | null
+                    grade?: string | null
                     status?: string | null
                     join_date?: string | null
                     created_at?: string
@@ -39,6 +41,7 @@ export interface Database {
                     role?: string
                     student_id?: string | null
                     department?: string | null
+                    grade?: string | null
                     status?: string | null
                     join_date?: string | null
                     created_at?: string
@@ -242,7 +245,13 @@ export interface Database {
             [_ in never]: never
         }
         Functions: {
-            [_ in never]: never
+            accept_duty_swap: {
+                Args: {
+                    p_swap_id: string
+                    p_acceptor_id: string
+                }
+                Returns: undefined
+            }
         }
         Enums: {
             [_ in never]: never

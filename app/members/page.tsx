@@ -22,6 +22,7 @@ export default async function MembersPage() {
         student_id: m.student_id || "N/A", // 映射数据库的下划线命名法到前端的驼峰或扁平字段
         role: m.role || "成员",
         department: m.department || "未分配",
+        grade: m.grade || "",
         join_date: m.created_at || "N/A",  // 将数据库自动生成的 created_at 作为入社时间
         status: m.status || "活跃"
     })) || [];

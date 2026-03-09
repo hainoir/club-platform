@@ -33,7 +33,7 @@ export function MemberModal({ isOpen, onClose, onSave, editingMember, isSubmitti
                             <Label htmlFor="studentId">学号</Label>
                             <Input id="studentId" name="student_id" placeholder="例如：20230101" defaultValue={editingMember?.student_id} />
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="role">平台角色</Label>
                                 <select id="role" name="role" defaultValue={editingMember?.role || "干事"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none focus:ring-2 focus:ring-ring">
@@ -51,6 +51,16 @@ export function MemberModal({ isOpen, onClose, onSave, editingMember, isSubmitti
                                     <option value="开发部">开发部</option>
                                     <option value="设计部">设计部</option>
                                     <option value="摄影部">摄影部</option>
+                                </select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="grade">年级</Label>
+                                <select id="grade" name="grade" defaultValue={editingMember?.grade || ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background outline-none focus:ring-2 focus:ring-ring">
+                                    <option value="">未设置</option>
+                                    <option value="大一">大一</option>
+                                    <option value="大二">大二</option>
+                                    <option value="大三">大三</option>
+                                    <option value="大四">大四</option>
                                 </select>
                             </div>
                             <div className="grid gap-2">
