@@ -336,6 +336,38 @@ export interface Database {
                 }
                 Relationships: []
             }
+            studio_sessions: {
+                Row: {
+                    id: string
+                    member_id: string
+                    started_at: string
+                    ended_at: string | null
+                    is_active: boolean
+                }
+                Insert: {
+                    id?: string
+                    member_id: string
+                    started_at?: string
+                    ended_at?: string | null
+                    is_active?: boolean
+                }
+                Update: {
+                    id?: string
+                    member_id?: string
+                    started_at?: string
+                    ended_at?: string | null
+                    is_active?: boolean
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "studio_sessions_member_id_fkey"
+                        columns: ["member_id"]
+                        isOneToOne: false
+                        referencedRelation: "members"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
         }
         Views: {
             [_ in never]: never

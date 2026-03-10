@@ -51,6 +51,7 @@ function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2
 export function useDuty(initialRosters: RosterWithMember[]) {
     const [rosters, setRosters] = useState<RosterWithMember[]>(initialRosters);
     const [swaps, setSwaps] = useState<SwapWithMember[]>([]);
+    const [approvedSwaps, setApprovedSwaps] = useState<SwapWithMember[]>([]);
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const { user } = useUserStore();
@@ -78,6 +79,19 @@ export function useDuty(initialRosters: RosterWithMember[]) {
 
         if (!error && data) {
             setSwaps(data as unknown as SwapWithMember[]);
+        }
+    }, [supabase]);
+
+    // 获取已批准的代班记录（供值班表显示标签用）
+    const refreshApprovedSwaps = useCallback(async () => {
+        const { data, error } = await supabase
+            .from('duty_swaps')
+            .select('*, requester:members!duty_swaps_requester_id_fkey(id, name), target:members!duty_swaps_target_id_fkey(id, name)')
+            .eq('status', 'approved')
+            .order('created_at', { ascending: false });
+
+        if (!error && data) {
+            setApprovedSwaps(data as unknown as SwapWithMember[]);
         }
     }, [supabase]);
 
@@ -506,6 +520,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     return {
         rosters,
         swaps,
+        approvedSwaps,
         leaves,
         keyTransfers,
         isPending,
@@ -516,6 +531,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         performSignIn,
         refreshRosters,
         refreshSwaps,
+        refreshApprovedSwaps,
         refreshLeaves,
         refreshKeyTransfers,
         submitSwapRequest,

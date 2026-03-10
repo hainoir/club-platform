@@ -6,6 +6,7 @@ import { SignInCard } from '@/components/duty/SignInCard';
 import { SwapModal } from '@/components/duty/SwapModal';
 import { LeaveModal } from '@/components/duty/LeaveModal';
 import { KeyTransferCard } from '@/components/duty/KeyTransferCard';
+import { AbsentMembersCard, StudioMembersCard } from '@/components/duty/AttendancePanels';
 import { useUserStore, ADMIN_ROLES } from '@/store/useUserStore';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -22,12 +23,16 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
     const dutyManager = useDuty(initialData);
     const {
         rosters,
+        leaves,
+        approvedSwaps,
         isPending,
         isSigningIn,
         toggleDutySlot,
         toggleKey,
         performSignIn,
-        refreshRosters
+        refreshRosters,
+        refreshLeaves,
+        refreshApprovedSwaps
     } = dutyManager;
 
     const { user } = useUserStore();
@@ -68,6 +73,12 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
         checkTodaySignIn();
     }, [user, isSigningIn]);
 
+    // 初始化加载请假和已批准代班数据
+    useEffect(() => {
+        refreshLeaves();
+        refreshApprovedSwaps();
+    }, [refreshLeaves, refreshApprovedSwaps]);
+
     return (
         <div className="flex flex-col space-y-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -99,11 +110,52 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
                 {/* 左侧：打卡、换班、请假、钥匙交接 */}
                 <div className="lg:col-span-1 space-y-6">
-                    <SignInCard
-                        onSignIn={performSignIn}
-                        isSigningIn={isSigningIn || checkingSignIn}
-                        hasSignedInToday={hasSignedInToday}
-                    />
+                    {(() => {
+                        // 计算签到禁用原因
+                        const now = new Date();
+                        const todayDow = now.getDay();
+                        const nowMin = now.getHours() * 60 + now.getMinutes();
+                        const periodRanges: Record<number, [number, number]> = {
+                            1: [8 * 60, 9 * 60 + 35],
+                            2: [10 * 60 + 5, 11 * 60 + 40],
+                            3: [13 * 60 + 30, 15 * 60 + 5],
+                            4: [15 * 60 + 35, 17 * 60 + 10],
+                        };
+
+                        // 1. 是否在任何班次时间段内
+                        let isInAnyPeriod = false;
+                        if (todayDow >= 1 && todayDow <= 5) {
+                            for (const [, [start, end]] of Object.entries(periodRanges)) {
+                                if (nowMin >= start && nowMin <= end) {
+                                    isInAnyPeriod = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // 2. 用户是否被安排在当前班次
+                        const isAssigned = user ? rosters.some(r => {
+                            if (r.member_id !== user.id) return false;
+                            if (r.day_of_week !== todayDow) return false;
+                            const [start, end] = periodRanges[r.period] || [0, 0];
+                            return nowMin >= start && nowMin <= end;
+                        }) : false;
+
+                        const canSignIn = isInAnyPeriod && isAssigned;
+                        const reason = !isInAnyPeriod ? 'not_in_period' as const
+                            : !isAssigned ? 'not_assigned' as const
+                                : null;
+
+                        return (
+                            <SignInCard
+                                onSignIn={performSignIn}
+                                isSigningIn={isSigningIn || checkingSignIn}
+                                hasSignedInToday={hasSignedInToday}
+                                isInDutyPeriod={canSignIn}
+                                disabledReason={reason}
+                            />
+                        );
+                    })()}
 
                     <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                         <h3 className="font-semibold text-lg border-b border-border pb-3 mb-4">换班与代理大厅</h3>
@@ -126,6 +178,8 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                         currentUserId={user?.id}
                         isAdmin={isAdmin}
                         allMembers={initialMembers}
+                        leaves={leaves}
+                        approvedSwaps={approvedSwaps}
                         onAssignMember={toggleDutySlot}
                         onRemoveMember={toggleDutySlot}
                         onToggleKey={toggleKey}
@@ -134,6 +188,12 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
 
                     {/* 钥匙持有者摘要 */}
                     <KeyHoldersSummary rosters={rosters} />
+
+                    {/* 本周未签到人员 */}
+                    <AbsentMembersCard rosters={rosters} />
+
+                    {/* 目前在工作室的成员 */}
+                    <StudioMembersCard rosters={rosters} />
                 </div>
             </div>
         </div>

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { RosterWithMember } from '@/hooks/useDuty';
+import React, { useState, useMemo } from 'react';
+import { RosterWithMember, SwapWithMember } from '@/hooks/useDuty';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { X, UserPlus, ChevronDown, Search, KeyRound } from 'lucide-react';
@@ -24,6 +24,14 @@ const PERIODS = [
     { id: 4, label: '第四大节', time: '(15:35-17:10)' }
 ];
 
+// 每节课的结束时间（小时, 分钟）
+const PERIOD_END_TIMES: Record<number, [number, number]> = {
+    1: [9, 35],
+    2: [11, 40],
+    3: [15, 5],
+    4: [17, 10],
+};
+
 const DAYS = [
     { id: 1, label: '周一' },
     { id: 2, label: '周二' },
@@ -37,6 +45,8 @@ interface DutyTableProps {
     currentUserId?: string;
     isAdmin: boolean;
     allMembers: SimpleMember[];
+    leaves?: any[];
+    approvedSwaps?: SwapWithMember[];
     onAssignMember: (day: number, period: number, memberId: string, memberName: string) => void;
     onRemoveMember: (day: number, period: number, memberId: string, memberName: string) => void;
     onToggleKey?: (memberId: string, hasKey: boolean) => void;
@@ -133,6 +143,8 @@ export function DutyTable({
     currentUserId,
     isAdmin,
     allMembers,
+    leaves = [],
+    approvedSwaps = [],
     onAssignMember,
     onRemoveMember,
     onToggleKey,
@@ -149,6 +161,41 @@ export function DutyTable({
         });
         return map;
     }, [rosters]);
+
+    // 获取某个成员在某个槽位的状态标签（请假/代班）
+    // 节次结束后标签自动消失
+    const getSlotLabel = useMemo(() => {
+        const now = new Date();
+        const todayDow = now.getDay(); // 0=周日, 1=周一, ..., 5=周五
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+
+        // 判断某个节次是否已结束（仅当今天是该星期时才考虑时间）
+        const isPeriodOver = (day: number, period: number) => {
+            if (todayDow !== day) return todayDow > day && todayDow <= 5;
+            const [endH, endM] = PERIOD_END_TIMES[period] || [23, 59];
+            return currentHour > endH || (currentHour === endH && currentMinute >= endM);
+        };
+
+        return (memberId: string, day: number, period: number): 'leave' | 'substitute' | null => {
+            // 节次已结束，不显示标签
+            if (isPeriodOver(day, period)) return null;
+
+            // 检查请假
+            const hasLeave = leaves.some(
+                l => l.member_id === memberId && l.day_of_week === day && l.period === period
+            );
+            if (hasLeave) return 'leave';
+
+            // 检查代班（已批准的 swap 中 target 是该成员）
+            const isSubstitute = approvedSwaps.some(
+                s => s.target_id === memberId && s.original_day === day && s.original_period === period
+            );
+            if (isSubstitute) return 'substitute';
+
+            return null;
+        };
+    }, [leaves, approvedSwaps]);
 
     return (
         <div className="w-full overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
@@ -186,53 +233,66 @@ export function DutyTable({
                                         )}
                                     >
                                         <div className="flex flex-wrap gap-2 mb-2">
-                                            {membersInSlot.map(record => (
-                                                <div
-                                                    key={record.id}
-                                                    className={cn(
-                                                        "inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset gap-1",
-                                                        record.member_id === currentUserId
-                                                            ? "bg-primary/10 text-primary ring-primary/20"
-                                                            : "bg-secondary text-secondary-foreground ring-border"
-                                                    )}
-                                                >
-                                                    {record.member.name}
-                                                    {/* 钥匙标记 */}
-                                                    {record.has_key && (
-                                                        <KeyRound className="w-3 h-3 text-amber-500" />
-                                                    )}
-                                                    {/* 管理员可切换钥匙状态 */}
-                                                    {isAdmin && !record.has_key && onToggleKey && (
-                                                        <button
-                                                            onClick={() => onToggleKey(record.member_id, true)}
-                                                            className="ml-0.5 rounded-full p-0.5 opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:text-amber-500 transition-all"
-                                                            title={`标记 ${record.member.name} 持有钥匙`}
-                                                        >
-                                                            <KeyRound className="w-3 h-3" />
-                                                        </button>
-                                                    )}
-                                                    {isAdmin && record.has_key && onToggleKey && (
-                                                        <button
-                                                            onClick={() => onToggleKey(record.member_id, false)}
-                                                            className="ml-0.5 rounded-full p-0.5 hover:bg-amber-200/50 hover:text-amber-700 transition-colors"
-                                                            title={`取消 ${record.member.name} 的钥匙标记`}
-                                                        >
-                                                            <X className="w-3 h-3" />
-                                                        </button>
-                                                    )}
-                                                    {/* 管理员可移除已排班成员 */}
-                                                    {isAdmin && (
-                                                        <button
-                                                            onClick={() => onRemoveMember(day.id, period.id, record.member_id, record.member.name)}
-                                                            disabled={isPending}
-                                                            className="ml-0.5 rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors"
-                                                            title={`移除 ${record.member.name}`}
-                                                        >
-                                                            <X className="w-3 h-3" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))}
+                                            {membersInSlot.map(record => {
+                                                const label = getSlotLabel(record.member_id, day.id, period.id);
+                                                return (
+                                                    <div
+                                                        key={record.id}
+                                                        className={cn(
+                                                            "inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset gap-1",
+                                                            label === 'leave'
+                                                                ? "bg-orange-100 text-orange-700 ring-orange-300/50 dark:bg-orange-950/30 dark:text-orange-400 dark:ring-orange-700/50"
+                                                                : label === 'substitute'
+                                                                    ? "bg-green-100 text-green-700 ring-green-300/50 dark:bg-green-950/30 dark:text-green-400 dark:ring-green-700/50"
+                                                                    : record.member_id === currentUserId
+                                                                        ? "bg-primary/10 text-primary ring-primary/20"
+                                                                        : "bg-secondary text-secondary-foreground ring-border"
+                                                        )}
+                                                    >
+                                                        {record.member.name}
+                                                        {label === 'leave' && (
+                                                            <span className="text-[10px] opacity-80">(请假)</span>
+                                                        )}
+                                                        {label === 'substitute' && (
+                                                            <span className="text-[10px] opacity-80">(代班)</span>
+                                                        )}
+                                                        {/* 钥匙标记 */}
+                                                        {record.has_key && (
+                                                            <KeyRound className="w-3 h-3 text-amber-500" />
+                                                        )}
+                                                        {/* 管理员可切换钥匙状态 */}
+                                                        {isAdmin && !record.has_key && onToggleKey && (
+                                                            <button
+                                                                onClick={() => onToggleKey(record.member_id, true)}
+                                                                className="ml-0.5 rounded-full p-0.5 opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:text-amber-500 transition-all"
+                                                                title={`标记 ${record.member.name} 持有钥匙`}
+                                                            >
+                                                                <KeyRound className="w-3 h-3" />
+                                                            </button>
+                                                        )}
+                                                        {isAdmin && record.has_key && onToggleKey && (
+                                                            <button
+                                                                onClick={() => onToggleKey(record.member_id, false)}
+                                                                className="ml-0.5 rounded-full p-0.5 hover:bg-amber-200/50 hover:text-amber-700 transition-colors"
+                                                                title={`取消 ${record.member.name} 的钥匙标记`}
+                                                            >
+                                                                <X className="w-3 h-3" />
+                                                            </button>
+                                                        )}
+                                                        {/* 管理员可移除已排班成员 */}
+                                                        {isAdmin && (
+                                                            <button
+                                                                onClick={() => onRemoveMember(day.id, period.id, record.member_id, record.member.name)}
+                                                                disabled={isPending}
+                                                                className="ml-0.5 rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors"
+                                                                title={`移除 ${record.member.name}`}
+                                                            >
+                                                                <X className="w-3 h-3" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
 
                                         {/* 管理员操作区：指派成员下拉选择器 */}
