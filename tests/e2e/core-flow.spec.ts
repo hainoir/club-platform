@@ -1,19 +1,20 @@
-import { test, expect } from '@playwright/test';
+﻿import { expect, test } from '@playwright/test'
 
-test('核心用户旅程: 网页基本加载与导航', async ({ page }) => {
-    // 1. 访问首页，等待渲染完成
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+test.describe('Core access flow', () => {
+    test('unauthenticated user is redirected to /login for protected routes', async ({ page }) => {
+        const protectedRoutes = ['/', '/duty', '/members', '/events']
 
-    // 2. 验证导航栏是否存在
-    await expect(page.getByRole('navigation')).toBeVisible();
+        for (const route of protectedRoutes) {
+            await page.goto(route)
+            await expect(page).toHaveURL(/\/login(?:\?.*)?$/)
+        }
+    })
 
-    // 3. 尝试找到侧边栏并导航至“活动与课程”或“Members”页面
-    // 在实际测试中，应根据精确的 data-testid 或者角色导航进行定位
-    const eventLink = page.getByRole('link', { name: /活动|课程/ }).first();
-    if (await eventLink.count() > 0) {
-        await eventLink.click();
-        await expect(page).toHaveURL(/.*events/);
-        await expect(page.locator('h2', { hasText: '活动与课程' })).toBeVisible();
-    }
-});
+    test('login page renders required fields', async ({ page }) => {
+        await page.goto('/login')
+
+        await expect(page.locator('#email')).toBeVisible()
+        await expect(page.locator('#password')).toBeVisible()
+        await expect(page.getByRole('button', { name: /登录|log in|sign in/i })).toBeVisible()
+    })
+})

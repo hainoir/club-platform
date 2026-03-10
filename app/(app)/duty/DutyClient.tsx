@@ -36,7 +36,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
     } = dutyManager;
 
     const { user } = useUserStore();
-    const supabase = createClient();
+    const supabase = React.useMemo(() => createClient(), []);
     const [hasSignedInToday, setHasSignedInToday] = useState(false);
     const [checkingSignIn, setCheckingSignIn] = useState(true);
 
@@ -71,7 +71,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
             }
         }
         checkTodaySignIn();
-    }, [user, isSigningIn]);
+    }, [user, isSigningIn, supabase]);
 
     // 初始化加载请假和已批准代班数据
     useEffect(() => {

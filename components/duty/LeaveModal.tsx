@@ -87,9 +87,9 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
 
     // 补班数量变更时清除多余的选择
     useEffect(() => {
-        if (selectedComps.length > penaltyShifts) {
-            setSelectedComps(selectedComps.slice(0, penaltyShifts));
-        }
+        setSelectedComps(prev =>
+            prev.length > penaltyShifts ? prev.slice(0, penaltyShifts) : prev
+        );
     }, [penaltyShifts]);
 
     const handleSubmit = async () => {

@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+﻿import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
@@ -27,29 +27,33 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    // 【系统学习：Session 刷新与令牌保活】
-    // 调用 getUser() 不仅仅是拿信息，它会在背后检查如果 access_token 快过期了，
-    // 就自动用 refresh_token 去换一个新令牌写入 request.cookies，保持用户的登录态持久有效。
+    // 銆愮郴缁熷涔狅細Session 鍒锋柊涓庝护鐗屼繚娲汇€?
+    // 璋冪敤 getUser() 涓嶄粎浠呮槸鎷夸俊鎭紝瀹冧細鍦ㄨ儗鍚庢鏌ュ鏋?access_token 蹇繃鏈熶簡锛?
+    // 灏辫嚜鍔ㄧ敤 refresh_token 鍘绘崲涓€涓柊浠ょ墝鍐欏叆 request.cookies锛屼繚鎸佺敤鎴风殑鐧诲綍鎬佹寔涔呮湁鏁堛€?
     const {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // 【系统学习：路由守卫 (Route Guarding)】
-    // 定义只有内部人员可见的前端页面数组。
-    const protectedRoutes = ['/members', '/events']
-    const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))
+    // 銆愮郴缁熷涔狅細璺敱瀹堝崼 (Route Guarding)銆?
+    // 瀹氫箟鍙湁鍐呴儴浜哄憳鍙鐨勫墠绔〉闈㈡暟缁勩€?
+    const pathname = request.nextUrl.pathname
+    const isProtectedRoute =
+        pathname === '/' ||
+        pathname.startsWith('/duty') ||
+        pathname.startsWith('/members') ||
+        pathname.startsWith('/events')
 
     if (!user && isProtectedRoute) {
-        // 【系统学习：未授权拦截与踢出】
-        // 没带合法 Cookie 也敢进门？把你强制遣返到 /login 登录前台。
+        // 銆愮郴缁熷涔狅細鏈巿鏉冩嫤鎴笌韪㈠嚭銆?
+        // 娌″甫鍚堟硶 Cookie 涔熸暍杩涢棬锛熸妸浣犲己鍒堕仯杩斿埌 /login 鐧诲綍鍓嶅彴銆?
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)
     }
 
-    // 【系统学习：UX 重定向优化】
-    // 当系统检测到硬盘里有合法的登录凭证时，拦截用户再去硬闯 /login 的行为，将老玩家直接送回管理大厅。
-    if (user && request.nextUrl.pathname.startsWith('/login')) {
+    // 銆愮郴缁熷涔狅細UX 閲嶅畾鍚戜紭鍖栥€?
+    // 褰撶郴缁熸娴嬪埌纭洏閲屾湁鍚堟硶鐨勭櫥褰曞嚟璇佹椂锛屾嫤鎴敤鎴峰啀鍘荤‖闂?/login 鐨勮涓猴紝灏嗚€佺帺瀹剁洿鎺ラ€佸洖绠＄悊澶у巺銆?
+    if (user && pathname.startsWith('/login')) {
         const url = request.nextUrl.clone()
         url.pathname = '/'
         return NextResponse.redirect(url)
@@ -57,3 +61,4 @@ export async function updateSession(request: NextRequest) {
 
     return supabaseResponse
 }
+

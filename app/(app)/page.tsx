@@ -1,11 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Activity, GraduationCap, CircleUserRound, CheckCircle2 } from "lucide-react"
+import { Users, Activity, GraduationCap, CheckCircle2 } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
-import { format, isAfter, subMonths, startOfMonth, endOfMonth } from "date-fns"
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import DashboardCharts from "./DashboardCharts"
-import DashboardPie from "./DashboardPie"
-import DashboardAttendance from "./DashboardAttendance"
+import { LazyAttendanceChart, LazyPieChart, LazyTrendChart } from "@/components/dashboard/LazyCharts"
 
 /**
  * 【面试考点：React Server Components (RSC) 与服务端直出】
@@ -177,7 +175,7 @@ export default async function Dashboard() {
                         <CardDescription>月度新增部员与实际下场活动频次的交叉比对图。</CardDescription>
                     </CardHeader>
                     <CardContent className="pl-0">
-                        <DashboardCharts data={chartPayload} />
+                        <LazyTrendChart data={chartPayload} />
                     </CardContent>
                 </Card>
 
@@ -218,7 +216,7 @@ export default async function Dashboard() {
                         <CardDescription>各部门现存成员人数及占比流向图。</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <DashboardPie data={pieData} />
+                        <LazyPieChart data={pieData} />
                     </CardContent>
                 </Card>
 
@@ -228,7 +226,7 @@ export default async function Dashboard() {
                         <CardDescription>最近 5 场历史活动的实际出勤人员占比直方图。</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <DashboardAttendance data={attendanceData} />
+                        <LazyAttendanceChart data={attendanceData} />
                     </CardContent>
                 </Card>
             </div>

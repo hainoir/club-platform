@@ -22,11 +22,26 @@ export interface SwapWithMember extends DutySwap {
 // -------------------------------------------------------------
 // 工作室预设坐标与有效打卡半径配置 (请按需修改)
 // -------------------------------------------------------------
-const STUDIO_COORDS = {
-    lat: 39.182216, // 例如：北京纬度
-    lng: 117.127909 // 例如：北京经度
+const DEFAULT_STUDIO_COORDS = {
+    lat: 39.182216,
+    lng: 117.127909,
 };
-const MAX_VALID_RADIUS_METERS = 50; // 最大允许偏差：50米
+const DEFAULT_MAX_VALID_RADIUS_METERS = 50;
+
+function parseClientNumber(value: string | undefined, fallback: number): number {
+    if (!value) return fallback;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+const STUDIO_COORDS = {
+    lat: parseClientNumber(process.env.NEXT_PUBLIC_STUDIO_LAT, DEFAULT_STUDIO_COORDS.lat),
+    lng: parseClientNumber(process.env.NEXT_PUBLIC_STUDIO_LNG, DEFAULT_STUDIO_COORDS.lng),
+};
+const MAX_VALID_RADIUS_METERS = parseClientNumber(
+    process.env.NEXT_PUBLIC_STUDIO_RADIUS_METERS,
+    DEFAULT_MAX_VALID_RADIUS_METERS
+);
 
 // 星期标签，用于生成可读的提示信息
 const DAYS_LABEL = ['一', '二', '三', '四', '五'];

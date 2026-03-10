@@ -1,8 +1,8 @@
 "use client"
 import * as React from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
-import { useUserStore } from "@/store/useUserStore"
+import { normalizeUserRole, useUserStore } from "@/store/useUserStore"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,7 +58,7 @@ export default function LoginForm() {
                     setUser({
                         id: memberData?.id || data.user.id, // <== 核心修复：优先取业务表主键 ID 以保证后续功能表正常关联外键
                         email: data.user.email || email,
-                        role: memberData?.role || 'member',
+                        role: normalizeUserRole(memberData?.role) || 'member',
                         name: memberData?.name || '社团成员'
                     })
                 }
