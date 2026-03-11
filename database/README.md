@@ -1,4 +1,4 @@
-﻿# Database Migration Guide
+# Database Migration Guide
 
 This project uses SQL-first migrations. Run files in a strict order to avoid drift.
 
@@ -15,7 +15,7 @@ This project uses SQL-first migrations. Run files in a strict order to avoid dri
 4. `database/key_and_leave_schema.sql`
 5. `database/studio_sessions_schema.sql`
 6. `database/update_swap_status.sql`
-7. Optional feature patches (`database/add_grade_column.sql`, etc.)
+7. `database/add_signin_and_rsvp_constraints.sql` (required hardening: sign-in de-dup + RSVP uniqueness)
 
 ## Incremental Upgrade Order (Existing Environments)
 
@@ -48,3 +48,5 @@ GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO public;
 - `accept_duty_swap` rejects non-admin callers.
 - `confirm_key_transfer` rejects callers that are not the receiver.
 - Function definitions include: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- `event_attendees_event_email_unique` exists to enforce one RSVP per event/email (case-insensitive).
+- `duty_logs_member_sign_in_date_unique` exists to block repeated sign-ins in the same day.

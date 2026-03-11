@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useTransition } from 'react';
+import { useState, useCallback, useMemo, useRef, useTransition } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { Database } from '@/types/supabase';
 import { useToast } from '@/components/ui/toast-simple';
@@ -42,6 +42,7 @@ const MAX_VALID_RADIUS_METERS = parseClientNumber(
     process.env.NEXT_PUBLIC_STUDIO_RADIUS_METERS,
     DEFAULT_MAX_VALID_RADIUS_METERS
 );
+const SIGN_IN_ATTEMPT_COOLDOWN_MS = 5000;
 
 // 星期标签，用于生成可读的提示信息
 const DAYS_LABEL = ['一', '二', '三', '四', '五'];
@@ -190,69 +191,157 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     // 2. 签到打卡 (包含地理位置定位与算距防作弊)
     // ------------------------------------------------------------------------
     const [isSigningIn, setIsSigningIn] = useState(false);
+    const lastSignInAttemptAtRef = useRef(0);
 
     const performSignIn = useCallback(async () => {
         if (!user) return;
-        setIsSigningIn(true);
+        if (isSigningIn) return;
 
-        if (!navigator.geolocation) {
+        const nowTs = Date.now();
+        const elapsed = nowTs - lastSignInAttemptAtRef.current;
+        if (elapsed < SIGN_IN_ATTEMPT_COOLDOWN_MS) {
+            const waitSeconds = Math.max(1, Math.ceil((SIGN_IN_ATTEMPT_COOLDOWN_MS - elapsed) / 1000));
             toast({
-                title: '环境不受支持',
-                description: '您的浏览器不支持地理位置定位，无法完成安全防刷打卡。',
+                title: 'Too many attempts',
+                description: 'Please wait ' + waitSeconds + 's before trying sign-in again.',
                 variant: 'destructive'
             });
+            return;
+        }
+        lastSignInAttemptAtRef.current = nowTs;
+
+        setIsSigningIn(true);
+
+        let completed = false;
+        const finishSignIn = () => {
+            if (completed) return false;
+            completed = true;
             setIsSigningIn(false);
+            return true;
+        };
+
+        const geolocationWatchdog = window.setTimeout(() => {
+            if (!finishSignIn()) return;
+            toast({
+                title: 'Sign-in failed',
+                description: 'Location request timed out. Please check permission settings and try again.',
+                variant: 'destructive'
+            });
+        }, 15000);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        try {
+            const { data: existingLogs, error: existingError } = await supabase
+                .from('duty_logs')
+                .select('id')
+                .eq('member_id', user.id)
+                .gte('sign_in_time', today.toISOString())
+                .limit(1);
+
+            if (!existingError && !!existingLogs && existingLogs.length > 0) {
+                window.clearTimeout(geolocationWatchdog);
+                toast({
+                    title: 'Today already signed in',
+                    description: 'You already have a sign-in record today.'
+                });
+                finishSignIn();
+                return;
+            }
+        } catch (checkError) {
+            console.warn('Failed to pre-check sign-in logs:', checkError);
+        }
+
+        if (!navigator.geolocation) {
+            window.clearTimeout(geolocationWatchdog);
+            toast({
+                title: 'Unsupported environment',
+                description: 'This browser does not support geolocation.',
+                variant: 'destructive'
+            });
+            finishSignIn();
             return;
         }
 
-        // 发起定位请求
         navigator.geolocation.getCurrentPosition(
             async (position) => {
-                const { latitude, longitude } = position.coords;
-                const distance = getDistanceFromLatLonInM(latitude, longitude, STUDIO_COORDS.lat, STUDIO_COORDS.lng);
+                if (completed) return;
+                window.clearTimeout(geolocationWatchdog);
 
-                let locationVerified = false;
-
-                if (distance <= MAX_VALID_RADIUS_METERS) {
-                    locationVerified = true;
-                    toast({ title: '定位校验成功', description: `您已进入工作室打卡范围 (${Math.round(distance)}米)` });
-                } else {
+                if (!position || !position.coords) {
                     toast({
-                        title: '定位校验失败',
-                        description: `距离工作室中心点 ${Math.round(distance)} 米，超出允许的 ${MAX_VALID_RADIUS_METERS} 米范围。请移动到工作室内再试。`,
+                        title: 'Sign-in failed',
+                        description: 'Location payload is empty. Please check your device GPS service and try again.',
                         variant: 'destructive'
                     });
-                    setIsSigningIn(false);
-                    return; // 拒绝写入打卡流水
+                    finishSignIn();
+                    return;
+                }
+
+                const latitude = Number(position.coords.latitude);
+                const longitude = Number(position.coords.longitude);
+
+                if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+                    toast({
+                        title: 'Sign-in failed',
+                        description: 'Location coordinates are invalid.',
+                        variant: 'destructive'
+                    });
+                    finishSignIn();
+                    return;
+                }
+
+                const distance = getDistanceFromLatLonInM(latitude, longitude, STUDIO_COORDS.lat, STUDIO_COORDS.lng);
+
+                if (distance > MAX_VALID_RADIUS_METERS) {
+                    toast({
+                        title: 'Sign-in failed',
+                        description: 'Current location is outside the allowed sign-in radius.',
+                        variant: 'destructive'
+                    });
+                    finishSignIn();
+                    return;
                 }
 
                 try {
-                    // 获取设备 User-Agent 作为简单防脱机特征记录
                     const deviceInfo = window.navigator.userAgent;
                     const { error } = await supabase
                         .from('duty_logs')
                         .insert({
                             member_id: user.id,
-                            location_verified: locationVerified,
+                            location_verified: true,
                             device_info: deviceInfo
                         });
 
                     if (error) throw error;
-                    toast({ title: '签到成功！', description: '本次值班出勤已记录到后台库。' });
-                } catch (err: any) {
-                    toast({ title: '打卡存档失败', description: err.message, variant: 'destructive' });
+                    toast({ title: 'Sign-in success', description: 'Attendance has been recorded.' });
+                } catch (err) {
+                    const typedError = err as { code?: string; message?: string };
+                    if (typedError?.code === '23505') {
+                        toast({ title: 'Today already signed in', description: 'Duplicate sign-in request was blocked.' });
+                    } else {
+                        toast({
+                            title: 'Sign-in failed',
+                            description: typedError?.message || 'Failed to persist the sign-in record.',
+                            variant: 'destructive'
+                        });
+                    }
                 } finally {
-                    setIsSigningIn(false);
+                    finishSignIn();
                 }
             },
             (geoError) => {
-                setIsSigningIn(false);
-                let msg = '请确保您已开启设备和浏览器的定位授权。';
-                if (geoError.code === geoError.PERMISSION_DENIED) msg = '您拒绝了定位请求，无法执行打卡。';
-                if (geoError.code === geoError.POSITION_UNAVAILABLE) msg = '获取位置信息失败，请检查 GPS 或网络。';
-                if (geoError.code === geoError.TIMEOUT) msg = '定位请求超时，请重试。';
+                if (completed) return;
+                window.clearTimeout(geolocationWatchdog);
 
-                toast({ title: '无法获取地理位置', description: msg, variant: 'destructive' });
+                let msg = 'Please check location permission and try again.';
+                if (geoError.code === geoError.PERMISSION_DENIED) msg = 'Location permission was denied.';
+                if (geoError.code === geoError.POSITION_UNAVAILABLE) msg = 'Unable to read location from device.';
+                if (geoError.code === geoError.TIMEOUT) msg = 'Location request timed out.';
+
+                toast({ title: 'Sign-in failed', description: msg, variant: 'destructive' });
+                finishSignIn();
             },
             {
                 enableHighAccuracy: true,
@@ -260,7 +349,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 maximumAge: 0
             }
         );
-    }, [user, toast, supabase]);
+    }, [isSigningIn, user, toast, supabase]);
 
     // ------------------------------------------------------------------------
     // 3. 换班系统逻辑

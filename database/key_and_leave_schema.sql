@@ -1,15 +1,15 @@
-﻿-- ==========================================================
--- 閽ュ寵绠＄悊 + 璇峰亣琛ョ彮 + 閽ュ寵浜ゆ帴 鏁版嵁搴?Schema
 -- ==========================================================
--- 鎻愮ず锛氳鍦?Supabase SQL Editor 涓墽琛屾鑴氭湰
+-- 钥匙管理 + 请假补班 + 钥匙交接 数据 Schema
+-- ==========================================================
+-- 提示：请在 Supabase SQL Editor 中执行此脚本
 
--- 1. duty_rosters 鏂板 has_key 瀛楁
+-- 1. duty_rosters 新增 has_key 字段
 ALTER TABLE public.duty_rosters
 ADD COLUMN IF NOT EXISTS has_key boolean DEFAULT false;
 
-COMMENT ON COLUMN public.duty_rosters.has_key IS '璇ユ帓鐝汉鍛樻槸鍚︽寔鏈夐挜鍖?;
+COMMENT ON COLUMN public.duty_rosters.has_key IS '该排班人员是否持有钥匙';
 
--- 2. 璇峰亣璁板綍琛?
+-- 2. 请假记录表
 CREATE TABLE IF NOT EXISTS public.duty_leaves (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   member_id uuid NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.duty_leaves (
   created_at timestamptz DEFAULT now()
 );
 
--- 3. 琛ョ彮瀹夋帓琛紙璇峰亣鏃堕€夋嫨鐨勪笅鍛ㄨˉ鍊肩彮鑺傛锛?
+-- 3. 补班安排表 (请假时选择的下周补值班节次)
 CREATE TABLE IF NOT EXISTS public.duty_compensations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   leave_id uuid NOT NULL REFERENCES public.duty_leaves(id) ON DELETE CASCADE,
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS public.duty_compensations (
   created_at timestamptz DEFAULT now()
 );
 
--- 4. 閽ュ寵浜ゆ帴璁板綍琛?
+-- 4. 钥匙交接记录表
 CREATE TABLE IF NOT EXISTS public.key_transfers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   from_member_id uuid REFERENCES public.members(id) ON DELETE SET NULL,
@@ -44,30 +44,30 @@ CREATE TABLE IF NOT EXISTS public.key_transfers (
 );
 
 -- ==========================================================
--- 5. 鍚敤琛岀骇瀹夊叏 (RLS)
+-- 5. 启用行级安全 (RLS)
 -- ==========================================================
 ALTER TABLE public.duty_leaves ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.duty_compensations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.key_transfers ENABLE ROW LEVEL SECURITY;
 
 -- ==========================================================
--- 6. RLS 绛栫暐
+-- 6. RLS 策略
 -- ==========================================================
 
--- duty_leaves: 鎵€鏈夎璇佺敤鎴峰彲鏌ョ湅锛屾湰浜哄彲鎻掑叆锛岀鐞嗗憳鍙慨鏀?
-DROP POLICY IF EXISTS "鍏佽璁よ瘉鐢ㄦ埛鏌ョ湅璇峰亣" ON public.duty_leaves;
-CREATE POLICY "鍏佽璁よ瘉鐢ㄦ埛鏌ョ湅璇峰亣"
+-- duty_leaves: 所有认证用户可查看，本人可插入，管理员可修改
+DROP POLICY IF EXISTS "允许认证用户查看请假" ON public.duty_leaves;
+CREATE POLICY "允许认证用户查看请假"
 ON public.duty_leaves FOR SELECT TO authenticated USING (true);
 
-DROP POLICY IF EXISTS "鍏佽鏈汉鎻愪氦璇峰亣" ON public.duty_leaves;
-CREATE POLICY "鍏佽鏈汉鎻愪氦璇峰亣"
+DROP POLICY IF EXISTS "允许本人提交请假" ON public.duty_leaves;
+CREATE POLICY "允许本人提交请假"
 ON public.duty_leaves FOR INSERT TO authenticated
 WITH CHECK (
   EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND m.email = auth.jwt()->>'email')
 );
 
-DROP POLICY IF EXISTS "鍏佽绠＄悊鍛樻垨鏈汉鎿嶄綔璇峰亣" ON public.duty_leaves;
-CREATE POLICY "鍏佽绠＄悊鍛樻垨鏈汉鎿嶄綔璇峰亣"
+DROP POLICY IF EXISTS "允许管理员或本人操作请假" ON public.duty_leaves;
+CREATE POLICY "允许管理员或本人操作请假"
 ON public.duty_leaves FOR UPDATE TO authenticated
 USING (
   EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND m.email = auth.jwt()->>'email')
@@ -77,8 +77,8 @@ USING (
   )
 );
 
-DROP POLICY IF EXISTS "鍏佽绠＄悊鍛樻垨鏈汉鍒犻櫎璇峰亣" ON public.duty_leaves;
-CREATE POLICY "鍏佽绠＄悊鍛樻垨鏈汉鍒犻櫎璇峰亣"
+DROP POLICY IF EXISTS "允许管理员或本人删除请假" ON public.duty_leaves;
+CREATE POLICY "允许管理员或本人删除请假"
 ON public.duty_leaves FOR DELETE TO authenticated
 USING (
   EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND m.email = auth.jwt()->>'email')
@@ -88,32 +88,32 @@ USING (
   )
 );
 
--- duty_compensations: 涓?duty_leaves 涓€鑷?
-DROP POLICY IF EXISTS "鍏佽璁よ瘉鐢ㄦ埛鏌ョ湅琛ョ彮" ON public.duty_compensations;
-CREATE POLICY "鍏佽璁よ瘉鐢ㄦ埛鏌ョ湅琛ョ彮"
+-- duty_compensations: 
+DROP POLICY IF EXISTS "允许认证用户查看补班" ON public.duty_compensations;
+CREATE POLICY "允许认证用户查看补班"
 ON public.duty_compensations FOR SELECT TO authenticated USING (true);
 
-DROP POLICY IF EXISTS "鍏佽鏈汉鎻愪氦琛ョ彮" ON public.duty_compensations;
-CREATE POLICY "鍏佽鏈汉鎻愪氦琛ョ彮"
+DROP POLICY IF EXISTS "允许本人提交补班" ON public.duty_compensations;
+CREATE POLICY "允许本人提交补班"
 ON public.duty_compensations FOR INSERT TO authenticated
 WITH CHECK (
   EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND m.email = auth.jwt()->>'email')
 );
 
--- key_transfers: 鎵€鏈夎璇佺敤鎴峰彲鏌ョ湅锛岀浉鍏虫柟鍙彃鍏?淇敼
-DROP POLICY IF EXISTS "鍏佽璁よ瘉鐢ㄦ埛鏌ョ湅閽ュ寵浜ゆ帴" ON public.key_transfers;
-CREATE POLICY "鍏佽璁よ瘉鐢ㄦ埛鏌ョ湅閽ュ寵浜ゆ帴"
+-- key_transfers: 
+DROP POLICY IF EXISTS "允许认证用户查看钥匙交接" ON public.key_transfers;
+CREATE POLICY "允许认证用户查看钥匙交接"
 ON public.key_transfers FOR SELECT TO authenticated USING (true);
 
-DROP POLICY IF EXISTS "鍏佽鏈汉鍙戣捣閽ュ寵浜ゆ帴" ON public.key_transfers;
-CREATE POLICY "鍏佽鏈汉鍙戣捣閽ュ寵浜ゆ帴"
+DROP POLICY IF EXISTS "允许本人发起钥匙交接" ON public.key_transfers;
+CREATE POLICY "允许本人发起钥匙交接"
 ON public.key_transfers FOR INSERT TO authenticated
 WITH CHECK (
   EXISTS (SELECT 1 FROM public.members m WHERE m.id = from_member_id AND m.email = auth.jwt()->>'email')
 );
 
-DROP POLICY IF EXISTS "鍏佽鐩稿叧鏂规洿鏂伴挜鍖欎氦鎺? ON public.key_transfers;
-CREATE POLICY "鍏佽鐩稿叧鏂规洿鏂伴挜鍖欎氦鎺?
+DROP POLICY IF EXISTS "允许相关方更新钥匙交接" ON public.key_transfers;
+CREATE POLICY "允许相关方更新钥匙交接"
 ON public.key_transfers FOR UPDATE TO authenticated
 USING (
   EXISTS (
@@ -122,9 +122,9 @@ USING (
   )
 );
 
--- duty_rosters 鏂板 UPDATE 绛栫暐锛堢敤浜庣鐞嗗憳鍒囨崲 has_key锛?
-DROP POLICY IF EXISTS "鍏佽绠＄悊鍛樹慨鏀规帓鐝? ON public.duty_rosters;
-CREATE POLICY "鍏佽绠＄悊鍛樹慨鏀规帓鐝?
+-- duty_rosters 新增 UPDATE 策略
+DROP POLICY IF EXISTS "允许管理员修改排班" ON public.duty_rosters;
+CREATE POLICY "允许管理员修改排班"
 ON public.duty_rosters FOR UPDATE TO authenticated
 USING (
   EXISTS (
@@ -139,7 +139,7 @@ WITH CHECK (
   )
 );
 
--- RPC: 纭閽ュ寵浜ゆ帴锛堟帴鏀朵汉纭鍚庯紝鏇存柊鎺掔彮涓殑閽ュ寵鎸佹湁鐘舵€侊級
+-- RPC: 确认钥匙交接 (接收人确认后，更新排班中的钥匙持有状态)
 CREATE OR REPLACE FUNCTION public.confirm_key_transfer(p_transfer_id uuid, p_confirmer_id uuid)
 RETURNS void AS $$
 DECLARE
@@ -185,8 +185,3 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION public.confirm_key_transfer(uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO authenticated;
-
-
-
-
-

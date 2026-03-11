@@ -153,7 +153,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                         return (
                             <SignInCard
                                 onSignIn={performSignIn}
-                                isSigningIn={isSigningIn || checkingSignIn}
+                                isSigningIn={isSigningIn}
                                 hasSignedInToday={hasSignedInToday}
                                 isInDutyPeriod={canSignIn}
                                 disabledReason={reason}

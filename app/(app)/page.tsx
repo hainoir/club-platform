@@ -20,7 +20,7 @@ import { DashboardSignInWidget } from "@/components/dashboard/DashboardSignInWid
 import { createClient } from "@/utils/supabase/server"
 import type { RosterWithMember } from "@/hooks/useDuty"
 
-export const dynamic = "force-dynamic"
+export const revalidate = 60
 
 const PERIODS: ReadonlyArray<{ id: number; label: string; start: string; end: string }> = [
     { id: 1, label: "第一节", start: "08:00", end: "09:35" },
@@ -494,3 +494,4 @@ export default async function DashboardPage() {
         </div>
     )
 }
+

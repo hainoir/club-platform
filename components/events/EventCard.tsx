@@ -31,7 +31,8 @@ export function EventCard({
     onAttendeesClick,
     onRSVP
 }: EventCardProps) {
-    const isRSVPd = event.attendeesList?.some(a => a.user_email === currentUserEmail)
+    const normalizedCurrentUserEmail = (currentUserEmail || '').trim().toLowerCase()
+    const isRSVPd = !!normalizedCurrentUserEmail && event.attendeesList?.some(a => a.user_email?.toLowerCase() === normalizedCurrentUserEmail)
 
     return (
         <Card className={cn(

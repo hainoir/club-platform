@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import * as React from "react"
 
@@ -19,6 +19,7 @@ const DEFAULT_STUDIO_COORDS = {
 }
 
 const DEFAULT_MAX_VALID_RADIUS_METERS = 50
+const SIGN_IN_ATTEMPT_COOLDOWN_MS = 5000
 
 function parseClientNumber(value: string | undefined, fallback: number): number {
     if (!value) return fallback
@@ -69,6 +70,7 @@ export function DashboardSignInWidget({
     const [hasSignedInToday, setHasSignedInToday] = React.useState(initialHasSignedInToday)
     const [isInDutyPeriod, setIsInDutyPeriod] = React.useState(false)
     const [disabledReason, setDisabledReason] = React.useState<DisabledReason>("not_in_period")
+    const lastSignInAttemptAtRef = React.useRef(0)
 
     const assignedPeriods = React.useMemo(
         () => Array.from(new Set(todayAssignedPeriods.filter((period) => PERIOD_RANGES[period]))),
@@ -108,71 +110,164 @@ export function DashboardSignInWidget({
     }, [refreshSignInState])
 
     const onSignIn = React.useCallback(() => {
+        if (isSigningIn) return
+
+        const nowTs = Date.now()
+        const elapsed = nowTs - lastSignInAttemptAtRef.current
+        if (elapsed < SIGN_IN_ATTEMPT_COOLDOWN_MS) {
+            const waitSeconds = Math.max(1, Math.ceil((SIGN_IN_ATTEMPT_COOLDOWN_MS - elapsed) / 1000))
+            toast({
+                title: "??????",
+                description: `?? ${waitSeconds} ???????`,
+                variant: "destructive",
+            })
+            return
+        }
+        lastSignInAttemptAtRef.current = nowTs
+
         if (!memberId) {
-            toast({ title: "无法签到", description: "未找到当前成员档案，请联系管理员。", variant: "destructive" })
+            toast({ title: "????", description: "?????????????????", variant: "destructive" })
+            return
+        }
+
+        if (hasSignedInToday) {
+            toast({ title: "?????", description: "???????????????" })
             return
         }
 
         if (!navigator.geolocation) {
-            toast({ title: "当前设备不支持定位", description: "请使用支持定位的浏览器后重试。", variant: "destructive" })
+            toast({ title: "?????????", description: "???????????????", variant: "destructive" })
             return
         }
 
         setIsSigningIn(true)
 
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const { latitude, longitude } = position.coords
-                const distance = getDistanceFromLatLonInM(latitude, longitude, STUDIO_COORDS.lat, STUDIO_COORDS.lng)
+        let completed = false
+        const finishSignIn = () => {
+            if (completed) return false
+            completed = true
+            setIsSigningIn(false)
+            return true
+        }
 
-                if (distance > MAX_VALID_RADIUS_METERS) {
-                    toast({
-                        title: "签到失败",
-                        description: `当前位置距离工作室约 ${Math.round(distance)} 米，超出允许范围。`,
-                        variant: "destructive",
-                    })
-                    setIsSigningIn(false)
+        const geolocationWatchdog = window.setTimeout(() => {
+            if (!finishSignIn()) return
+            toast({ title: "??????", description: "?????????????????????", variant: "destructive" })
+        }, 15_000)
+
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        const preCheckAndSignIn = async () => {
+            try {
+                const { data: existingLogs, error: existingError } = await supabase
+                    .from("duty_logs")
+                    .select("id")
+                    .eq("member_id", memberId)
+                    .gte("sign_in_time", today.toISOString())
+                    .limit(1)
+
+                if (!existingError && !!existingLogs && existingLogs.length > 0) {
+                    window.clearTimeout(geolocationWatchdog)
+                    setHasSignedInToday(true)
+                    toast({ title: "?????", description: "???????????????" })
+                    finishSignIn()
                     return
                 }
-
-                try {
-                    const { error } = await supabase.from("duty_logs").insert({
-                        member_id: memberId,
-                        location_verified: true,
-                        device_info: window.navigator.userAgent,
-                    })
-
-                    if (error) throw error
-
-                    setHasSignedInToday(true)
-                    refreshSignInState()
-                    toast({ title: "签到成功", description: "已完成位置验证并记录到值班考勤。" })
-                } catch (error: unknown) {
-                    toast({
-                        title: "签到失败",
-                        description: (error as Error).message || "无法写入签到记录，请稍后重试。",
-                        variant: "destructive",
-                    })
-                } finally {
-                    setIsSigningIn(false)
-                }
-            },
-            (geoError) => {
-                let description = "请检查定位权限后重试。"
-                if (geoError.code === geoError.PERMISSION_DENIED) description = "定位权限被拒绝，无法进行签到。"
-                if (geoError.code === geoError.POSITION_UNAVAILABLE) description = "无法获取定位信息，请检查设备定位服务。"
-                if (geoError.code === geoError.TIMEOUT) description = "定位请求超时，请稍后重试。"
-
-                toast({ title: "签到失败", description, variant: "destructive" })
-                setIsSigningIn(false)
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10_000,
-                maximumAge: 0,
+            } catch (error) {
+                console.warn("Failed to pre-check duty logs:", error)
             }
-        )
-    }, [memberId, refreshSignInState, supabase, toast])
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    if (completed) return
+                    window.clearTimeout(geolocationWatchdog)
+
+                    if (!position || !position.coords) {
+                        toast({
+                            title: "????",
+                            description: "????????????????????????",
+                            variant: "destructive",
+                        })
+                        finishSignIn()
+                        return
+                    }
+
+                    const latitude = Number(position.coords.latitude)
+                    const longitude = Number(position.coords.longitude)
+
+                    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+                        toast({
+                            title: "????",
+                            description: "????????????????????",
+                            variant: "destructive",
+                        })
+                        finishSignIn()
+                        return
+                    }
+
+                    const distance = getDistanceFromLatLonInM(latitude, longitude, STUDIO_COORDS.lat, STUDIO_COORDS.lng)
+
+                    if (distance > MAX_VALID_RADIUS_METERS) {
+                        toast({
+                            title: "????",
+                            description: `?????????? ${Math.round(distance)} ?????????`,
+                            variant: "destructive",
+                        })
+                        finishSignIn()
+                        return
+                    }
+
+                    try {
+                        const { error } = await supabase.from("duty_logs").insert({
+                            member_id: memberId,
+                            location_verified: true,
+                            device_info: window.navigator.userAgent,
+                        })
+
+                        if (error) throw error
+
+                        setHasSignedInToday(true)
+                        refreshSignInState()
+                        toast({ title: "????", description: "????????????????" })
+                    } catch (error: unknown) {
+                        const typedError = error as { code?: string; message?: string }
+                        if (typedError?.code === "23505") {
+                            setHasSignedInToday(true)
+                            toast({ title: "?????", description: "??????????????????" })
+                        } else {
+                            toast({
+                                title: "????",
+                                description: typedError?.message || "???????????????",
+                                variant: "destructive",
+                            })
+                        }
+                    } finally {
+                        finishSignIn()
+                    }
+                },
+                (geoError) => {
+                    if (completed) return
+                    window.clearTimeout(geolocationWatchdog)
+
+                    let description = "???????????"
+                    if (geoError.code === geoError.PERMISSION_DENIED) description = "???????????????"
+                    if (geoError.code === geoError.POSITION_UNAVAILABLE) description = "???????????????????"
+                    if (geoError.code === geoError.TIMEOUT) description = "?????????????"
+
+                    toast({ title: "????", description, variant: "destructive" })
+                    finishSignIn()
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10_000,
+                    maximumAge: 0,
+                }
+            )
+        }
+
+        void preCheckAndSignIn()
+    }, [hasSignedInToday, isSigningIn, memberId, refreshSignInState, supabase, toast])
 
     return (
         <SignInCard

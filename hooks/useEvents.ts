@@ -165,37 +165,63 @@ export function useEvents(initialEvents: Event[]) {
 
     const handleRSVP = async (event: Event) => {
         if (!user) {
-            toast({ title: "需要登录", description: "请先登录以报名参加活动。", variant: "destructive" })
+            toast({ title: "Login required", description: "Please log in before RSVP.", variant: "destructive" })
             return
         }
 
-        const isAlreadyRSVPd = event.attendeesList?.some(a => a.user_email === user.email)
+        const normalizedEmail = (user.email || "").trim().toLowerCase()
+        if (!normalizedEmail) {
+            toast({ title: "RSVP failed", description: "Current account has no email.", variant: "destructive" })
+            return
+        }
+
+        const isAlreadyRSVPd = event.attendeesList?.some((a) => a.user_email?.toLowerCase() === normalizedEmail)
 
         try {
             if (isAlreadyRSVPd) {
                 const { error } = await supabase
                     .from('event_attendees')
                     .delete()
-                    .match({ event_id: event.id, user_email: user.email })
+                    .eq('event_id', event.id)
+                    .ilike('user_email', normalizedEmail)
 
                 if (error) throw error
-                toast({ title: "已取消报名", description: `您已退出 "${event.title}"` })
+                toast({ title: "RSVP canceled", description: 'You have left "' + event.title + '".' })
             } else {
+                const { data: existing, error: checkError } = await supabase
+                    .from('event_attendees')
+                    .select('id')
+                    .eq('event_id', event.id)
+                    .ilike('user_email', normalizedEmail)
+                    .limit(1)
+
+                if (checkError) throw checkError
+                if (existing && existing.length > 0) {
+                    toast({ title: "Already RSVP'd", description: 'You are already enrolled in "' + event.title + '".' })
+                    router.refresh()
+                    return
+                }
+
                 const { error } = await supabase
                     .from('event_attendees')
                     .insert([{
                         event_id: event.id,
-                        user_email: user.email,
-                        user_name: user.name || "匿名成员"
+                        user_email: normalizedEmail,
+                        user_name: user.name || "Anonymous Member"
                     }])
 
                 if (error) throw error
-                toast({ title: "报名成功", description: `您已成功报名参加 "${event.title}"！` })
+                toast({ title: "RSVP successful", description: 'You have joined "' + event.title + '".' })
             }
             router.refresh()
         } catch (error: unknown) {
-            const pError = error as PostgrestError;
-            toast({ title: "操作失败", description: pError.message || (error as Error).message || "无法完成请求", variant: "destructive" })
+            const pError = error as PostgrestError & { code?: string }
+            if (pError.code === '23505') {
+                toast({ title: "Already RSVP'd", description: 'Duplicate RSVP request was blocked for "' + event.title + '".' })
+                router.refresh()
+                return
+            }
+            toast({ title: "Operation failed", description: pError.message || (error as Error).message || "Unable to complete request", variant: "destructive" })
         }
     }
 
@@ -254,15 +280,17 @@ export function useEvents(initialEvents: Event[]) {
         return new Date(compareTime) < new Date();
     }
 
+    const normalizedUserEmail = (user?.email || '').trim().toLowerCase();
+
     const upcomingEvents = events.filter(e => {
         if (isEventEnded(e)) return false;
-        if (viewMode === "enrolled" && !e.attendeesList?.some(a => a.user_email === user?.email)) return false;
+        if (viewMode === "enrolled" && (!normalizedUserEmail || !e.attendeesList?.some(a => a.user_email?.toLowerCase() === normalizedUserEmail))) return false;
         return true;
     });
 
     const endedEvents = events.filter(e => {
         if (!isEventEnded(e)) return false;
-        if (viewMode === "enrolled" && !e.attendeesList?.some(a => a.user_email === user?.email)) return false;
+        if (viewMode === "enrolled" && (!normalizedUserEmail || !e.attendeesList?.some(a => a.user_email?.toLowerCase() === normalizedUserEmail))) return false;
         return true;
     }).sort((a, b) => {
         const timeA = new Date(a.rawEndTime || a.rawDate || 0).getTime();
