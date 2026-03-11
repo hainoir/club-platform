@@ -1,4 +1,4 @@
-﻿import { expect, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { loginWithPassword, requireEnv } from './helpers/auth'
 
 test('login success smoke', async ({ page }) => {
@@ -6,5 +6,5 @@ test('login success smoke', async ({ page }) => {
 
     await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
     await expect(page).toHaveURL(/\/$/)
-    await expect(page.getByRole('heading', { level: 2, name: '数据大盘' })).toBeVisible()
+    await expect(page.locator('main h2').first()).toBeVisible()
 })

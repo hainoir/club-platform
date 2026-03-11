@@ -46,10 +46,14 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
     // 检查今天是否已签到
     useEffect(() => {
         async function checkTodaySignIn() {
+            setCheckingSignIn(true);
+
             if (!user) {
+                setHasSignedInToday(false);
                 setCheckingSignIn(false);
                 return;
             }
+
             try {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -61,15 +65,15 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                     .gte('sign_in_time', today.toISOString())
                     .limit(1);
 
-                if (!error && data && data.length > 0) {
-                    setHasSignedInToday(true);
-                }
+                setHasSignedInToday(!error && !!data && data.length > 0);
             } catch (e) {
-                console.error('检查签到状态失败:', e);
+                console.error('Failed to check sign-in status:', e);
+                setHasSignedInToday(false);
             } finally {
                 setCheckingSignIn(false);
             }
         }
+
         checkTodaySignIn();
     }, [user, isSigningIn, supabase]);
 

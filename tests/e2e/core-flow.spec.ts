@@ -1,8 +1,8 @@
-﻿import { expect, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test.describe('Core access flow', () => {
     test('unauthenticated user is redirected to /login for protected routes', async ({ page }) => {
-        const protectedRoutes = ['/', '/duty', '/members', '/events']
+        const protectedRoutes = ['/', '/duty', '/members', '/events', '/settings']
 
         for (const route of protectedRoutes) {
             await page.goto(route)
@@ -15,6 +15,6 @@ test.describe('Core access flow', () => {
 
         await expect(page.locator('#email')).toBeVisible()
         await expect(page.locator('#password')).toBeVisible()
-        await expect(page.getByRole('button', { name: /登录|log in|sign in/i })).toBeVisible()
+        await expect(page.locator('form button[type="submit"]')).toBeVisible()
     })
 })

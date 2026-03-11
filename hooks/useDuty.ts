@@ -1,4 +1,4 @@
-import { useState, useCallback, useTransition } from 'react';
+import { useState, useCallback, useMemo, useTransition } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { Database } from '@/types/supabase';
 import { useToast } from '@/components/ui/toast-simple';
@@ -70,7 +70,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const { user } = useUserStore();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     // ------------------------------------------------------------------------
     // 初始化与刷新数据

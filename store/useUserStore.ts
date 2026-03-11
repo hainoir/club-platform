@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand'
+import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 const KNOWN_ROLES = [
@@ -53,10 +53,11 @@ export const useUserStore = create<UserState>()(
             isInitialized: false,
             setUser: (user) => set({ user }),
             setInitialized: (status) => set({ isInitialized: status }),
-            logout: () => set({ user: null }),
+            logout: () => set({ user: null, isInitialized: false }),
         }),
         {
             name: 'club-user-storage',
+            partialize: (state) => ({ user: state.user }),
         }
     )
 )

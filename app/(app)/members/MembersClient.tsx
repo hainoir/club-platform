@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 import * as React from "react"
 import { Search, Plus, MoreHorizontal, Pencil, Trash2, Download, ChevronLeft, ChevronRight } from "lucide-react"
 import { useUserStore, ADMIN_ROLES } from "@/store/useUserStore"
@@ -49,7 +49,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">成员管理</h2>
-                    <p className="text-sm text-muted-foreground mt-1">查看和管理分支机构成员及权限。</p>
+                    <p className="text-sm text-muted-foreground mt-1">查看和管理社团成员及权限。</p>
                 </div>
                 {ADMIN_ROLES.includes(user?.role || '') && (
                     <div className="flex gap-2 items-center">

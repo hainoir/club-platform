@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { RosterWithMember } from '@/hooks/useDuty';
 import { useUserStore } from '@/store/useUserStore';
@@ -18,6 +18,13 @@ const PERIOD_RANGES: Record<number, { start: [number, number]; end: [number, num
 
 const DAYS_LABEL = ['一', '二', '三', '四', '五'];
 
+function getLocalDateKey(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 // 各节次结束后 10 分钟的时间限（分钟表示）
 function getPeriodEndPlusMinutes(period: number, extraMin: number): number {
     const [h, m] = PERIOD_RANGES[period]?.end || [23, 59];
@@ -27,6 +34,17 @@ function getPeriodEndPlusMinutes(period: number, extraMin: number): number {
 function getNowMinutes(): number {
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
+}
+
+function getMatchedPeriod(minutes: number): number {
+    for (const [pid, range] of Object.entries(PERIOD_RANGES)) {
+        const startMin = range.start[0] * 60 + range.start[1] - 30;
+        const endMin = range.end[0] * 60 + range.end[1];
+        if (minutes >= startMin && minutes <= endMin) {
+            return Number(pid);
+        }
+    }
+    return 0;
 }
 
 function getTodayDow(): number {
@@ -62,8 +80,8 @@ interface AbsentMembersCardProps {
 }
 
 export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
-    const supabase = createClient();
-    const [signedMemberIds, setSignedMemberIds] = useState<Set<string>>(new Set());
+    const supabase = useMemo(() => createClient(), []);
+    const [signedSlotKeys, setSignedSlotKeys] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
 
     // 获取本周所有签到记录
@@ -71,13 +89,23 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
         const monday = getWeekMonday();
         const { data } = await supabase
             .from('duty_logs')
-            .select('member_id')
+            .select('member_id, sign_in_time')
             .gte('sign_in_time', monday.toISOString())
             .eq('location_verified', true);
 
-        if (data) {
-            setSignedMemberIds(new Set(data.map(d => d.member_id)));
-        }
+        const nextSignedSlots = new Set<string>();
+        (data || []).forEach(log => {
+            const signTime = new Date(log.sign_in_time);
+            const signMinutes = signTime.getHours() * 60 + signTime.getMinutes();
+            const matchedPeriod = getMatchedPeriod(signMinutes);
+            const dayOfWeek = signTime.getDay();
+            if (matchedPeriod === 0 || dayOfWeek < 1 || dayOfWeek > 5) return;
+
+            const slotKey = `${log.member_id}-${getLocalDateKey(signTime)}-${matchedPeriod}`;
+            nextSignedSlots.add(slotKey);
+        });
+
+        setSignedSlotKeys(nextSignedSlots);
         setLoading(false);
     }, [supabase]);
 
@@ -91,10 +119,14 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
     // 筛选：班次已结束 + 未签到的成员（去重）
     const absentMembers = React.useMemo(() => {
         const map = new Map<string, { name: string; slots: string[] }>();
+        const monday = getWeekMonday();
 
         rosters.forEach(r => {
             if (!isPeriodPast(r.day_of_week, r.period)) return; // 班次还没结束，不算
-            if (signedMemberIds.has(r.member_id)) return; // 已签到
+            const slotDate = new Date(monday);
+            slotDate.setDate(monday.getDate() + (r.day_of_week - 1));
+            const slotKey = `${r.member_id}-${getLocalDateKey(slotDate)}-${r.period}`;
+            if (signedSlotKeys.has(slotKey)) return; // this roster slot is already signed in
 
             const existing = map.get(r.member_id);
             const slotLabel = `周${DAYS_LABEL[r.day_of_week - 1]}第${r.period}节`;
@@ -106,7 +138,7 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
         });
 
         return Array.from(map.entries()).map(([id, info]) => ({ id, ...info }));
-    }, [rosters, signedMemberIds]);
+    }, [rosters, signedSlotKeys]);
 
     if (loading) return null;
 
@@ -148,7 +180,7 @@ interface StudioMember {
 }
 
 export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const { user } = useUserStore();
     const [studioMembers, setStudioMembers] = useState<StudioMember[]>([]);
     const [loading, setLoading] = useState(true);
@@ -178,15 +210,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 const signTime = new Date(log.sign_in_time);
                 const signMin = signTime.getHours() * 60 + signTime.getMinutes();
 
-                let matchedPeriod = 0;
-                for (const [pid, range] of Object.entries(PERIOD_RANGES)) {
-                    const startMin = range.start[0] * 60 + range.start[1] - 30;
-                    const endMin = range.end[0] * 60 + range.end[1];
-                    if (signMin >= startMin && signMin <= endMin) {
-                        matchedPeriod = parseInt(pid);
-                        break;
-                    }
-                }
+                let matchedPeriod = getMatchedPeriod(signMin);
                 if (matchedPeriod === 0) matchedPeriod = 1;
 
                 // 节次结束 +10 分钟后移除
@@ -219,17 +243,9 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 const startTime = new Date(s.started_at);
                 const startMin = startTime.getHours() * 60 + startTime.getMinutes();
 
-                let matchedPeriod = 0;
-                for (const [pid, range] of Object.entries(PERIOD_RANGES)) {
-                    const sMin = range.start[0] * 60 + range.start[1] - 30;
-                    const eMin = range.end[0] * 60 + range.end[1];
-                    if (startMin >= sMin && startMin <= eMin) {
-                        matchedPeriod = parseInt(pid);
-                        break;
-                    }
-                }
+                const matchedPeriod = getMatchedPeriod(startMin);
 
-                // 在节次内自习：+10 分钟后自动移除
+                // auto-expire study session 10 minutes after period ends
                 if (matchedPeriod > 0) {
                     const periodEndPlus10 = getPeriodEndPlusMinutes(matchedPeriod, 10);
                     if (nowMin > periodEndPlus10) {

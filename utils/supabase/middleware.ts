@@ -41,7 +41,8 @@ export async function updateSession(request: NextRequest) {
         pathname === '/' ||
         pathname.startsWith('/duty') ||
         pathname.startsWith('/members') ||
-        pathname.startsWith('/events')
+        pathname.startsWith('/events') ||
+        pathname.startsWith('/settings')
 
     if (!user && isProtectedRoute) {
         // 銆愮郴缁熷涔狅細鏈巿鏉冩嫤鎴笌韪㈠嚭銆?
