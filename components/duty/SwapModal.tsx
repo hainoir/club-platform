@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { RefreshCw, UserCircle2, ArrowRight, Clock, CheckCircle2 } from 'lucide-react';
 import { useDuty } from '@/hooks/useDuty';
-import { useUserStore, ADMIN_ROLES } from '@/store/useUserStore';
+import { useUserStore, isAdminRole } from '@/store/useUserStore';
 import { Badge } from "@/components/ui/badge";
 
 const DAYS = ['一', '二', '三', '四', '五'];
@@ -24,7 +24,7 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
     const { user } = useUserStore();
     const { swaps, refreshSwaps, respondToSwap, volunteerForSwap, rejectSwap, isSwapping } = dutyManager;
 
-    const isAdmin = ADMIN_ROLES.includes(user?.role || '');
+    const isAdmin = isAdminRole(user?.role);
 
     useEffect(() => {
         if (open) {

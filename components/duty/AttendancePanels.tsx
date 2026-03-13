@@ -6,6 +6,7 @@ import { RosterWithMember } from '@/hooks/useDuty';
 import { useUserStore } from '@/store/useUserStore';
 import { AlertTriangle, MapPin, BookOpen, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast-simple';
 import { cn } from '@/lib/utils';
 
 // 每节课的时间范围（小时:分钟）
@@ -72,6 +73,11 @@ function getWeekMonday(): Date {
     return monday;
 }
 
+function extractErrorMessage(err: unknown, fallback: string): string {
+    const message = err && typeof err === 'object' && 'message' in err ? String((err as { message?: string }).message || '') : '';
+    return message || fallback;
+}
+
 // ===================================================================
 // 组件 1: 本周未签到人员
 // ===================================================================
@@ -83,30 +89,40 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
     const supabase = useMemo(() => createClient(), []);
     const [signedSlotKeys, setSignedSlotKeys] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // 获取本周所有签到记录
     const fetchSignIns = useCallback(async () => {
-        const monday = getWeekMonday();
-        const { data } = await supabase
-            .from('duty_logs')
-            .select('member_id, sign_in_time')
-            .gte('sign_in_time', monday.toISOString())
-            .eq('location_verified', true);
+        try {
+            const monday = getWeekMonday();
+            const { data, error } = await supabase
+                .from('duty_logs')
+                .select('member_id, sign_in_time')
+                .gte('sign_in_time', monday.toISOString())
+                .eq('location_verified', true);
 
-        const nextSignedSlots = new Set<string>();
-        (data || []).forEach(log => {
-            const signTime = new Date(log.sign_in_time);
-            const signMinutes = signTime.getHours() * 60 + signTime.getMinutes();
-            const matchedPeriod = getMatchedPeriod(signMinutes);
-            const dayOfWeek = signTime.getDay();
-            if (matchedPeriod === 0 || dayOfWeek < 1 || dayOfWeek > 5) return;
+            if (error) throw error;
 
-            const slotKey = `${log.member_id}-${getLocalDateKey(signTime)}-${matchedPeriod}`;
-            nextSignedSlots.add(slotKey);
-        });
+            const nextSignedSlots = new Set<string>();
+            (data || []).forEach(log => {
+                const signTime = new Date(log.sign_in_time);
+                const signMinutes = signTime.getHours() * 60 + signTime.getMinutes();
+                const matchedPeriod = getMatchedPeriod(signMinutes);
+                const dayOfWeek = signTime.getDay();
+                if (matchedPeriod === 0 || dayOfWeek < 1 || dayOfWeek > 5) return;
 
-        setSignedSlotKeys(nextSignedSlots);
-        setLoading(false);
+                const slotKey = `${log.member_id}-${getLocalDateKey(signTime)}-${matchedPeriod}`;
+                nextSignedSlots.add(slotKey);
+            });
+
+            setSignedSlotKeys(nextSignedSlots);
+            setErrorMsg(null);
+        } catch (err) {
+            setSignedSlotKeys(new Set());
+            setErrorMsg(extractErrorMessage(err, '无法读取本周签到数据'));
+        } finally {
+            setLoading(false);
+        }
     }, [supabase]);
 
     useEffect(() => {
@@ -140,15 +156,18 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
         return Array.from(map.entries()).map(([id, info]) => ({ id, ...info }));
     }, [rosters, signedSlotKeys]);
 
-    if (loading) return null;
-
     return (
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 text-sm mb-3">
                 <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
                 <span className="font-medium text-muted-foreground">本周未签到人员</span>
             </div>
-            {absentMembers.length === 0 ? (
+
+            {loading ? (
+                <p className="text-xs text-muted-foreground">数据加载中...</p>
+            ) : errorMsg ? (
+                <p className="text-xs text-destructive">{errorMsg}</p>
+            ) : absentMembers.length === 0 ? (
                 <p className="text-xs text-muted-foreground">🎉 本周所有到期班次均已签到</p>
             ) : (
                 <div className="space-y-1.5">
@@ -182,27 +201,31 @@ interface StudioMember {
 export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     const supabase = useMemo(() => createClient(), []);
     const { user } = useUserStore();
+    const { toast } = useToast();
     const [studioMembers, setStudioMembers] = useState<StudioMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [ending, setEnding] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // 获取今日在工作室的成员（值班签到 + 自习，分开查询）
     const fetchStudioMembers = useCallback(async () => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const nowMin = getNowMinutes();
-        const members: StudioMember[] = [];
-        const seenIds = new Set<string>();
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const nowMin = getNowMinutes();
+            const members: StudioMember[] = [];
+            const seenIds = new Set<string>();
 
-        // --- 数据源 1: 值班签到（duty_logs，排除 self-study 标记的旧数据） ---
-        const { data: dutyLogs } = await supabase
-            .from('duty_logs')
-            .select('id, member_id, sign_in_time, device_info')
-            .gte('sign_in_time', today.toISOString())
-            .eq('location_verified', true);
+            // --- 数据源 1: 值班签到（duty_logs，排除 self-study 标记的旧数据） ---
+            const { data: dutyLogs, error: dutyError } = await supabase
+                .from('duty_logs')
+                .select('id, member_id, sign_in_time, device_info')
+                .gte('sign_in_time', today.toISOString())
+                .eq('location_verified', true);
 
-        if (dutyLogs) {
-            dutyLogs.forEach(log => {
+            if (dutyError) throw dutyError;
+
+            (dutyLogs || []).forEach(log => {
                 if (seenIds.has(log.member_id)) return;
                 // 跳过误用 duty_logs 的自习记录
                 if (log.device_info?.includes('self-study')) return;
@@ -227,16 +250,16 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 });
                 seenIds.add(log.member_id);
             });
-        }
 
-        // --- 数据源 2: 自习会话（studio_sessions，仅 is_active=true） ---
-        const { data: sessions } = await supabase
-            .from('studio_sessions')
-            .select('id, member_id, started_at')
-            .eq('is_active', true);
+            // --- 数据源 2: 自习会话（studio_sessions，仅 is_active=true） ---
+            const { data: sessions, error: sessionError } = await supabase
+                .from('studio_sessions')
+                .select('id, member_id, started_at')
+                .eq('is_active', true);
 
-        if (sessions) {
-            sessions.forEach(s => {
+            if (sessionError) throw sessionError;
+
+            (sessions || []).forEach(s => {
                 if (seenIds.has(s.member_id)) return;
 
                 // 推断自习开始时对应的节次
@@ -267,10 +290,15 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 });
                 seenIds.add(s.member_id);
             });
-        }
 
-        setStudioMembers(members);
-        setLoading(false);
+            setStudioMembers(members);
+            setErrorMsg(null);
+        } catch (err) {
+            setStudioMembers([]);
+            setErrorMsg(extractErrorMessage(err, '无法读取工作室在场数据'));
+        } finally {
+            setLoading(false);
+        }
     }, [supabase, rosters]);
 
     useEffect(() => {
@@ -287,9 +315,14 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 .from('studio_sessions')
                 .insert({ member_id: user.id });
             if (error) throw error;
+            toast({ title: '自习已开始', description: '已记录你在工作室自习。' });
             fetchStudioMembers();
         } catch (err) {
-            console.error('自习签到失败:', err);
+            toast({
+                title: '开始自习失败',
+                description: extractErrorMessage(err, '请检查数据库权限策略后重试。'),
+                variant: 'destructive',
+            });
         }
     };
 
@@ -306,9 +339,14 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                     .eq('id', mySession.sessionId);
                 if (error) throw error;
             }
+            toast({ title: '已结束自习' });
             fetchStudioMembers();
         } catch (err) {
-            console.error('结束自习失败:', err);
+            toast({
+                title: '结束自习失败',
+                description: extractErrorMessage(err, '请检查数据库权限策略后重试。'),
+                variant: 'destructive',
+            });
         } finally {
             setEnding(false);
         }
@@ -317,15 +355,13 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     const isAlreadyInStudio = studioMembers.some(m => m.id === user?.id);
     const isSelfStudying = studioMembers.some(m => m.id === user?.id && m.type === 'study');
 
-    if (loading) return null;
-
     return (
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 text-sm">
                     <MapPin className="w-4 h-4 text-green-500 shrink-0" />
                     <span className="font-medium text-muted-foreground">目前在工作室</span>
-                    {studioMembers.length > 0 && (
+                    {!loading && studioMembers.length > 0 && (
                         <span className="text-xs bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 px-1.5 py-0.5 rounded-full">
                             {studioMembers.length}人
                         </span>
@@ -333,7 +369,11 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 </div>
             </div>
 
-            {studioMembers.length === 0 ? (
+            {loading ? (
+                <p className="text-xs text-muted-foreground">数据加载中...</p>
+            ) : errorMsg ? (
+                <p className="text-xs text-destructive">{errorMsg}</p>
+            ) : studioMembers.length === 0 ? (
                 <p className="text-xs text-muted-foreground">目前工作室暂无人员</p>
             ) : (
                 <div className="flex flex-wrap gap-1.5 mb-3">
@@ -357,7 +397,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
             )}
 
             {/* 自习加入 / 结束自习 */}
-            {!isAlreadyInStudio ? (
+            {!loading && !errorMsg && !isAlreadyInStudio ? (
                 <Button
                     variant="outline"
                     size="sm"
@@ -367,7 +407,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                     <BookOpen className="w-3 h-3 mr-1" />
                     我在工作室自习
                 </Button>
-            ) : isSelfStudying ? (
+            ) : !loading && !errorMsg && isSelfStudying ? (
                 <Button
                     variant="outline"
                     size="sm"

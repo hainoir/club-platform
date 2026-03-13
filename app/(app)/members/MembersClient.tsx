@@ -1,7 +1,7 @@
-﻿"use client"
+"use client"
 import * as React from "react"
 import { Search, Plus, MoreHorizontal, Pencil, Trash2, Download, ChevronLeft, ChevronRight } from "lucide-react"
-import { useUserStore, ADMIN_ROLES } from "@/store/useUserStore"
+import { useUserStore, isAdminRole } from "@/store/useUserStore"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -51,7 +51,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                     <h2 className="text-3xl font-bold tracking-tight">成员管理</h2>
                     <p className="text-sm text-muted-foreground mt-1">查看和管理社团成员及权限。</p>
                 </div>
-                {ADMIN_ROLES.includes(user?.role || '') && (
+                {isAdminRole(user?.role) && (
                     <div className="flex gap-2 items-center">
                         <Button onClick={exportMembersToCSV} variant="outline" className="gap-2 shadow-sm transition-all focus:ring-2 bg-background hover:bg-muted">
                             <Download className="h-4 w-4" /> 导出成员
@@ -90,7 +90,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                             <TableHead>年级</TableHead>
                             <TableHead>加入日期</TableHead>
                             <TableHead>状态</TableHead>
-                            {ADMIN_ROLES.includes(user?.role || '') && <TableHead className="w-[80px]">操作</TableHead>}
+                            {isAdminRole(user?.role) && <TableHead className="w-[80px]">操作</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -146,7 +146,7 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
                                                 {member.status === "active" ? "活跃" : (member.status === "inactive" ? "停用" : "活跃")}
                                             </Badge>
                                         </TableCell>
-                                        {ADMIN_ROLES.includes(user?.role || '') && (
+                                        {isAdminRole(user?.role) && (
                                             <TableCell>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -213,4 +213,3 @@ export default function MembersClient({ initialMembers }: MembersClientProps) {
         </div>
     )
 }
-

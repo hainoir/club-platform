@@ -63,17 +63,17 @@ DROP POLICY IF EXISTS "允许本人提交请假" ON public.duty_leaves;
 CREATE POLICY "允许本人提交请假"
 ON public.duty_leaves FOR INSERT TO authenticated
 WITH CHECK (
-  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND m.email = auth.jwt()->>'email')
+  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email')))
 );
 
 DROP POLICY IF EXISTS "允许管理员或本人操作请假" ON public.duty_leaves;
 CREATE POLICY "允许管理员或本人操作请假"
 ON public.duty_leaves FOR UPDATE TO authenticated
 USING (
-  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND m.email = auth.jwt()->>'email')
+  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email')))
   OR EXISTS (
-    SELECT 1 FROM public.members admin WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    SELECT 1 FROM public.members admin WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 );
 
@@ -81,10 +81,10 @@ DROP POLICY IF EXISTS "允许管理员或本人删除请假" ON public.duty_leav
 CREATE POLICY "允许管理员或本人删除请假"
 ON public.duty_leaves FOR DELETE TO authenticated
 USING (
-  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND m.email = auth.jwt()->>'email')
+  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email')))
   OR EXISTS (
-    SELECT 1 FROM public.members admin WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    SELECT 1 FROM public.members admin WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 );
 
@@ -97,7 +97,7 @@ DROP POLICY IF EXISTS "允许本人提交补班" ON public.duty_compensations;
 CREATE POLICY "允许本人提交补班"
 ON public.duty_compensations FOR INSERT TO authenticated
 WITH CHECK (
-  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND m.email = auth.jwt()->>'email')
+  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email')))
 );
 
 -- key_transfers: 
@@ -109,7 +109,7 @@ DROP POLICY IF EXISTS "允许本人发起钥匙交接" ON public.key_transfers;
 CREATE POLICY "允许本人发起钥匙交接"
 ON public.key_transfers FOR INSERT TO authenticated
 WITH CHECK (
-  EXISTS (SELECT 1 FROM public.members m WHERE m.id = from_member_id AND m.email = auth.jwt()->>'email')
+  EXISTS (SELECT 1 FROM public.members m WHERE m.id = from_member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email')))
 );
 
 DROP POLICY IF EXISTS "允许相关方更新钥匙交接" ON public.key_transfers;
@@ -118,7 +118,7 @@ ON public.key_transfers FOR UPDATE TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.id IN (from_member_id, to_member_id) AND m.email = auth.jwt()->>'email'
+    WHERE m.id IN (from_member_id, to_member_id) AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
   )
 );
 
@@ -128,14 +128,14 @@ CREATE POLICY "允许管理员修改排班"
 ON public.duty_rosters FOR UPDATE TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM public.members admin WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    SELECT 1 FROM public.members admin WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 )
 WITH CHECK (
   EXISTS (
-    SELECT 1 FROM public.members admin WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    SELECT 1 FROM public.members admin WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 );
 

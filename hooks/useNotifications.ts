@@ -1,8 +1,8 @@
-﻿"use client"
+"use client"
 
 import * as React from "react"
 import { createClient } from "@/utils/supabase/client"
-import { ADMIN_ROLES, useUserStore } from "@/store/useUserStore"
+import { isAdminRole, useUserStore } from "@/store/useUserStore"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
 
 const READ_IDS_STORAGE_KEY = "club-read-notification-ids-v1"
@@ -116,7 +116,7 @@ export function useNotifications() {
         setLoading(true)
 
         try {
-            const isAdmin = ADMIN_ROLES.includes(user.role || "")
+            const isAdmin = isAdminRole(user.role)
             const now = new Date()
             const nowMinutes = now.getHours() * 60 + now.getMinutes()
             const todayDow = now.getDay()

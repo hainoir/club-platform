@@ -25,8 +25,8 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM members AS admin
-    WHERE admin.email = auth.jwt()->>'email'
-    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    AND admin.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -37,8 +37,8 @@ TO authenticated
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM members AS admin
-    WHERE admin.email = auth.jwt()->>'email'
-    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    AND admin.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -59,8 +59,8 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM members AS admin
-    WHERE admin.email = auth.jwt()->>'email'
-    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    AND admin.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -78,8 +78,8 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM members AS admin
-    WHERE admin.email = auth.jwt()->>'email'
-    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    AND admin.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -90,8 +90,8 @@ TO authenticated
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM members AS admin
-    WHERE admin.email = auth.jwt()->>'email'
-    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    AND admin.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -102,8 +102,8 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM members AS admin
-    WHERE admin.email = auth.jwt()->>'email'
-    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    AND admin.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -121,11 +121,11 @@ CREATE POLICY "允许认证用户自行报名或管理员操作"
 ON event_attendees FOR INSERT 
 TO authenticated 
 WITH CHECK (
-  auth.jwt()->>'email' = user_email
+  lower(trim(auth.jwt()->>'email')) = lower(trim(user_email))
   OR EXISTS (
     SELECT 1 FROM members AS admin
-    WHERE admin.email = auth.jwt()->>'email'
-    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    AND admin.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -135,11 +135,11 @@ CREATE POLICY "允许认证用户取消报名或管理员操作"
 ON event_attendees FOR DELETE 
 TO authenticated 
 USING (
-  auth.jwt()->>'email' = user_email
+  lower(trim(auth.jwt()->>'email')) = lower(trim(user_email))
   OR EXISTS (
     SELECT 1 FROM members AS admin
-    WHERE admin.email = auth.jwt()->>'email'
-    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    AND admin.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -151,8 +151,8 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM members AS admin
-    WHERE admin.email = auth.jwt()->>'email'
-    AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    AND admin.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -178,8 +178,8 @@ WITH CHECK (
   bucket_id = 'events'
   AND EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.email = auth.jwt()->>'email'
-      AND m.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
+      AND m.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -192,16 +192,16 @@ USING (
   bucket_id = 'events'
   AND EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.email = auth.jwt()->>'email'
-      AND m.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
+      AND m.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 )
 WITH CHECK (
   bucket_id = 'events'
   AND EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.email = auth.jwt()->>'email'
-      AND m.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
+      AND m.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
 
@@ -214,8 +214,7 @@ USING (
   bucket_id = 'events'
   AND EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.email = auth.jwt()->>'email'
-      AND m.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    WHERE lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
+      AND m.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );
-

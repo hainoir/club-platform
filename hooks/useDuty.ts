@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useRef, useTransition } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { Database } from '@/types/supabase';
 import { useToast } from '@/components/ui/toast-simple';
-import { useUserStore, ADMIN_ROLES } from '@/store/useUserStore';
+import { useUserStore, isAdminRole } from '@/store/useUserStore';
 
 type DutyRoster = Database['public']['Tables']['duty_rosters']['Row'];
 type Member = Database['public']['Tables']['members']['Row'];
@@ -121,7 +121,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
 
         // 权限前置守卫：仅管理员可操作
-        if (!ADMIN_ROLES.includes(user.role || '')) {
+        if (!isAdminRole(user.role)) {
             toast({ title: '权限不足', description: '仅管理员可以进行排班操作。', variant: 'destructive' });
             return;
         }
@@ -177,15 +177,17 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             // 重新加载真实数据
             refreshRosters();
         } catch (error: any) {
-            // 回滚
-            setRosters(initialRosters);
+            await refreshRosters();
+            const message = error?.code === '42501'
+                ? '数据库权限拒绝：请确认已应用最新 duty/key RLS 策略，并检查当前账号角色。'
+                : error?.message || '更新值班状态出错，请稍后重试';
             toast({
                 title: '操作失败',
-                description: error.message || '更新值班状态出错，请稍后重试',
+                description: message,
                 variant: 'destructive',
             });
         }
-    }, [rosters, user, toast, initialRosters, refreshRosters, supabase]);
+    }, [rosters, user, toast, refreshRosters, supabase]);
 
     // ------------------------------------------------------------------------
     // 2. 签到打卡 (包含地理位置定位与算距防作弊)
@@ -202,8 +204,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         if (elapsed < SIGN_IN_ATTEMPT_COOLDOWN_MS) {
             const waitSeconds = Math.max(1, Math.ceil((SIGN_IN_ATTEMPT_COOLDOWN_MS - elapsed) / 1000));
             toast({
-                title: 'Too many attempts',
-                description: 'Please wait ' + waitSeconds + 's before trying sign-in again.',
+                title: '请求过于频繁',
+                description: '请等待 ' + waitSeconds + ' 秒后再尝试签到。',
                 variant: 'destructive'
             });
             return;
@@ -223,8 +225,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         const geolocationWatchdog = window.setTimeout(() => {
             if (!finishSignIn()) return;
             toast({
-                title: 'Sign-in failed',
-                description: 'Location request timed out. Please check permission settings and try again.',
+                title: '签到失败',
+                description: '定位请求超时，请检查权限设置后重试。',
                 variant: 'destructive'
             });
         }, 15000);
@@ -243,8 +245,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             if (!existingError && !!existingLogs && existingLogs.length > 0) {
                 window.clearTimeout(geolocationWatchdog);
                 toast({
-                    title: 'Today already signed in',
-                    description: 'You already have a sign-in record today.'
+                    title: '今日已签到',
+                    description: '您今天已有签到记录，无需重复签到。'
                 });
                 finishSignIn();
                 return;
@@ -256,8 +258,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         if (!navigator.geolocation) {
             window.clearTimeout(geolocationWatchdog);
             toast({
-                title: 'Unsupported environment',
-                description: 'This browser does not support geolocation.',
+                title: '当前设备不支持定位',
+                description: '请使用支持定位的浏览器后重试。',
                 variant: 'destructive'
             });
             finishSignIn();
@@ -271,8 +273,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
 
                 if (!position || !position.coords) {
                     toast({
-                        title: 'Sign-in failed',
-                        description: 'Location payload is empty. Please check your device GPS service and try again.',
+                        title: '定位数据异常',
+                        description: '未获取到有效定位信息，请检查设备定位服务后重试。',
                         variant: 'destructive'
                     });
                     finishSignIn();
@@ -284,8 +286,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
 
                 if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
                     toast({
-                        title: 'Sign-in failed',
-                        description: 'Location coordinates are invalid.',
+                        title: '签到失败',
+                        description: '定位坐标无效，请稍后重试。',
                         variant: 'destructive'
                     });
                     finishSignIn();
@@ -296,8 +298,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
 
                 if (distance > MAX_VALID_RADIUS_METERS) {
                     toast({
-                        title: 'Sign-in failed',
-                        description: 'Current location is outside the allowed sign-in radius.',
+                        title: '签到失败',
+                        description: `当前位置距离工作室约 ${Math.round(distance)} 米，超出允许范围。`,
                         variant: 'destructive'
                     });
                     finishSignIn();
@@ -315,15 +317,15 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                         });
 
                     if (error) throw error;
-                    toast({ title: 'Sign-in success', description: 'Attendance has been recorded.' });
+                    toast({ title: '签到成功', description: '已完成位置验证并记录到值班考勤。' });
                 } catch (err) {
                     const typedError = err as { code?: string; message?: string };
                     if (typedError?.code === '23505') {
-                        toast({ title: 'Today already signed in', description: 'Duplicate sign-in request was blocked.' });
+                        toast({ title: '今日已签到', description: '检测到重复签到请求，系统已自动拦截。' });
                     } else {
                         toast({
-                            title: 'Sign-in failed',
-                            description: typedError?.message || 'Failed to persist the sign-in record.',
+                            title: '签到失败',
+                            description: typedError?.message || '无法写入签到记录，请稍后重试。',
                             variant: 'destructive'
                         });
                     }
@@ -335,12 +337,12 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 if (completed) return;
                 window.clearTimeout(geolocationWatchdog);
 
-                let msg = 'Please check location permission and try again.';
-                if (geoError.code === geoError.PERMISSION_DENIED) msg = 'Location permission was denied.';
-                if (geoError.code === geoError.POSITION_UNAVAILABLE) msg = 'Unable to read location from device.';
-                if (geoError.code === geoError.TIMEOUT) msg = 'Location request timed out.';
+                let msg = '请检查定位权限后重试。';
+                if (geoError.code === geoError.PERMISSION_DENIED) msg = '定位权限被拒绝，无法进行签到。';
+                if (geoError.code === geoError.POSITION_UNAVAILABLE) msg = '无法获取定位信息，请检查设备定位服务。';
+                if (geoError.code === geoError.TIMEOUT) msg = '定位请求超时，请稍后重试。';
 
-                toast({ title: 'Sign-in failed', description: msg, variant: 'destructive' });
+                toast({ title: '签到失败', description: msg, variant: 'destructive' });
                 finishSignIn();
             },
             {
@@ -394,7 +396,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 toast({ title: '已移除请求', description: '该换班请求已被撤销或拒绝。' });
             } else {
                 // 管理员批准代班：调用 RPC 函数原子性完成排班转让
-                if (!ADMIN_ROLES.includes(user.role || '')) {
+                if (!isAdminRole(user.role)) {
                     toast({ title: '权限不足', description: '仅管理员可以审批换班请求。', variant: 'destructive' });
                     setIsSwapping(false);
                     return;
@@ -480,6 +482,16 @@ export function useDuty(initialRosters: RosterWithMember[]) {
 
     // 管理员切换某成员的钥匙持有状态（更新该成员所有排班记录）
     const toggleKey = async (memberId: string, hasKey: boolean) => {
+        if (!user) {
+            toast({ title: '尚未登录', description: '请先登录后再进行钥匙操作。', variant: 'destructive' });
+            return;
+        }
+
+        if (!isAdminRole(user.role)) {
+            toast({ title: '权限不足', description: '仅管理员可以修改钥匙持有状态。', variant: 'destructive' });
+            return;
+        }
+
         try {
             const { error } = await supabase
                 .from('duty_rosters')
@@ -490,7 +502,10 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             toast({ title: hasKey ? '已标记持有钥匙' : '已取消钥匙标记' });
             refreshRosters();
         } catch (err: any) {
-            toast({ title: '操作失败', description: err.message, variant: 'destructive' });
+            const message = err?.code === '42501'
+                ? '数据库权限拒绝：请确认已应用最新 duty/key RLS 策略，并检查当前账号角色。'
+                : err?.message || '更新钥匙状态失败，请稍后重试。';
+            toast({ title: '操作失败', description: message, variant: 'destructive' });
         }
     };
 

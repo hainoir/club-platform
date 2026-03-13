@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { data: memberData } = await supabase
                 .from('members')
                 .select('id, role, name')
-                .eq('email', session.user.email || '')
+                .ilike('email', session.user.email || '')
                 .single()
 
             if (memberData) {

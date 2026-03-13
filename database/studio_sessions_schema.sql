@@ -23,7 +23,7 @@ DROP POLICY IF EXISTS "允许本人开始自习" ON public.studio_sessions;
 CREATE POLICY "允许本人开始自习"
 ON public.studio_sessions FOR INSERT TO authenticated
 WITH CHECK (
-  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND m.email = auth.jwt()->>'email')
+  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email')))
 );
 
 -- 本人可更新（结束自习）
@@ -31,7 +31,7 @@ DROP POLICY IF EXISTS "允许本人结束自习" ON public.studio_sessions;
 CREATE POLICY "允许本人结束自习"
 ON public.studio_sessions FOR UPDATE TO authenticated
 USING (
-  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND m.email = auth.jwt()->>'email')
+  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email')))
 );
 
 -- 管理员可删除
@@ -40,7 +40,7 @@ CREATE POLICY "允许管理员删除自习记录"
 ON public.studio_sessions FOR DELETE TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM public.members admin WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', '主席', '执行主席', '副主席', '部长')
+    SELECT 1 FROM public.members admin WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', '管理员', '主席', '执行主席', '副主席', '部长')
   )
 );

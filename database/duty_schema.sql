@@ -67,12 +67,12 @@ TO authenticated
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.id = member_id AND m.email = auth.jwt()->>'email'
+    WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
   )
   OR EXISTS (
     SELECT 1 FROM public.members admin
-    WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 );
 
@@ -84,12 +84,12 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.id = member_id AND m.email = auth.jwt()->>'email'
+    WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
   )
   OR EXISTS (
     SELECT 1 FROM public.members admin
-    WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 );
 
@@ -111,7 +111,7 @@ TO authenticated
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.id = member_id AND m.email = auth.jwt()->>'email'
+    WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
   )
 );
 
@@ -123,15 +123,15 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.members admin
-    WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.members admin
-    WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 );
 
@@ -143,8 +143,8 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.members admin
-    WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 );
 
@@ -166,7 +166,7 @@ TO authenticated
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.id = requester_id AND m.email = auth.jwt()->>'email'
+    WHERE m.id = requester_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
   )
 );
 
@@ -178,23 +178,23 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.id IN (requester_id, target_id) AND m.email = auth.jwt()->>'email'
+    WHERE m.id IN (requester_id, target_id) AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
   )
   OR EXISTS (
     SELECT 1 FROM public.members admin
-    WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.id IN (requester_id, target_id) AND m.email = auth.jwt()->>'email'
+    WHERE m.id IN (requester_id, target_id) AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
   )
   OR EXISTS (
     SELECT 1 FROM public.members admin
-    WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 );
 
@@ -206,11 +206,11 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.members m
-    WHERE m.id = requester_id AND m.email = auth.jwt()->>'email'
+    WHERE m.id = requester_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
   )
   OR EXISTS (
     SELECT 1 FROM public.members admin
-    WHERE admin.email = auth.jwt()->>'email'
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+    WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 );

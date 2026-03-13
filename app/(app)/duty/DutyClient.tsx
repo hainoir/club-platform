@@ -7,7 +7,7 @@ import { SwapModal } from '@/components/duty/SwapModal';
 import { LeaveModal } from '@/components/duty/LeaveModal';
 import { KeyTransferCard } from '@/components/duty/KeyTransferCard';
 import { AbsentMembersCard, StudioMembersCard } from '@/components/duty/AttendancePanels';
-import { useUserStore, ADMIN_ROLES } from '@/store/useUserStore';
+import { useUserStore, isAdminRole } from '@/store/useUserStore';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw, KeyRound } from 'lucide-react';
@@ -41,7 +41,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
     const [checkingSignIn, setCheckingSignIn] = useState(true);
 
     // 判断当前用户是否为管理员
-    const isAdmin = ADMIN_ROLES.includes(user?.role || '');
+    const isAdmin = isAdminRole(user?.role);
 
     // 检查今天是否已签到
     useEffect(() => {
@@ -241,4 +241,3 @@ function KeyHoldersSummary({ rosters }: { rosters: RosterWithMember[] }) {
         </div>
     );
 }
-

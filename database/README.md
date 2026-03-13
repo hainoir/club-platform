@@ -16,12 +16,14 @@ This project uses SQL-first migrations. Run files in a strict order to avoid dri
 5. `database/studio_sessions_schema.sql`
 6. `database/update_swap_status.sql`
 7. `database/add_signin_and_rsvp_constraints.sql` (required hardening: sign-in de-dup + RSVP uniqueness)
+8. `database/fix_duty_hall_permissions.sql` (role/email compatibility hardening for duty hall)
 
 ## Incremental Upgrade Order (Existing Environments)
 
-1. `database/update_swap_status.sql`
-2. `database/key_and_leave_schema.sql` (to refresh secure `confirm_key_transfer` and grants)
-3. Re-apply `database/rls_policies.sql` only if you changed member/event policies.
+1. `database/fix_duty_hall_permissions.sql` (recommended first when duty hall writes are rejected by RLS)
+2. `database/update_swap_status.sql`
+3. `database/key_and_leave_schema.sql` (to refresh secure `confirm_key_transfer` and grants)
+4. Re-apply `database/rls_policies.sql` only if you changed member/event policies.
 
 ## Rollback (Security Hardening)
 

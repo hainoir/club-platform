@@ -1,4 +1,4 @@
-﻿-- ==========================================================
+-- ==========================================================
 -- duty_swaps status constraint + secure RPC
 -- canonical source for accept_duty_swap behavior
 -- ==========================================================
@@ -26,7 +26,7 @@ BEGIN
     SELECT 1
     FROM public.members admin
     WHERE admin.id = v_actor_id
-      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F')
+      AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   ) THEN
     RAISE EXCEPTION 'Forbidden: only admins can approve swap requests';
   END IF;

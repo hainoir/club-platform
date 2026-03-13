@@ -1,4 +1,4 @@
-﻿import Link from "next/link"
+import Link from "next/link"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import {
@@ -45,7 +45,7 @@ const PERIOD_END_MINUTES: Record<number, number> = {
     4: 17 * 60 + 10,
 }
 
-const ADMIN_ROLE_SET = new Set(["admin", "主席", "执行主席", "副主席", "部长"])
+const ADMIN_ROLE_SET = new Set(["admin", "管理员", "主席", "执行主席", "副主席", "部长"])
 
 function getWeekMonday(base: Date): Date {
     const d = new Date(base)
@@ -203,7 +203,7 @@ export default async function DashboardPage() {
         const { data: meRow } = await supabase
             .from("members")
             .select("id, role, name")
-            .eq("email", authUser.email)
+            .ilike("email", authUser.email)
             .single()
 
         if (meRow) {
@@ -211,7 +211,8 @@ export default async function DashboardPage() {
         }
     }
 
-    const isAdmin = !!me && ADMIN_ROLE_SET.has(me.role)
+    const normalizedMeRole = (me?.role || "").trim()
+    const isAdmin = !!me && (normalizedMeRole.toLowerCase() === "admin" || ADMIN_ROLE_SET.has(normalizedMeRole))
 
     let pendingKeyForMe = 0
     let myPendingSwapCount = 0
@@ -494,4 +495,3 @@ export default async function DashboardPage() {
         </div>
     )
 }
-

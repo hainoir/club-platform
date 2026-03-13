@@ -117,8 +117,8 @@ export function DashboardSignInWidget({
         if (elapsed < SIGN_IN_ATTEMPT_COOLDOWN_MS) {
             const waitSeconds = Math.max(1, Math.ceil((SIGN_IN_ATTEMPT_COOLDOWN_MS - elapsed) / 1000))
             toast({
-                title: "??????",
-                description: `?? ${waitSeconds} ???????`,
+                title: "请求过于频繁",
+                description: `请等待 ${waitSeconds} 秒后再尝试签到。`,
                 variant: "destructive",
             })
             return
@@ -126,17 +126,17 @@ export function DashboardSignInWidget({
         lastSignInAttemptAtRef.current = nowTs
 
         if (!memberId) {
-            toast({ title: "????", description: "?????????????????", variant: "destructive" })
+            toast({ title: "无法签到", description: "未找到当前成员档案，请联系管理员。", variant: "destructive" })
             return
         }
 
         if (hasSignedInToday) {
-            toast({ title: "?????", description: "???????????????" })
+            toast({ title: "今日已签到", description: "您今天已有签到记录，无需重复签到。" })
             return
         }
 
         if (!navigator.geolocation) {
-            toast({ title: "?????????", description: "???????????????", variant: "destructive" })
+            toast({ title: "当前设备不支持定位", description: "请使用支持定位的浏览器后重试。", variant: "destructive" })
             return
         }
 
@@ -152,7 +152,7 @@ export function DashboardSignInWidget({
 
         const geolocationWatchdog = window.setTimeout(() => {
             if (!finishSignIn()) return
-            toast({ title: "??????", description: "?????????????????????", variant: "destructive" })
+            toast({ title: "签到失败", description: "定位请求超时，请检查权限设置后重试。", variant: "destructive" })
         }, 15_000)
 
         const today = new Date()
@@ -170,7 +170,7 @@ export function DashboardSignInWidget({
                 if (!existingError && !!existingLogs && existingLogs.length > 0) {
                     window.clearTimeout(geolocationWatchdog)
                     setHasSignedInToday(true)
-                    toast({ title: "?????", description: "???????????????" })
+                    toast({ title: "今日已签到", description: "您今天已有签到记录，无需重复签到。" })
                     finishSignIn()
                     return
                 }
@@ -185,8 +185,8 @@ export function DashboardSignInWidget({
 
                     if (!position || !position.coords) {
                         toast({
-                            title: "????",
-                            description: "????????????????????????",
+                            title: "定位数据异常",
+                            description: "未获取到有效定位信息，请检查设备定位服务后重试。",
                             variant: "destructive",
                         })
                         finishSignIn()
@@ -198,8 +198,8 @@ export function DashboardSignInWidget({
 
                     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
                         toast({
-                            title: "????",
-                            description: "????????????????????",
+                            title: "签到失败",
+                            description: "定位坐标无效，请稍后重试。",
                             variant: "destructive",
                         })
                         finishSignIn()
@@ -210,8 +210,8 @@ export function DashboardSignInWidget({
 
                     if (distance > MAX_VALID_RADIUS_METERS) {
                         toast({
-                            title: "????",
-                            description: `?????????? ${Math.round(distance)} ?????????`,
+                            title: "签到失败",
+                            description: `当前位置距离工作室约 ${Math.round(distance)} 米，超出允许范围。`,
                             variant: "destructive",
                         })
                         finishSignIn()
@@ -229,16 +229,16 @@ export function DashboardSignInWidget({
 
                         setHasSignedInToday(true)
                         refreshSignInState()
-                        toast({ title: "????", description: "????????????????" })
+                        toast({ title: "签到成功", description: "已完成位置验证并记录到值班考勤。" })
                     } catch (error: unknown) {
                         const typedError = error as { code?: string; message?: string }
                         if (typedError?.code === "23505") {
                             setHasSignedInToday(true)
-                            toast({ title: "?????", description: "??????????????????" })
+                            toast({ title: "今日已签到", description: "检测到重复签到请求，系统已自动拦截。" })
                         } else {
                             toast({
-                                title: "????",
-                                description: typedError?.message || "???????????????",
+                                title: "签到失败",
+                                description: typedError?.message || "无法写入签到记录，请稍后重试。",
                                 variant: "destructive",
                             })
                         }
@@ -250,12 +250,12 @@ export function DashboardSignInWidget({
                     if (completed) return
                     window.clearTimeout(geolocationWatchdog)
 
-                    let description = "???????????"
-                    if (geoError.code === geoError.PERMISSION_DENIED) description = "???????????????"
-                    if (geoError.code === geoError.POSITION_UNAVAILABLE) description = "???????????????????"
-                    if (geoError.code === geoError.TIMEOUT) description = "?????????????"
+                    let description = "请检查定位权限后重试。"
+                    if (geoError.code === geoError.PERMISSION_DENIED) description = "定位权限被拒绝，无法进行签到。"
+                    if (geoError.code === geoError.POSITION_UNAVAILABLE) description = "无法获取定位信息，请检查设备定位服务。"
+                    if (geoError.code === geoError.TIMEOUT) description = "定位请求超时，请稍后重试。"
 
-                    toast({ title: "????", description, variant: "destructive" })
+                    toast({ title: "签到失败", description, variant: "destructive" })
                     finishSignIn()
                 },
                 {

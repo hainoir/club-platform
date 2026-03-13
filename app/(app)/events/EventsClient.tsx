@@ -1,7 +1,7 @@
 "use client"
 import * as React from "react"
 import { CalendarIcon, MapPin, Clock, Plus, Users, Globe, MoreHorizontal, Pencil, Trash2, Download, CheckCircle2 } from "lucide-react"
-import { useUserStore, ADMIN_ROLES } from "@/store/useUserStore"
+import { useUserStore, isAdminRole } from "@/store/useUserStore"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -68,7 +68,7 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
             key={event.id}
             event={event}
             isEnded={isEnded}
-            isAdmin={ADMIN_ROLES.includes(user?.role || '')}
+            isAdmin={isAdminRole(user?.role)}
             currentUserEmail={user?.email}
             onEdit={openEdit}
             onDelete={handleDelete}
@@ -104,7 +104,7 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
                             我的报名 {!user && '(未登录)'}
                         </Button>
                     </div>
-                    {ADMIN_ROLES.includes(user?.role || '') && (
+                    {isAdminRole(user?.role) && (
                         <Button onClick={openCreate} className="gap-2 shadow-sm transition-all focus:ring-2">
                             <Plus className="h-4 w-4" /> 创建活动
                         </Button>
@@ -156,7 +156,7 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
                 isOpen={isAttendeesDialogOpen}
                 onClose={() => setIsAttendeesDialogOpen(false)}
                 viewingEvent={viewingEvent}
-                isAdmin={ADMIN_ROLES.includes(user?.role || '')}
+                isAdmin={isAdminRole(user?.role)}
                 onExport={exportAttendeesToCSV}
                 onToggleAttendance={handleToggleAttendance}
                 onRemoveAttendee={handleRemoveAttendee}
@@ -164,4 +164,3 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
         </div>
     )
 }
-
