@@ -44,7 +44,26 @@ export function KeyTransferCard({ dutyManager, allMembers }: KeyTransferCardProp
 
     // 初始化加载
     useEffect(() => {
-        refreshKeyTransfers();
+        const syncTransfers = () => {
+            void refreshKeyTransfers();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                syncTransfers();
+            }
+        };
+
+        syncTransfers();
+        const timer = setInterval(syncTransfers, 30_000);
+        window.addEventListener('focus', syncTransfers);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener('focus', syncTransfers);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [refreshKeyTransfers]);
 
     // 发起交接

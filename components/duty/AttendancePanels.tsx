@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { rehydrateSessionFromServer } from '@/utils/supabase/rehydrate';
 import { RosterWithMember } from '@/hooks/useDuty';
 import { useUserStore } from '@/store/useUserStore';
 import { AlertTriangle, MapPin, BookOpen, X } from 'lucide-react';
@@ -9,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast-simple';
 import { cn } from '@/lib/utils';
 
-// 每节课的时间范围（小时:分钟）
 const PERIOD_RANGES: Record<number, { start: [number, number]; end: [number, number] }> = {
     1: { start: [8, 0], end: [9, 35] },
     2: { start: [10, 5], end: [11, 40] },
@@ -18,6 +18,7 @@ const PERIOD_RANGES: Record<number, { start: [number, number]; end: [number, num
 };
 
 const DAYS_LABEL = ['一', '二', '三', '四', '五'];
+const QUERY_TIMEOUT_MS = 10_000;
 
 function getLocalDateKey(date: Date): string {
     const y = date.getFullYear();
@@ -26,7 +27,6 @@ function getLocalDateKey(date: Date): string {
     return `${y}-${m}-${d}`;
 }
 
-// 各节次结束后 10 分钟的时间限（分钟表示）
 function getPeriodEndPlusMinutes(period: number, extraMin: number): number {
     const [h, m] = PERIOD_RANGES[period]?.end || [23, 59];
     return h * 60 + m + extraMin;
@@ -49,20 +49,17 @@ function getMatchedPeriod(minutes: number): number {
 }
 
 function getTodayDow(): number {
-    return new Date().getDay(); // 0=周日, 1=周一...5=周五
+    return new Date().getDay(); // 0=Sun, 1=Mon...5=Fri
 }
 
-// 判断某个 (day, period) 是否已过（节次已结束）
 function isPeriodPast(day: number, period: number): boolean {
     const todayDow = getTodayDow();
     if (todayDow > day && todayDow <= 5) return true;
     if (todayDow !== day) return false;
     const [endH, endM] = PERIOD_RANGES[period]?.end || [23, 59];
-    const nowMin = getNowMinutes();
-    return nowMin >= endH * 60 + endM;
+    return getNowMinutes() >= endH * 60 + endM;
 }
 
-// 获取本周一的日期
 function getWeekMonday(): Date {
     const now = new Date();
     const dow = now.getDay();
@@ -78,9 +75,36 @@ function extractErrorMessage(err: unknown, fallback: string): string {
     return message || fallback;
 }
 
-// ===================================================================
-// 组件 1: 本周未签到人员
-// ===================================================================
+async function runWithTimeout<T>(request: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
+    try {
+        return await request(controller.signal);
+    } finally {
+        window.clearTimeout(timer);
+    }
+}
+
+async function ensureSession(supabase: ReturnType<typeof createClient>): Promise<boolean> {
+    const {
+        data: { session },
+    } = await supabase.auth.getSession();
+    if (session) return true;
+
+    const bridged = await rehydrateSessionFromServer(supabase);
+    if (bridged) {
+        const {
+            data: { session: bridgedSession },
+        } = await supabase.auth.getSession();
+        if (bridgedSession) return true;
+    }
+
+    const {
+        data: { session: refreshedSession },
+    } = await supabase.auth.refreshSession();
+    return !!refreshedSession;
+}
+
 interface AbsentMembersCardProps {
     rosters: RosterWithMember[];
 }
@@ -91,20 +115,26 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    // 获取本周所有签到记录
     const fetchSignIns = useCallback(async () => {
         try {
+            if (!(await ensureSession(supabase))) {
+                throw new Error('登录状态已失效，请重新登录。');
+            }
+
             const monday = getWeekMonday();
-            const { data, error } = await supabase
-                .from('duty_logs')
-                .select('member_id, sign_in_time')
-                .gte('sign_in_time', monday.toISOString())
-                .eq('location_verified', true);
+            const { data, error } = await runWithTimeout<any>(async (signal) =>
+                await supabase
+                    .from('duty_logs')
+                    .select('member_id, sign_in_time')
+                    .gte('sign_in_time', monday.toISOString())
+                    .eq('location_verified', true)
+                    .abortSignal(signal)
+            );
 
             if (error) throw error;
 
             const nextSignedSlots = new Set<string>();
-            (data || []).forEach(log => {
+            (data || []).forEach((log: { member_id: string; sign_in_time: string }) => {
                 const signTime = new Date(log.sign_in_time);
                 const signMinutes = signTime.getHours() * 60 + signTime.getMinutes();
                 const matchedPeriod = getMatchedPeriod(signMinutes);
@@ -126,23 +156,39 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
     }, [supabase]);
 
     useEffect(() => {
-        fetchSignIns();
-        // 每分钟刷新一次
-        const timer = setInterval(fetchSignIns, 60_000);
-        return () => clearInterval(timer);
+        const syncSignIns = () => {
+            void fetchSignIns();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                syncSignIns();
+            }
+        };
+
+        syncSignIns();
+        const timer = setInterval(syncSignIns, 60_000);
+        window.addEventListener('focus', syncSignIns);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener('focus', syncSignIns);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [fetchSignIns]);
 
-    // 筛选：班次已结束 + 未签到的成员（去重）
     const absentMembers = React.useMemo(() => {
         const map = new Map<string, { name: string; slots: string[] }>();
         const monday = getWeekMonday();
 
-        rosters.forEach(r => {
-            if (!isPeriodPast(r.day_of_week, r.period)) return; // 班次还没结束，不算
+        rosters.forEach((r) => {
+            if (!isPeriodPast(r.day_of_week, r.period)) return;
+
             const slotDate = new Date(monday);
             slotDate.setDate(monday.getDate() + (r.day_of_week - 1));
             const slotKey = `${r.member_id}-${getLocalDateKey(slotDate)}-${r.period}`;
-            if (signedSlotKeys.has(slotKey)) return; // this roster slot is already signed in
+            if (signedSlotKeys.has(slotKey)) return;
 
             const existing = map.get(r.member_id);
             const slotLabel = `周${DAYS_LABEL[r.day_of_week - 1]}第${r.period}节`;
@@ -168,10 +214,10 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
             ) : errorMsg ? (
                 <p className="text-xs text-destructive">{errorMsg}</p>
             ) : absentMembers.length === 0 ? (
-                <p className="text-xs text-muted-foreground">🎉 本周所有到期班次均已签到</p>
+                <p className="text-xs text-muted-foreground">本周所有已结束班次均已签到</p>
             ) : (
                 <div className="space-y-1.5">
-                    {absentMembers.map(m => (
+                    {absentMembers.map((m) => (
                         <div key={m.id} className="flex items-center justify-between text-xs">
                             <span className="font-medium text-orange-700 dark:text-orange-400">{m.name}</span>
                             <span className="text-muted-foreground">{m.slots.join('、')}</span>
@@ -183,19 +229,16 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
     );
 }
 
-// ===================================================================
-// 组件 2: 目前在工作室的成员
-// ===================================================================
 interface StudioMembersCardProps {
     rosters: RosterWithMember[];
 }
 
 interface StudioMember {
-    id: string;         // member_id
-    sessionId: string;  // studio_sessions.id 或 duty_logs.id
+    id: string;
+    sessionId: string;
     name: string;
     type: 'duty' | 'study';
-    period: number;     // 0 = 非节次
+    period: number;
 }
 
 export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
@@ -207,86 +250,87 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     const [ending, setEnding] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    // 获取今日在工作室的成员（值班签到 + 自习，分开查询）
     const fetchStudioMembers = useCallback(async () => {
         try {
+            if (!(await ensureSession(supabase))) {
+                throw new Error('登录状态已失效，请重新登录。');
+            }
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const nowMin = getNowMinutes();
             const members: StudioMember[] = [];
             const seenIds = new Set<string>();
 
-            // --- 数据源 1: 值班签到（duty_logs，排除 self-study 标记的旧数据） ---
-            const { data: dutyLogs, error: dutyError } = await supabase
-                .from('duty_logs')
-                .select('id, member_id, sign_in_time, device_info')
-                .gte('sign_in_time', today.toISOString())
-                .eq('location_verified', true);
+            const { data: dutyLogs, error: dutyError } = await runWithTimeout<any>(async (signal) =>
+                await supabase
+                    .from('duty_logs')
+                    .select('id, member_id, sign_in_time, device_info')
+                    .gte('sign_in_time', today.toISOString())
+                    .eq('location_verified', true)
+                    .abortSignal(signal)
+            );
 
             if (dutyError) throw dutyError;
 
-            (dutyLogs || []).forEach(log => {
+            (dutyLogs || []).forEach((log: { id: string; member_id: string; sign_in_time: string; device_info: string | null }) => {
                 if (seenIds.has(log.member_id)) return;
-                // 跳过误用 duty_logs 的自习记录
                 if (log.device_info?.includes('self-study')) return;
 
                 const signTime = new Date(log.sign_in_time);
                 const signMin = signTime.getHours() * 60 + signTime.getMinutes();
-
                 let matchedPeriod = getMatchedPeriod(signMin);
                 if (matchedPeriod === 0) matchedPeriod = 1;
 
-                // 节次结束 +10 分钟后移除
                 const periodEndPlus10 = getPeriodEndPlusMinutes(matchedPeriod, 10);
                 if (nowMin > periodEndPlus10) return;
 
-                const roster = rosters.find(r => r.member_id === log.member_id);
+                const roster = rosters.find((r) => r.member_id === log.member_id);
                 members.push({
                     id: log.member_id,
                     sessionId: log.id,
                     name: roster?.member.name || '成员',
                     type: 'duty',
-                    period: matchedPeriod
+                    period: matchedPeriod,
                 });
                 seenIds.add(log.member_id);
             });
 
-            // --- 数据源 2: 自习会话（studio_sessions，仅 is_active=true） ---
-            const { data: sessions, error: sessionError } = await supabase
-                .from('studio_sessions')
-                .select('id, member_id, started_at')
-                .eq('is_active', true);
+            const { data: sessions, error: sessionError } = await runWithTimeout<any>(async (signal) =>
+                await supabase
+                    .from('studio_sessions')
+                    .select('id, member_id, started_at')
+                    .eq('is_active', true)
+                    .abortSignal(signal)
+            );
 
             if (sessionError) throw sessionError;
 
-            (sessions || []).forEach(s => {
+            (sessions || []).forEach((s: { id: string; member_id: string; started_at: string }) => {
                 if (seenIds.has(s.member_id)) return;
 
-                // 推断自习开始时对应的节次
                 const startTime = new Date(s.started_at);
                 const startMin = startTime.getHours() * 60 + startTime.getMinutes();
-
                 const matchedPeriod = getMatchedPeriod(startMin);
 
-                // auto-expire study session 10 minutes after period ends
                 if (matchedPeriod > 0) {
                     const periodEndPlus10 = getPeriodEndPlusMinutes(matchedPeriod, 10);
                     if (nowMin > periodEndPlus10) {
-                        // 自动结束该自习
-                        supabase.from('studio_sessions')
+                        void supabase
+                            .from('studio_sessions')
                             .update({ is_active: false, ended_at: new Date().toISOString() })
-                            .eq('id', s.id).then();
+                            .eq('id', s.id);
                         return;
                     }
                 }
 
-                const roster = rosters.find(r => r.member_id === s.member_id);
+                const roster = rosters.find((r) => r.member_id === s.member_id);
                 members.push({
                     id: s.member_id,
                     sessionId: s.id,
                     name: roster?.member.name || '成员',
                     type: 'study',
-                    period: matchedPeriod
+                    period: matchedPeriod,
                 });
                 seenIds.add(s.member_id);
             });
@@ -302,21 +346,38 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     }, [supabase, rosters]);
 
     useEffect(() => {
-        fetchStudioMembers();
-        const timer = setInterval(fetchStudioMembers, 30_000);
-        return () => clearInterval(timer);
+        const syncStudioMembers = () => {
+            void fetchStudioMembers();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                syncStudioMembers();
+            }
+        };
+
+        syncStudioMembers();
+        const timer = setInterval(syncStudioMembers, 30_000);
+        window.addEventListener('focus', syncStudioMembers);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener('focus', syncStudioMembers);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [fetchStudioMembers]);
 
-    // 开始自习 → 写入 studio_sessions
     const handleSelfStudy = async () => {
         if (!user) return;
         try {
-            const { error } = await supabase
-                .from('studio_sessions')
-                .insert({ member_id: user.id });
+            if (!(await ensureSession(supabase))) {
+                throw new Error('登录状态已失效，请重新登录。');
+            }
+            const { error } = await supabase.from('studio_sessions').insert({ member_id: user.id });
             if (error) throw error;
             toast({ title: '自习已开始', description: '已记录你在工作室自习。' });
-            fetchStudioMembers();
+            void fetchStudioMembers();
         } catch (err) {
             toast({
                 title: '开始自习失败',
@@ -326,12 +387,15 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
         }
     };
 
-    // 结束自习 → UPDATE studio_sessions set is_active=false
     const handleEndStudy = async () => {
         if (!user) return;
         setEnding(true);
         try {
-            const mySession = studioMembers.find(m => m.id === user.id && m.type === 'study');
+            if (!(await ensureSession(supabase))) {
+                throw new Error('登录状态已失效，请重新登录。');
+            }
+
+            const mySession = studioMembers.find((m) => m.id === user.id && m.type === 'study');
             if (mySession) {
                 const { error } = await supabase
                     .from('studio_sessions')
@@ -340,7 +404,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 if (error) throw error;
             }
             toast({ title: '已结束自习' });
-            fetchStudioMembers();
+            void fetchStudioMembers();
         } catch (err) {
             toast({
                 title: '结束自习失败',
@@ -352,8 +416,8 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
         }
     };
 
-    const isAlreadyInStudio = studioMembers.some(m => m.id === user?.id);
-    const isSelfStudying = studioMembers.some(m => m.id === user?.id && m.type === 'study');
+    const isAlreadyInStudio = studioMembers.some((m) => m.id === user?.id);
+    const isSelfStudying = studioMembers.some((m) => m.id === user?.id && m.type === 'study');
 
     return (
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -377,33 +441,25 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 <p className="text-xs text-muted-foreground">目前工作室暂无人员</p>
             ) : (
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                    {studioMembers.map(m => (
+                    {studioMembers.map((m) => (
                         <span
                             key={m.id}
                             className={cn(
-                                "inline-flex items-center px-2 py-1 rounded-full text-[11px] font-medium ring-1 ring-inset",
+                                'inline-flex items-center px-2 py-1 rounded-full text-[11px] font-medium ring-1 ring-inset',
                                 m.type === 'study'
-                                    ? "bg-purple-100 text-purple-700 ring-purple-300/50 dark:bg-purple-950/30 dark:text-purple-400 dark:ring-purple-700/50"
-                                    : "bg-green-100 text-green-700 ring-green-300/50 dark:bg-green-950/30 dark:text-green-400 dark:ring-green-700/50"
+                                    ? 'bg-purple-100 text-purple-700 ring-purple-300/50 dark:bg-purple-950/30 dark:text-purple-400 dark:ring-purple-700/50'
+                                    : 'bg-green-100 text-green-700 ring-green-300/50 dark:bg-green-950/30 dark:text-green-400 dark:ring-green-700/50'
                             )}
                         >
                             {m.name}
-                            <span className="text-[9px] opacity-70 ml-1">
-                                {m.type === 'study' ? '自习' : '值班'}
-                            </span>
+                            <span className="text-[9px] opacity-70 ml-1">{m.type === 'study' ? '自习' : '值班'}</span>
                         </span>
                     ))}
                 </div>
             )}
 
-            {/* 自习加入 / 结束自习 */}
             {!loading && !errorMsg && !isAlreadyInStudio ? (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-xs h-8"
-                    onClick={handleSelfStudy}
-                >
+                <Button variant="outline" size="sm" className="w-full text-xs h-8" onClick={handleSelfStudy}>
                     <BookOpen className="w-3 h-3 mr-1" />
                     我在工作室自习
                 </Button>

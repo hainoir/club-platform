@@ -1,7 +1,9 @@
-import { useState, useCallback, useMemo, useRef, useTransition } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useTransition } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { rehydrateSessionFromServer } from '@/utils/supabase/rehydrate';
 import { Database } from '@/types/supabase';
 import { useToast } from '@/components/ui/toast-simple';
+import { getCurrentPositionWithFallback, getLocationErrorReason } from '@/lib/geolocation';
 import { useUserStore, isAdminRole } from '@/store/useUserStore';
 
 type DutyRoster = Database['public']['Tables']['duty_rosters']['Row'];
@@ -70,8 +72,42 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     const [approvedSwaps, setApprovedSwaps] = useState<SwapWithMember[]>([]);
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
-    const { user } = useUserStore();
+    const { user, setUser } = useUserStore();
     const supabase = useMemo(() => createClient(), []);
+
+    const ensureActiveSession = useCallback(async () => {
+        const {
+            data: { session },
+            error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (session) return true;
+        if (sessionError) {
+            console.warn('Failed to read auth session before duty write:', sessionError);
+        }
+
+        const bridged = await rehydrateSessionFromServer(supabase);
+        if (bridged) {
+            const {
+                data: { session: bridgedSession },
+            } = await supabase.auth.getSession();
+            if (bridgedSession) return true;
+        }
+
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshData.session) return true;
+        if (refreshError) {
+            console.warn('Failed to refresh auth session before duty write:', refreshError);
+        }
+
+        setUser(null);
+        toast({
+            title: '登录状态已失效',
+            description: '请重新登录后再进行值班相关操作。',
+            variant: 'destructive',
+        });
+        return false;
+    }, [setUser, supabase, toast]);
 
     // ------------------------------------------------------------------------
     // 初始化与刷新数据
@@ -123,6 +159,10 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         // 权限前置守卫：仅管理员可操作
         if (!isAdminRole(user.role)) {
             toast({ title: '权限不足', description: '仅管理员可以进行排班操作。', variant: 'destructive' });
+            return;
+        }
+
+        if (!(await ensureActiveSession())) {
             return;
         }
 
@@ -187,7 +227,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 variant: 'destructive',
             });
         }
-    }, [rosters, user, toast, refreshRosters, supabase]);
+    }, [rosters, user, toast, refreshRosters, supabase, ensureActiveSession]);
 
     // ------------------------------------------------------------------------
     // 2. 签到打卡 (包含地理位置定位与算距防作弊)
@@ -204,9 +244,9 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         if (elapsed < SIGN_IN_ATTEMPT_COOLDOWN_MS) {
             const waitSeconds = Math.max(1, Math.ceil((SIGN_IN_ATTEMPT_COOLDOWN_MS - elapsed) / 1000));
             toast({
-                title: '请求过于频繁',
-                description: '请等待 ' + waitSeconds + ' 秒后再尝试签到。',
-                variant: 'destructive'
+                title: "\u8bf7\u6c42\u8fc7\u4e8e\u9891\u7e41",
+                description: `\u8bf7\u7b49\u5f85 ${waitSeconds} \u79d2\u540e\u518d\u5c1d\u8bd5\u7b7e\u5230\u3002`,
+                variant: "destructive"
             });
             return;
         }
@@ -222,135 +262,120 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             return true;
         };
 
-        const geolocationWatchdog = window.setTimeout(() => {
-            if (!finishSignIn()) return;
-            toast({
-                title: '签到失败',
-                description: '定位请求超时，请检查权限设置后重试。',
-                variant: 'destructive'
-            });
-        }, 15000);
-
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         try {
             const { data: existingLogs, error: existingError } = await supabase
-                .from('duty_logs')
-                .select('id')
-                .eq('member_id', user.id)
-                .gte('sign_in_time', today.toISOString())
+                .from("duty_logs")
+                .select("id")
+                .eq("member_id", user.id)
+                .gte("sign_in_time", today.toISOString())
                 .limit(1);
 
             if (!existingError && !!existingLogs && existingLogs.length > 0) {
-                window.clearTimeout(geolocationWatchdog);
                 toast({
-                    title: '今日已签到',
-                    description: '您今天已有签到记录，无需重复签到。'
+                    title: "\u4eca\u65e5\u5df2\u7b7e\u5230",
+                    description: "\u60a8\u4eca\u5929\u5df2\u6709\u7b7e\u5230\u8bb0\u5f55\uff0c\u65e0\u9700\u91cd\u590d\u7b7e\u5230\u3002"
                 });
                 finishSignIn();
                 return;
             }
         } catch (checkError) {
-            console.warn('Failed to pre-check sign-in logs:', checkError);
+            console.warn("Failed to pre-check sign-in logs:", checkError);
         }
 
         if (!navigator.geolocation) {
-            window.clearTimeout(geolocationWatchdog);
             toast({
-                title: '当前设备不支持定位',
-                description: '请使用支持定位的浏览器后重试。',
-                variant: 'destructive'
+                title: "\u7b7e\u5230\u5931\u8d25",
+                description: "\u5f53\u524d\u8bbe\u5907\u4e0d\u652f\u6301\u5b9a\u4f4d\uff0c\u8bf7\u4f7f\u7528\u652f\u6301\u5b9a\u4f4d\u7684\u6d4f\u89c8\u5668\u540e\u91cd\u8bd5\u3002",
+                variant: "destructive"
             });
             finishSignIn();
             return;
         }
 
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                if (completed) return;
-                window.clearTimeout(geolocationWatchdog);
+        let position: GeolocationPosition;
+        try {
+            position = await getCurrentPositionWithFallback();
+        } catch (geoError) {
+            if (completed) return;
 
-                if (!position || !position.coords) {
-                    toast({
-                        title: '定位数据异常',
-                        description: '未获取到有效定位信息，请检查设备定位服务后重试。',
-                        variant: 'destructive'
-                    });
-                    finishSignIn();
-                    return;
-                }
+            let description = "\u8bf7\u68c0\u67e5\u5b9a\u4f4d\u6743\u9650\u540e\u91cd\u8bd5\u3002";
+            const reason = getLocationErrorReason(geoError);
 
-                const latitude = Number(position.coords.latitude);
-                const longitude = Number(position.coords.longitude);
+            if (reason === "permission_denied") description = "\u5b9a\u4f4d\u6743\u9650\u88ab\u62d2\u7edd\uff0c\u65e0\u6cd5\u8fdb\u884c\u7b7e\u5230\u3002";
+            if (reason === "position_unavailable") description = "\u65e0\u6cd5\u83b7\u53d6\u5b9a\u4f4d\u4fe1\u606f\uff0c\u8bf7\u68c0\u67e5\u8bbe\u5907\u5b9a\u4f4d\u670d\u52a1\u3002";
+            if (reason === "timeout") description = "\u5b9a\u4f4d\u8bf7\u6c42\u8d85\u65f6\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002";
+            if (reason === "not_supported") description = "\u5f53\u524d\u8bbe\u5907\u6216\u6d4f\u89c8\u5668\u4e0d\u652f\u6301\u5b9a\u4f4d\u3002";
+            if (reason === "insecure_context") description = "\u8bf7\u4f7f\u7528 HTTPS \u6216 localhost \u8bbf\u95ee\u540e\u518d\u8bd5\u3002";
 
-                if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-                    toast({
-                        title: '签到失败',
-                        description: '定位坐标无效，请稍后重试。',
-                        variant: 'destructive'
-                    });
-                    finishSignIn();
-                    return;
-                }
+            toast({ title: "\u7b7e\u5230\u5931\u8d25", description, variant: "destructive" });
+            finishSignIn();
+            return;
+        }
 
-                const distance = getDistanceFromLatLonInM(latitude, longitude, STUDIO_COORDS.lat, STUDIO_COORDS.lng);
+        if (!position || !position.coords) {
+            toast({
+                title: "\u5b9a\u4f4d\u6570\u636e\u5f02\u5e38",
+                description: "\u672a\u83b7\u53d6\u5230\u6709\u6548\u5b9a\u4f4d\u4fe1\u606f\uff0c\u8bf7\u68c0\u67e5\u8bbe\u5907\u5b9a\u4f4d\u670d\u52a1\u540e\u91cd\u8bd5\u3002",
+                variant: "destructive"
+            });
+            finishSignIn();
+            return;
+        }
 
-                if (distance > MAX_VALID_RADIUS_METERS) {
-                    toast({
-                        title: '签到失败',
-                        description: `当前位置距离工作室约 ${Math.round(distance)} 米，超出允许范围。`,
-                        variant: 'destructive'
-                    });
-                    finishSignIn();
-                    return;
-                }
+        const latitude = Number(position.coords.latitude);
+        const longitude = Number(position.coords.longitude);
 
-                try {
-                    const deviceInfo = window.navigator.userAgent;
-                    const { error } = await supabase
-                        .from('duty_logs')
-                        .insert({
-                            member_id: user.id,
-                            location_verified: true,
-                            device_info: deviceInfo
-                        });
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+            toast({
+                title: "\u7b7e\u5230\u5931\u8d25",
+                description: "\u5b9a\u4f4d\u5750\u6807\u65e0\u6548\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002",
+                variant: "destructive"
+            });
+            finishSignIn();
+            return;
+        }
 
-                    if (error) throw error;
-                    toast({ title: '签到成功', description: '已完成位置验证并记录到值班考勤。' });
-                } catch (err) {
-                    const typedError = err as { code?: string; message?: string };
-                    if (typedError?.code === '23505') {
-                        toast({ title: '今日已签到', description: '检测到重复签到请求，系统已自动拦截。' });
-                    } else {
-                        toast({
-                            title: '签到失败',
-                            description: typedError?.message || '无法写入签到记录，请稍后重试。',
-                            variant: 'destructive'
-                        });
-                    }
-                } finally {
-                    finishSignIn();
-                }
-            },
-            (geoError) => {
-                if (completed) return;
-                window.clearTimeout(geolocationWatchdog);
+        const distance = getDistanceFromLatLonInM(latitude, longitude, STUDIO_COORDS.lat, STUDIO_COORDS.lng);
 
-                let msg = '请检查定位权限后重试。';
-                if (geoError.code === geoError.PERMISSION_DENIED) msg = '定位权限被拒绝，无法进行签到。';
-                if (geoError.code === geoError.POSITION_UNAVAILABLE) msg = '无法获取定位信息，请检查设备定位服务。';
-                if (geoError.code === geoError.TIMEOUT) msg = '定位请求超时，请稍后重试。';
+        if (distance > MAX_VALID_RADIUS_METERS) {
+            toast({
+                title: "\u7b7e\u5230\u5931\u8d25",
+                description: `\u5f53\u524d\u4f4d\u7f6e\u8ddd\u79bb\u5de5\u4f5c\u5ba4\u7ea6 ${Math.round(distance)} \u7c73\uff0c\u8d85\u51fa\u5141\u8bb8\u8303\u56f4\u3002`,
+                variant: "destructive"
+            });
+            finishSignIn();
+            return;
+        }
 
-                toast({ title: '签到失败', description: msg, variant: 'destructive' });
-                finishSignIn();
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
+        try {
+            const deviceInfo = window.navigator.userAgent;
+            const { error } = await supabase
+                .from("duty_logs")
+                .insert({
+                    member_id: user.id,
+                    location_verified: true,
+                    device_info: deviceInfo
+                });
+
+            if (error) throw error;
+            toast({ title: "\u7b7e\u5230\u6210\u529f", description: "\u5df2\u5b8c\u6210\u4f4d\u7f6e\u9a8c\u8bc1\u5e76\u8bb0\u5f55\u5230\u503c\u73ed\u8003\u52e4\u3002" });
+        } catch (err) {
+            const typedError = err as { code?: string; message?: string };
+            if (typedError?.code === "23505") {
+                toast({ title: "\u4eca\u65e5\u5df2\u7b7e\u5230", description: "\u68c0\u6d4b\u5230\u91cd\u590d\u7b7e\u5230\u8bf7\u6c42\uff0c\u7cfb\u7edf\u5df2\u81ea\u52a8\u62e6\u622a\u3002" });
+            } else {
+                toast({
+                    title: "\u7b7e\u5230\u5931\u8d25",
+                    description: typedError?.message || "\u65e0\u6cd5\u5199\u5165\u7b7e\u5230\u8bb0\u5f55\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002",
+                    variant: "destructive"
+                });
             }
-        );
+        } finally {
+            finishSignIn();
+        }
     }, [isSigningIn, user, toast, supabase]);
 
     // ------------------------------------------------------------------------
@@ -360,6 +385,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
 
     const submitSwapRequest = async (originalDay: number, originalPeriod: number, targetId?: string, targetDay?: number, targetPeriod?: number) => {
         if (!user) return false;
+        if (!(await ensureActiveSession())) return false;
         setIsSwapping(true);
         try {
             const { error } = await supabase
@@ -387,6 +413,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
 
     const respondToSwap = async (swapId: string, accept: boolean) => {
         if (!user) return;
+        if (!(await ensureActiveSession())) return;
         setIsSwapping(true);
         try {
             if (!accept) {
@@ -435,6 +462,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     // 普通用户应答代班请求（设置 target_id 和 status→accepted，等待管理员审批）
     const volunteerForSwap = async (swapId: string) => {
         if (!user) return;
+        if (!(await ensureActiveSession())) return;
         setIsSwapping(true);
         try {
             const { error } = await supabase
@@ -460,6 +488,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     // 管理员驳回代班请求（将 accepted 退回 pending，清除 target_id）
     const rejectSwap = async (swapId: string) => {
         if (!user) return;
+        if (!(await ensureActiveSession())) return;
         setIsSwapping(true);
         try {
             const { error } = await supabase
@@ -491,6 +520,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             toast({ title: '权限不足', description: '仅管理员可以修改钥匙持有状态。', variant: 'destructive' });
             return;
         }
+
+        if (!(await ensureActiveSession())) return;
 
         try {
             const { error } = await supabase
@@ -535,6 +566,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         compensations: { day_of_week: number; period: number }[]
     ) => {
         if (!user) return false;
+        if (!(await ensureActiveSession())) return false;
         try {
             // 1. 创建请假记录
             const { data: leaveData, error: leaveError } = await supabase
@@ -599,6 +631,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     // 发起钥匙交接
     const submitKeyTransfer = async (toMemberId: string, note: string) => {
         if (!user) return false;
+        if (!(await ensureActiveSession())) return false;
         try {
             const { error } = await supabase
                 .from('key_transfers')
@@ -621,6 +654,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     // 确认接收钥匙
     const confirmKeyTransfer = async (transferId: string) => {
         if (!user) return;
+        if (!(await ensureActiveSession())) return;
         try {
             const { error } = await supabase.rpc('confirm_key_transfer', {
                 p_transfer_id: transferId,
@@ -635,6 +669,31 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             toast({ title: '确认失败', description: err.message, variant: 'destructive' });
         }
     };
+
+    useEffect(() => {
+        const syncDutyData = () => {
+            void refreshRosters();
+            void refreshSwaps();
+            void refreshApprovedSwaps();
+            void refreshLeaves();
+            void refreshKeyTransfers();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                syncDutyData();
+            }
+        };
+
+        syncDutyData();
+        window.addEventListener('focus', syncDutyData);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('focus', syncDutyData);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [refreshRosters, refreshSwaps, refreshApprovedSwaps, refreshLeaves, refreshKeyTransfers]);
 
     return {
         rosters,

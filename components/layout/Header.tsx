@@ -1,11 +1,11 @@
-﻿"use client"
+"use client"
 
 import * as React from "react"
 import { useTheme } from "next-themes"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { Bell, LogOut, Moon, Settings, Sun, User } from "lucide-react"
+import { Bell, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react"
 
 import {
     DropdownMenu,
@@ -16,6 +16,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
+import { appNavigation } from "@/components/layout/navigation"
 import { cn } from "@/lib/utils"
 import { useUserStore } from "@/store/useUserStore"
 import { createClient } from "@/utils/supabase/client"
@@ -37,6 +38,7 @@ function formatRelativeTime(value: string): string {
 
 export function Header({ className }: { className?: string }) {
     const { setTheme, theme } = useTheme()
+    const pathname = usePathname()
     const router = useRouter()
     const supabase = React.useMemo(() => createClient(), [])
     const { user, logout } = useUserStore()
@@ -62,6 +64,36 @@ export function Header({ className }: { className?: string }) {
     return (
         <header className={cn("flex items-center justify-between px-6 z-10", className)}>
             <div className="flex items-center gap-2">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full md:hidden" aria-label="打开页面导航菜单">
+                            <Menu className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56 md:hidden" align="start">
+                        <DropdownMenuLabel>页面导航</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {appNavigation.map((item) => {
+                            const isRoot = item.href === "/"
+                            const isActive = isRoot ? pathname === "/" : pathname.startsWith(item.href)
+
+                            return (
+                                <DropdownMenuItem
+                                    key={item.href}
+                                    className={cn("gap-2 cursor-pointer", isActive && "bg-accent text-accent-foreground")}
+                                    onSelect={(e) => {
+                                        e.preventDefault()
+                                        router.push(item.href)
+                                    }}
+                                >
+                                    <item.icon className="h-4 w-4" />
+                                    <span>{item.name}</span>
+                                </DropdownMenuItem>
+                            )
+                        })}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
                 <h2 className="text-lg font-semibold tracking-tight hidden sm:block">欢迎回来，{user?.name || "成员"}</h2>
             </div>
 

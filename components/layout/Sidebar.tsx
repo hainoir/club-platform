@@ -1,16 +1,11 @@
-﻿"use client"
+"use client"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { CalendarClock, CalendarDays, Code2, LayoutDashboard, Settings, Users } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Code2 } from "lucide-react"
 
-const navigation = [
-    { name: "仪表盘", href: "/", icon: LayoutDashboard },
-    { name: "成员管理", href: "/members", icon: Users },
-    { name: "活动中心", href: "/events", icon: CalendarDays },
-    { name: "值班大厅", href: "/duty", icon: CalendarClock },
-    { name: "设置中心", href: "/settings", icon: Settings },
-]
+import { appNavigation } from "@/components/layout/navigation"
+import { cn } from "@/lib/utils"
 
 export function Sidebar({ className }: { className?: string }) {
     const pathname = usePathname()
@@ -24,7 +19,7 @@ export function Sidebar({ className }: { className?: string }) {
                 <span className="font-bold text-lg tracking-tight">前端开发社团</span>
             </div>
             <nav className="flex-1 px-4 space-y-1">
-                {navigation.map((item) => {
+                {appNavigation.map((item) => {
                     const isRoot = item.href === "/"
                     const isActive = isRoot ? pathname === "/" : pathname.startsWith(item.href)
 
