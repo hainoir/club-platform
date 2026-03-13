@@ -16,12 +16,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } = await supabase.auth.getSession()
 
             let activeSession = session
+            if (activeSession) {
+                const expiresAt = activeSession.expires_at ? activeSession.expires_at * 1000 : 0;
+                if (expiresAt < Date.now() + 60000) {
+                    await supabase.auth.refreshSession()
+                    const { data: { session: refreshedSession } } = await supabase.auth.getSession()
+                    activeSession = refreshedSession
+                }
+            }
+
             if (!activeSession && !sessionError) {
                 await new Promise((resolve) => setTimeout(resolve, 120))
                 const {
                     data: { session: retrySession },
                 } = await supabase.auth.getSession()
-                activeSession = retrySession
+                
+                if (retrySession) {
+                    const expiresAt = retrySession.expires_at ? retrySession.expires_at * 1000 : 0;
+                    if (expiresAt >= Date.now() + 60000) {
+                        activeSession = retrySession
+                    }
+                }
             }
 
             if (!activeSession && !sessionError) {

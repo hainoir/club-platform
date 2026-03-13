@@ -81,9 +81,25 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             error: sessionError,
         } = await supabase.auth.getSession();
 
-        if (session) return true;
+        if (session) {
+            const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+            if (expiresAt > Date.now() + 60000) {
+                return true;
+            }
+        }
         if (sessionError) {
             console.warn('Failed to read auth session before duty write:', sessionError);
+        }
+
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshData.session) {
+            const expiresAt = refreshData.session.expires_at ? refreshData.session.expires_at * 1000 : 0;
+            if (expiresAt > Date.now() + 60000) {
+                return true;
+            }
+        }
+        if (refreshError) {
+            console.warn('Failed to refresh auth session before duty write:', refreshError);
         }
 
         const bridged = await rehydrateSessionFromServer(supabase);
@@ -91,13 +107,9 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             const {
                 data: { session: bridgedSession },
             } = await supabase.auth.getSession();
-            if (bridgedSession) return true;
-        }
-
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshData.session) return true;
-        if (refreshError) {
-            console.warn('Failed to refresh auth session before duty write:', refreshError);
+            if (bridgedSession && bridgedSession.expires_at && bridgedSession.expires_at * 1000 > Date.now() + 60000) {
+                return true;
+            }
         }
 
         setUser(null);

@@ -155,6 +155,14 @@ export function DashboardSignInWidget({
         today.setHours(0, 0, 0, 0)
 
         const preCheckAndSignIn = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) {
+                const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+                if (expiresAt < Date.now() + 60000) {
+                    await supabase.auth.refreshSession();
+                }
+            }
+
             try {
                 const { data: existingLogs, error: existingError } = await supabase
                     .from("duty_logs")
