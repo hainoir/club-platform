@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { rehydrateSessionFromServer } from '@/utils/supabase/rehydrate';
+import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { RosterWithMember } from '@/hooks/useDuty';
 import { useUserStore } from '@/store/useUserStore';
 import { AlertTriangle, MapPin, BookOpen, X } from 'lucide-react';
@@ -86,37 +86,7 @@ async function runWithTimeout<T>(request: (signal: AbortSignal) => Promise<T>): 
 }
 
 async function ensureSession(supabase: ReturnType<typeof createClient>): Promise<boolean> {
-    const {
-        data: { session },
-    } = await supabase.auth.getSession();
-    if (session) {
-        const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-        if (expiresAt > Date.now() + 60000) {
-            return true;
-        }
-    }
-
-    const {
-        data: { session: refreshedSession },
-    } = await supabase.auth.refreshSession();
-    if (refreshedSession) {
-        const expiresAt = refreshedSession.expires_at ? refreshedSession.expires_at * 1000 : 0;
-        if (expiresAt > Date.now() + 60000) {
-            return true;
-        }
-    }
-
-    const bridged = await rehydrateSessionFromServer(supabase);
-    if (bridged) {
-        const {
-            data: { session: bridgedSession },
-        } = await supabase.auth.getSession();
-        if (bridgedSession && bridgedSession.expires_at && bridgedSession.expires_at * 1000 > Date.now() + 60000) {
-            return true;
-        }
-    }
-
-    return false;
+    return !!(await ensureClientSession(supabase));
 }
 
 interface AbsentMembersCardProps {

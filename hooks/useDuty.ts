@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useTransition } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { rehydrateSessionFromServer } from '@/utils/supabase/rehydrate';
+import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { Database } from '@/types/supabase';
 import { useToast } from '@/components/ui/toast-simple';
 import { getCurrentPositionWithFallback, getLocationErrorReason } from '@/lib/geolocation';
@@ -76,40 +76,13 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     const supabase = useMemo(() => createClient(), []);
 
     const ensureActiveSession = useCallback(async () => {
-        const {
-            data: { session },
-            error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (session) {
-            const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-            if (expiresAt > Date.now() + 60000) {
+        try {
+            const activeSession = await ensureClientSession(supabase);
+            if (activeSession) {
                 return true;
             }
-        }
-        if (sessionError) {
-            console.warn('Failed to read auth session before duty write:', sessionError);
-        }
-
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshData.session) {
-            const expiresAt = refreshData.session.expires_at ? refreshData.session.expires_at * 1000 : 0;
-            if (expiresAt > Date.now() + 60000) {
-                return true;
-            }
-        }
-        if (refreshError) {
-            console.warn('Failed to refresh auth session before duty write:', refreshError);
-        }
-
-        const bridged = await rehydrateSessionFromServer(supabase);
-        if (bridged) {
-            const {
-                data: { session: bridgedSession },
-            } = await supabase.auth.getSession();
-            if (bridgedSession && bridgedSession.expires_at && bridgedSession.expires_at * 1000 > Date.now() + 60000) {
-                return true;
-            }
+        } catch (error) {
+            console.warn('Failed to recover auth session before duty write:', error);
         }
 
         setUser(null);

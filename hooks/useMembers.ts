@@ -5,6 +5,7 @@ import { useDebounce } from "@/hooks/useDebounce"
 import { PostgrestError } from "@supabase/supabase-js"
 import { useToast } from "@/components/ui/toast-simple"
 import { Member } from "@/app/members/MembersClient"
+import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 
 type OptimisticAction = { action: 'delete'; payload: string } | { action: 'add' | 'update'; payload: Member }
 
@@ -25,6 +26,14 @@ export function useMembers(initialMembers: Member[]) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
     const [editingMember, setEditingMember] = React.useState<Member | null>(null)
     const [isSubmitting, setIsSubmitting] = React.useState(false)
+
+    const requireActiveSession = React.useCallback(async () => {
+        const session = await ensureClientSession(supabase)
+        if (session) return true
+
+        toast({ title: "登录状态已失效", description: "请重新登录后再继续操作。", variant: "destructive" })
+        return false
+    }, [supabase, toast])
 
     const [optimisticMembers, addOptimistic] = React.useOptimistic<Member[], OptimisticAction>(
         members,
@@ -75,6 +84,11 @@ export function useMembers(initialMembers: Member[]) {
 
         React.startTransition(async () => {
             try {
+                if (!(await requireActiveSession())) {
+                    setIsDialogOpen(true)
+                    return
+                }
+
                 if (editingMember) {
                     addOptimistic({ action: 'update', payload: { id: editingMember.id, name, student_id, role, department, grade, status, join_date: editingMember.join_date } })
 
@@ -120,6 +134,7 @@ export function useMembers(initialMembers: Member[]) {
             addOptimistic({ action: 'delete', payload: id })
 
             try {
+                if (!(await requireActiveSession())) return
                 const { error } = await supabase.from('members').delete().eq('id', id)
                 if (error) throw error;
                 toast({ title: "成员已删除", description: `${name} 已被移除。`, variant: "destructive" })

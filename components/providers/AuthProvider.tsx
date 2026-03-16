@@ -2,87 +2,66 @@
 import * as React from "react"
 import { normalizeUserRole, useUserStore } from "@/store/useUserStore"
 import { createClient } from "@/utils/supabase/client"
-import { rehydrateSessionFromServer } from "@/utils/supabase/rehydrate"
+import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { setUser, setInitialized } = useUserStore()
     const supabase = React.useMemo(() => createClient(), [])
+    // 【面试考点：Promise 缓存与防抖设计】
+    // 这里使用 useRef 缓存并复用相同的 initAuth Promise 实例。
+    // 在 React StrictMode 或者组件短时间内多次触发更新的情况下，保证不会重复发起大量网络请求造成竞态问题（Race Condition）。
+    const initAuthPromiseRef = React.useRef<Promise<void> | null>(null)
 
-    const initAuth = React.useCallback(async () => {
-        try {
-            const {
-                data: { session },
-                error: sessionError,
-            } = await supabase.auth.getSession()
-
-            let activeSession = session
-            if (activeSession) {
-                const expiresAt = activeSession.expires_at ? activeSession.expires_at * 1000 : 0;
-                if (expiresAt < Date.now() + 60000) {
-                    await supabase.auth.refreshSession()
-                    const { data: { session: refreshedSession } } = await supabase.auth.getSession()
-                    activeSession = refreshedSession
-                }
-            }
-
-            if (!activeSession && !sessionError) {
-                await new Promise((resolve) => setTimeout(resolve, 120))
-                const {
-                    data: { session: retrySession },
-                } = await supabase.auth.getSession()
-                
-                if (retrySession) {
-                    const expiresAt = retrySession.expires_at ? retrySession.expires_at * 1000 : 0;
-                    if (expiresAt >= Date.now() + 60000) {
-                        activeSession = retrySession
-                    }
-                }
-            }
-
-            if (!activeSession && !sessionError) {
-                const bridged = await rehydrateSessionFromServer(supabase)
-                if (bridged) {
-                    const {
-                        data: { session: bridgedSession },
-                    } = await supabase.auth.getSession()
-                    activeSession = bridgedSession
-                }
-            }
-
-            if (sessionError || !activeSession) {
-                setUser(null)
-                return
-            }
-
-            const { data: memberData } = await supabase
-                .from('members')
-                .select('id, role, name')
-                .ilike('email', activeSession.user.email || '')
-                .single()
-
-            if (memberData) {
-                setUser({
-                    id: memberData.id,
-                    email: activeSession.user.email || '',
-                    role: normalizeUserRole(memberData.role),
-                    name: memberData.name,
-                })
-            } else {
-                setUser({
-                    id: activeSession.user.id,
-                    email: activeSession.user.email || '',
-                    role: 'member',
-                })
-            }
-        } catch (error) {
-            console.error('Auth init error:', error)
-            setUser(null)
-        } finally {
-            setInitialized(true)
+    const initAuth = React.useCallback(() => {
+        if (initAuthPromiseRef.current) {
+            return initAuthPromiseRef.current
         }
+
+        const task = (async () => {
+            try {
+                const activeSession = await ensureClientSession(supabase)
+
+                if (!activeSession) {
+                    setUser(null)
+                    return
+                }
+
+                const { data: memberData } = await supabase
+                    .from('members')
+                    .select('id, role, name')
+                    .ilike('email', activeSession.user.email || '')
+                    .single()
+
+                if (memberData) {
+                    setUser({
+                        id: memberData.id,
+                        email: activeSession.user.email || '',
+                        role: normalizeUserRole(memberData.role),
+                        name: memberData.name,
+                    })
+                } else {
+                    setUser({
+                        id: activeSession.user.id,
+                        email: activeSession.user.email || '',
+                        role: 'member',
+                    })
+                }
+            } catch (error) {
+                console.error('Auth init error:', error)
+                setUser(null)
+            } finally {
+                setInitialized(true)
+                initAuthPromiseRef.current = null
+            }
+        })()
+
+        initAuthPromiseRef.current = task
+        return task
     }, [setInitialized, setUser, supabase])
 
     React.useEffect(() => {
+        // 【面试考点：初始化鉴权与事件监听】
+        // 在组件挂载时首次触发鉴权获取当前登录态
         initAuth()
 
         const {
@@ -94,11 +73,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return
             }
 
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+            if (event === 'INITIAL_SESSION') {
+                return
+            }
+
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 await initAuth()
             }
         })
 
+        // 【面试考点：前后台切换与数据同步 (App Visibility & Focus)】
+        // 注册对 "窗口聚焦" (focus) 和 "页面可见性改变" (visibilitychange) 的事件监听器。
+        // 这是现代 Web 应用的最佳体验实践：当用户从别的标签页或应用切回来时，立刻校验登录态，确保敏感数据未过期失效。
         const handleFocus = () => {
             void initAuth()
         }

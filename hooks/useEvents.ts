@@ -6,6 +6,7 @@ import { format } from "date-fns"
 import { PostgrestError } from "@supabase/supabase-js"
 import { useToast } from "@/components/ui/toast-simple"
 import { Event } from "@/app/events/EventsClient"
+import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 
 export function useEvents(initialEvents: Event[]) {
     const router = useRouter()
@@ -28,6 +29,14 @@ export function useEvents(initialEvents: Event[]) {
     const [isAttendeesDialogOpen, setIsAttendeesDialogOpen] = React.useState(false)
     const [viewMode, setViewMode] = React.useState<"all" | "enrolled">("all")
     const [viewingEvent, setViewingEvent] = React.useState<Event | null>(null)
+
+    const requireActiveSession = React.useCallback(async () => {
+        const session = await ensureClientSession(supabase)
+        if (session) return true
+
+        toast({ title: "登录状态已失效", description: "请重新登录后再继续操作。", variant: "destructive" })
+        return false
+    }, [supabase, toast])
 
     const openCreate = () => {
         setEditingEvent(null)
@@ -53,6 +62,7 @@ export function useEvents(initialEvents: Event[]) {
 
     const handleDelete = async (id: string, title: string) => {
         try {
+            if (!(await requireActiveSession())) return
             const { error } = await supabase.from('events').delete().eq('id', id)
             if (error) throw error;
             toast({ title: "活动已删除", description: `"${title}" 已被取消。`, variant: "destructive" })
@@ -99,6 +109,10 @@ export function useEvents(initialEvents: Event[]) {
         let finalCoverUrl = editingEvent?.coverUrl || null;
 
         try {
+            if (!(await requireActiveSession())) {
+                setIsSubmitting(false)
+                return
+            }
             if (coverFile && coverFile.size > 0) {
                 const fileExt = coverFile.name.split('.').pop();
                 const fileName = `cover_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -178,6 +192,7 @@ export function useEvents(initialEvents: Event[]) {
         const isAlreadyRSVPd = event.attendeesList?.some((a) => a.user_email?.toLowerCase() === normalizedEmail)
 
         try {
+            if (!(await requireActiveSession())) return
             if (isAlreadyRSVPd) {
                 const { error } = await supabase
                     .from('event_attendees')
@@ -232,6 +247,7 @@ export function useEvents(initialEvents: Event[]) {
 
     const handleRemoveAttendee = async (attendeeId: string, attendeeName: string) => {
         try {
+            if (!(await requireActiveSession())) return
             const { error } = await supabase
                 .from('event_attendees')
                 .delete()
@@ -253,6 +269,7 @@ export function useEvents(initialEvents: Event[]) {
 
     const handleToggleAttendance = async (attendeeId: string, currentStatus: boolean, attendeeName: string) => {
         try {
+            if (!(await requireActiveSession())) return
             const { error } = await supabase
                 .from('event_attendees')
                 .update({ is_attended: !currentStatus })

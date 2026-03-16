@@ -1,7 +1,13 @@
-﻿import { createServerClient } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
+    if (request.nextUrl.pathname === '/api/auth/session') {
+        const passthrough = NextResponse.next({ request })
+        passthrough.headers.set('Cache-Control', 'private, no-store')
+        return passthrough
+    }
+
     let supabaseResponse = NextResponse.next({
         request,
     })
@@ -27,15 +33,16 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    // 銆愮郴缁熷涔狅細Session 鍒锋柊涓庝护鐗屼繚娲汇€?
-    // 璋冪敤 getUser() 涓嶄粎浠呮槸鎷夸俊鎭紝瀹冧細鍦ㄨ儗鍚庢鏌ュ鏋?access_token 蹇繃鏈熶簡锛?
-    // 灏辫嚜鍔ㄧ敤 refresh_token 鍘绘崲涓€涓柊浠ょ墝鍐欏叆 request.cookies锛屼繚鎸佺敤鎴风殑鐧诲綍鎬佹寔涔呮湁鏁堛€?
+    // 【面试考点：Session 刷新与令牌保活 (Token Refreshing)】
+    // 调用 getUser() 不仅仅是获取当前用户信息。Supabase SDK 会在底层自动检查 access_token (访问令牌) 是否即将过期。
+    // 如果过期或即将过期，它会自动使用 refresh_token 去请求一个新的 access_token 并写入 response 的 cookies 中，从而保持用户的持久登录状态，实现无感刷新。
     const {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // 銆愮郴缁熷涔狅細璺敱瀹堝崼 (Route Guarding)銆?
-    // 瀹氫箟鍙湁鍐呴儴浜哄憳鍙鐨勫墠绔〉闈㈡暟缁勩€?
+    // 【面试考点：白名单机制与路由守卫 (Route Guarding)】
+    // 定义受保护的路由列表。只有经过身份验证的用户才能访问这些内部页面。
+    // 相比于在每个页面组件单独检查权限，在 middleware.ts 中集中处理路由守卫是 Next.js 应用的标准最佳实践，可以在请求到达页面渲染之前就在 Edge Runtime (边缘计算环境) 中拦截，大幅降低服务器开销。
     const pathname = request.nextUrl.pathname
     const isProtectedRoute =
         pathname === '/' ||
@@ -45,21 +52,26 @@ export async function updateSession(request: NextRequest) {
         pathname.startsWith('/settings')
 
     if (!user && isProtectedRoute) {
-        // 銆愮郴缁熷涔狅細鏈巿鏉冩嫤鎴笌韪㈠嚭銆?
-        // 娌″甫鍚堟硶 Cookie 涔熸暍杩涢棬锛熸妸浣犲己鍒堕仯杩斿埌 /login 鐧诲綍鍓嶅彴銆?
+        // 【面试考点：未授权访问拦截】
+        // 如果用户未携带有效的 Session 且试图访问受保护的路由，我们在此处直接将其重定向到 /login 登录页。
+        // 通过 nextUrl.clone() 构建新的 URL 可以确保重定向时保留原始的 host 和协议信息。
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)
     }
 
-    // 銆愮郴缁熷涔狅細UX 閲嶅畾鍚戜紭鍖栥€?
-    // 褰撶郴缁熸娴嬪埌纭洏閲屾湁鍚堟硶鐨勭櫥褰曞嚟璇佹椂锛屾嫤鎴敤鎴峰啀鍘荤‖闂?/login 鐨勮涓猴紝灏嗚€佺帺瀹剁洿鎺ラ€佸洖绠＄悊澶у巺銆?
+    // 【面试考点：重定向与 UX (用户体验) 优化】
+    // 当系统检测到用户已经拥有有效的登录凭证，且他们正试图访问 /login （或其它开放性的注册/登录页）时，
+    // 我们会将其拦截并自动重定向回系统的首页或管理控制台，避免重复登录带来的疑惑，提升用户体验。
     if (user && pathname.startsWith('/login')) {
         const url = request.nextUrl.clone()
         url.pathname = '/'
-        return NextResponse.redirect(url)
+        const redirectResponse = NextResponse.redirect(url)
+        redirectResponse.headers.set('Cache-Control', 'private, no-store')
+        return redirectResponse
     }
 
+    supabaseResponse.headers.set('Cache-Control', 'private, no-store')
     return supabaseResponse
 }
 

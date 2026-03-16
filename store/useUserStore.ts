@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 
 const KNOWN_ROLES = [
     'admin',
@@ -87,18 +86,10 @@ interface UserState {
     logout: () => void
 }
 
-export const useUserStore = create<UserState>()(
-    persist(
-        (set) => ({
-            user: null,
-            isInitialized: false,
-            setUser: (user) => set({ user }),
-            setInitialized: (status) => set({ isInitialized: status }),
-            logout: () => set({ user: null, isInitialized: false }),
-        }),
-        {
-            name: 'club-user-storage',
-            partialize: (state) => ({ user: state.user }),
-        }
-    )
-)
+export const useUserStore = create<UserState>()((set) => ({
+    user: null,
+    isInitialized: false,
+    setUser: (user) => set({ user }),
+    setInitialized: (status) => set({ isInitialized: status }),
+    logout: () => set({ user: null, isInitialized: false }),
+}))
