@@ -4,6 +4,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ToastProvider } from "@/components/ui/toast-simple"
 import { AuthProvider } from "@/components/providers/AuthProvider"
+import { StoreHydration } from "@/components/providers/StoreHydration"
 import { WebVitals } from "@/components/WebVitals"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -35,6 +36,7 @@ export default function RootLayout({
                     将其与外层的 Server Component 边界明确隔离开来，最大化服务端的渲染效益。 */}
                 <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
                     <ToastProvider>
+                        <StoreHydration />
                         <AuthProvider>{children}</AuthProvider>
                     </ToastProvider>
                 </ThemeProvider>
