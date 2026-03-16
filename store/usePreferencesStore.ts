@@ -62,6 +62,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         }),
         {
             name: 'club-preferences-storage',
+            skipHydration: true,
         }
     )
 )

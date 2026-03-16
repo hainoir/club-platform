@@ -99,6 +99,7 @@ export const useUserStore = create<UserState>()(
         {
             name: 'club-user-storage',
             partialize: (state) => ({ user: state.user }),
+            skipHydration: true,
         }
     )
 )
