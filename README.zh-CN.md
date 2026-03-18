@@ -66,7 +66,7 @@ pnpm run lint
 pnpm run typecheck
 pnpm run build
 pnpm run e2e:smoke
-pnpm run e2e -- --reporter=line
+pnpm run e2e --reporter=line
 ```
 
 CI 流程与本地一致：先执行 smoke，再执行 full E2E。

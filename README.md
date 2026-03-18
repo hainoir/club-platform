@@ -74,7 +74,7 @@ pnpm run lint
 pnpm run typecheck
 pnpm run build
 pnpm run e2e:smoke
-pnpm run e2e -- --reporter=line
+pnpm run e2e --reporter=line
 ```
 
 CI runs the same flow, with smoke tests first and full E2E after.

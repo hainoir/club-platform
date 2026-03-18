@@ -54,7 +54,7 @@ jobs:
         run: pnpm run e2e:smoke
 
       - name: Run Full E2E Tests
-        run: pnpm run e2e -- --reporter=line
+        run: pnpm run e2e --reporter=line
 
       - name: Upload Playwright Artifacts
         if: failure()
