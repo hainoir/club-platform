@@ -1,8 +1,36 @@
 "use client"
 import * as React from "react"
-import { normalizeUserRole, useUserStore } from "@/store/useUserStore"
+import { isAdminRole, normalizeUserRole, useUserStore } from "@/store/useUserStore"
 import { createClient } from "@/utils/supabase/client"
 import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
+
+type MemberLookupRow = {
+    id: string
+    role: string | null
+    name: string | null
+    created_at: string
+}
+
+function rankRolePriority(role: string | null): number {
+    return isAdminRole(role) ? 0 : 1
+}
+
+function pickPreferredMember(candidates: MemberLookupRow[], authUserId: string): MemberLookupRow | null {
+    if (candidates.length === 0) return null
+
+    const exactMatch = candidates.find((candidate) => candidate.id === authUserId)
+    if (exactMatch) return exactMatch
+
+    const sorted = [...candidates].sort((a, b) => {
+        const roleDiff = rankRolePriority(a.role) - rankRolePriority(b.role)
+        if (roleDiff !== 0) return roleDiff
+
+        const timeA = Date.parse(a.created_at || "") || 0
+        const timeB = Date.parse(b.created_at || "") || 0
+        return timeB - timeA
+    })
+    return sorted[0] ?? null
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { setUser, setInitialized } = useUserStore()
@@ -35,32 +63,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
 
                 try {
-                    let memberData: { id: string; role: string | null; name: string | null } | null = null
+                    let memberData: MemberLookupRow | null = null
 
                     const byIdResult = await supabase
                         .from('members')
-                        .select('id, role, name')
+                        .select('id, role, name, created_at')
                         .eq('id', activeSession.user.id)
                         .maybeSingle()
 
                     if (byIdResult.error) {
-                        console.warn('Auth init member lookup by id failed:', byIdResult.error.message)
+                        console.warn('[auth:init][lookup-error][id]', byIdResult.error.message)
                     } else if (byIdResult.data) {
                         memberData = byIdResult.data
+                    } else {
+                        console.warn('[auth:init][lookup-empty][id]', activeSession.user.id)
                     }
 
                     if (!memberData && activeSession.user.email) {
                         const byEmailResult = await supabase
                             .from('members')
-                            .select('id, role, name')
+                            .select('id, role, name, created_at')
                             .ilike('email', activeSession.user.email)
-                            .limit(1)
-                            .maybeSingle()
+                            .order('created_at', { ascending: false })
+                            .limit(20)
 
                         if (byEmailResult.error) {
-                            console.warn('Auth init member lookup by email failed:', byEmailResult.error.message)
-                        } else if (byEmailResult.data) {
-                            memberData = byEmailResult.data
+                            console.warn('[auth:init][lookup-error][email]', byEmailResult.error.message)
+                        } else {
+                            const candidates = byEmailResult.data || []
+                            memberData = pickPreferredMember(candidates, activeSession.user.id)
+                            if (!memberData) {
+                                console.warn('[auth:init][lookup-empty][email]', activeSession.user.email)
+                            }
                         }
                     }
 
@@ -75,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         setUser(fallbackUser)
                     }
                 } catch (lookupError) {
-                    console.warn('Auth init member lookup error:', lookupError)
+                    console.warn('[auth:init][lookup-error][members]', lookupError)
                     setUser(fallbackUser)
                 }
             } catch (error) {
