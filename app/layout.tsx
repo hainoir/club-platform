@@ -7,6 +7,7 @@ import { AuthProvider } from "@/components/providers/AuthProvider"
 import { StoreHydration } from "@/components/providers/StoreHydration"
 import { WebVitals } from "@/components/WebVitals"
 import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -42,6 +43,7 @@ export default function RootLayout({
                     </ToastProvider>
                 </ThemeProvider>
                 <Analytics />
+                <SpeedInsights />
             </body>
         </html>
     )
