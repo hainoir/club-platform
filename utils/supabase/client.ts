@@ -1,7 +1,26 @@
 import { createBrowserClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
 
 let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null
+let serverRenderFallbackClient: SupabaseClient<Database> | null = null
+
+function missingSupabaseEnvError() {
+    return new Error(
+        'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. ' +
+            'Set them in your runtime environment.'
+    )
+}
+
+function createServerRenderFallback(): SupabaseClient<Database> {
+    const error = missingSupabaseEnvError()
+
+    return new Proxy({} as SupabaseClient<Database>, {
+        get() {
+            throw error
+        },
+    })
+}
 
 /**
  * 【面试考点：客户端 Supabase 实例 (Client Component)】
@@ -12,10 +31,21 @@ let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = nul
 export function createClient() {
     if (browserClient) return browserClient
 
-    browserClient = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+        // During build/prerender of Client Components, avoid crashing SSR output.
+        if (typeof window === 'undefined') {
+            if (!serverRenderFallbackClient) {
+                serverRenderFallbackClient = createServerRenderFallback()
+            }
+            return serverRenderFallbackClient
+        }
+        throw missingSupabaseEnvError()
+    }
+
+    browserClient = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
 
     return browserClient
 }
