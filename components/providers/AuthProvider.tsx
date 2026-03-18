@@ -25,26 +25,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setUser(null)
                     return
                 }
+                const fallbackUser = {
+                    id: activeSession.user.id,
+                    email: activeSession.user.email || '',
+                    role: 'member' as const,
+                    name: typeof activeSession.user.user_metadata?.name === 'string'
+                        ? activeSession.user.user_metadata.name
+                        : undefined,
+                }
 
-                const { data: memberData } = await supabase
-                    .from('members')
-                    .select('id, role, name')
-                    .ilike('email', activeSession.user.email || '')
-                    .single()
+                try {
+                    let memberData: { id: string; role: string | null; name: string | null } | null = null
 
-                if (memberData) {
-                    setUser({
-                        id: memberData.id,
-                        email: activeSession.user.email || '',
-                        role: normalizeUserRole(memberData.role),
-                        name: memberData.name,
-                    })
-                } else {
-                    setUser({
-                        id: activeSession.user.id,
-                        email: activeSession.user.email || '',
-                        role: 'member',
-                    })
+                    const byIdResult = await supabase
+                        .from('members')
+                        .select('id, role, name')
+                        .eq('id', activeSession.user.id)
+                        .maybeSingle()
+
+                    if (byIdResult.error) {
+                        console.warn('Auth init member lookup by id failed:', byIdResult.error.message)
+                    } else if (byIdResult.data) {
+                        memberData = byIdResult.data
+                    }
+
+                    if (!memberData && activeSession.user.email) {
+                        const byEmailResult = await supabase
+                            .from('members')
+                            .select('id, role, name')
+                            .ilike('email', activeSession.user.email)
+                            .limit(1)
+                            .maybeSingle()
+
+                        if (byEmailResult.error) {
+                            console.warn('Auth init member lookup by email failed:', byEmailResult.error.message)
+                        } else if (byEmailResult.data) {
+                            memberData = byEmailResult.data
+                        }
+                    }
+
+                    if (memberData) {
+                        setUser({
+                            id: memberData.id,
+                            email: activeSession.user.email || '',
+                            role: normalizeUserRole(memberData.role),
+                            name: memberData.name ?? undefined,
+                        })
+                    } else {
+                        setUser(fallbackUser)
+                    }
+                } catch (lookupError) {
+                    console.warn('Auth init member lookup error:', lookupError)
+                    setUser(fallbackUser)
                 }
             } catch (error) {
                 console.error('Auth init error:', error)
