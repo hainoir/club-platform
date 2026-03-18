@@ -20,7 +20,17 @@ export async function ensureClientSession(
     // 这个函数的存在并借助 Supabase 底层缓存机制，有效防止了重复的无意义网络请求，减轻鉴权服务器压力。
     const {
         data: { session },
+        error: sessionError,
     } = await supabase.auth.getSession()
+
+    if (sessionError) {
+        return null
+    }
+
+    // No local auth state to refresh.
+    if (!session) {
+        return null
+    }
 
     if (hasEnoughValidity(session, minValidityMs)) {
         return session
@@ -30,7 +40,14 @@ export async function ensureClientSession(
     // 尝试无感刷新令牌。由于 Access Token 寿命较短（出于安全考虑），我们在客户端静默尝试通过 Refresh Token 换取新令牌。
     const {
         data: { session: refreshedSession },
+        error: refreshError,
     } = await supabase.auth.refreshSession()
+
+    // Stale/invalid refresh token should be treated as signed-out state.
+    if (refreshError) {
+        await supabase.auth.signOut()
+        return null
+    }
 
     if (hasEnoughValidity(refreshedSession, minValidityMs)) {
         return refreshedSession
