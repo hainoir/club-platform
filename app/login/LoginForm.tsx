@@ -46,6 +46,7 @@ export default function LoginForm() {
     const [department, setDepartment] = React.useState("")
     const [grade, setGrade] = React.useState("")
     const [isLoginMode, setIsLoginMode] = React.useState(true)
+    const [isSendingResetEmail, setIsSendingResetEmail] = React.useState(false)
 
     const validateRegisterForm = React.useCallback(() => {
         if (name.trim().length < 2) {
@@ -225,6 +226,43 @@ export default function LoginForm() {
         }
     }
 
+    const handleForgotPassword = async () => {
+        const normalizedEmail = email.trim().toLowerCase()
+        if (!normalizedEmail) {
+            toast({
+                title: "请输入邮箱",
+                description: "请先输入注册邮箱，再发送重置链接。",
+                variant: "destructive",
+            })
+            return
+        }
+
+        setIsSendingResetEmail(true)
+        try {
+            const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined
+            const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, redirectTo ? { redirectTo } : {})
+            if (error) throw error
+
+            toast({
+                title: "重置邮件已发送",
+                description: "请前往邮箱打开链接，并在页面中设置新密码。",
+            })
+        } catch (error: unknown) {
+            let errorMsg = (error as Error).message || "暂时无法发送重置邮件，请稍后再试。"
+            if (errorMsg.includes("Email rate limit exceeded")) {
+                errorMsg = "请求过于频繁，请稍后再试。"
+            }
+
+            toast({
+                title: "发送失败",
+                description: errorMsg,
+                variant: "destructive",
+            })
+        } finally {
+            setIsSendingResetEmail(false)
+        }
+    }
+
     return (
         <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm sm:border">
             <CardContent className="pt-6">
@@ -255,6 +293,18 @@ export default function LoginForm() {
                             onChange={(e) => setPassword(e.target.value)}
                             required
                         />
+                        {isLoginMode && (
+                            <div className="text-right">
+                                <button
+                                    type="button"
+                                    onClick={handleForgotPassword}
+                                    className="text-xs underline hover:text-primary transition-colors"
+                                    disabled={isLoading || isSendingResetEmail}
+                                >
+                                    {isSendingResetEmail ? "发送中..." : "忘记密码？"}
+                                </button>
+                            </div>
+                        )}
                         {!isLoginMode && <p className="text-xs text-muted-foreground">至少 8 位，且包含字母与数字。</p>}
                     </div>
 
