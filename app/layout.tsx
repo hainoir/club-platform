@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/ui/toast-simple"
 import { AuthProvider } from "@/components/providers/AuthProvider"
 import { StoreHydration } from "@/components/providers/StoreHydration"
 import { WebVitals } from "@/components/WebVitals"
+import { Analytics } from "@vercel/analytics/next"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -40,6 +41,7 @@ export default function RootLayout({
                         <AuthProvider>{children}</AuthProvider>
                     </ToastProvider>
                 </ThemeProvider>
+                <Analytics />
             </body>
         </html>
     )
