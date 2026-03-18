@@ -70,7 +70,7 @@ export default function DashboardCharts({ data }: DashboardChartsProps) {
                     name: '招新人数',
                     type: 'line',
                     smooth: true,
-                    lineStyle: { width: 3, color: '#6366f1' }, // Indigo
+                    lineStyle: { width: 3, color: '#6366f1' }, // 靛蓝色
                     itemStyle: { color: '#6366f1' }, // 修复数据点的外溢颜色
                     showSymbol: true,
                     symbolSize: 8,
@@ -88,7 +88,7 @@ export default function DashboardCharts({ data }: DashboardChartsProps) {
                     name: '开展活动',
                     type: 'line',
                     smooth: true,
-                    lineStyle: { width: 3, color: '#ec4899' }, // Pink
+                    lineStyle: { width: 3, color: '#ec4899' }, // 粉色
                     itemStyle: { color: '#ec4899' }, // 修复数据点的外溢颜色
                     showSymbol: true,
                     symbolSize: 8,

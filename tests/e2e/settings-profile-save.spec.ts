@@ -38,7 +38,7 @@ test('settings profile save shows success feedback', async ({ page }) => {
     const firstFeedback = await waitForProfileSaveFeedback(page)
     test.skip(firstFeedback !== 'success', 'Profile save feedback not stable in current env')
 
-    // Restore the original value to avoid polluting member data.
+    // 恢复原始值，避免污染成员数据。
     await nameInput.fill(baseName)
     await saveButton.click()
     const secondFeedback = await waitForProfileSaveFeedback(page)

@@ -1,5 +1,5 @@
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
 
-// NOTE: This file should not be edited
-// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+// 注意：此文件不应手动编辑
+// 详细说明请参考框架的类型配置文档。

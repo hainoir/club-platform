@@ -172,7 +172,7 @@ export function KeyTransferCard({ dutyManager, allMembers }: KeyTransferCardProp
     );
 }
 
-// 成员选择按钮（复用 Popover 模式）
+// 成员选择按钮（复用浮层模式）
 function MemberSelectButton({
     allMembers,
     onSelect,

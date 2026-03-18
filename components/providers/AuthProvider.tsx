@@ -35,9 +35,9 @@ function pickPreferredMember(candidates: MemberLookupRow[], authUserId: string):
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { setUser, setInitialized } = useUserStore()
     const supabase = React.useMemo(() => createClient(), [])
-    // 【面试考点：Promise 缓存与防抖设计】
-    // 这里使用 useRef 缓存并复用相同的 initAuth Promise 实例。
-    // 在 React StrictMode 或者组件短时间内多次触发更新的情况下，保证不会重复发起大量网络请求造成竞态问题（Race Condition）。
+    // 【面试考点：异步任务缓存与防抖设计】
+    // 这里通过引用缓存并复用同一个初始化鉴权异步任务实例。
+    // 在严格模式或组件短时间多次更新时，保证不会重复发起大量网络请求造成竞态问题。
     const initAuthPromiseRef = React.useRef<Promise<void> | null>(null)
 
     const initAuth = React.useCallback(() => {
@@ -148,9 +148,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         })
 
-        // 【面试考点：前后台切换与数据同步 (App Visibility & Focus)】
-        // 注册对 "窗口聚焦" (focus) 和 "页面可见性改变" (visibilitychange) 的事件监听器。
-        // 这是现代 Web 应用的最佳体验实践：当用户从别的标签页或应用切回来时，立刻校验登录态，确保敏感数据未过期失效。
+        // 【面试考点：前后台切换与数据同步】
+        // 注册窗口聚焦与页面可见性变化事件监听器。
+        // 当用户从其他标签页或应用切回时立刻校验登录态，可避免敏感数据过期失效。
         const handleFocus = () => {
             void initAuth()
         }

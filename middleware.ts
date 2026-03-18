@@ -8,13 +8,13 @@ export async function middleware(request: NextRequest) {
 export const config = {
     matcher: [
         /*
-         * 【系统学习：中间件路由匹配器 (Matcher)】
-         * 匹配所有的前端导航和 API 请求路径，但在经过中间件时，过滤排除掉以下静态资源：
-         * - _next/static (编译后的 JS/CSS)
-         * - _next/image (NextJS 图片优化模块)
-         * - favicon.ico (网页图标)
-         * - 以及所有形如 .svg, .png... 的静态图片资源请求
-         * 这样能极大减轻被鉴权系统拦截器误伤的性能开销。
+         * 【系统学习：中间件路由匹配器】
+         * 匹配所有前端导航和接口请求路径，但会排除以下静态资源：
+         * - 框架静态资源目录
+         * - 框架图片优化目录
+         * - 站点图标资源
+         * - 以及常见图片扩展名对应的静态资源请求
+         * 这样能显著降低鉴权拦截器误处理带来的性能开销。
          */
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],

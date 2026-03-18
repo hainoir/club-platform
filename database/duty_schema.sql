@@ -1,10 +1,10 @@
 -- ==========================================================
--- Supabase Schema & RLS 策略文件: 值班表模块 (Duty Roster)
+-- 值班模块数据结构与行级安全策略文件
 -- ==========================================================
 
 -- 1. 创建表
 
--- 1.1 duty_rosters (常规周排班池)
+-- 1.1 排班池表（常规周排班）
 CREATE TABLE IF NOT EXISTS public.duty_rosters (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   member_id uuid NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.duty_rosters (
   UNIQUE(day_of_week, period, member_id)
 );
 
--- 1.2 duty_logs (值班打卡记录流水)
+-- 1.2 签到流水表（值班打卡记录）
 CREATE TABLE IF NOT EXISTS public.duty_logs (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   member_id uuid NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.duty_logs (
   week_number int4
 );
 
--- 1.3 duty_swaps (换班/代班申请库)
+-- 1.3 换班申请表（换班与代班请求）
 CREATE TABLE IF NOT EXISTS public.duty_swaps (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   requester_id uuid NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
@@ -39,18 +39,18 @@ CREATE TABLE IF NOT EXISTS public.duty_swaps (
 );
 
 -- ==========================================================
--- 2. 启用行级安全 (RLS)
+-- 2. 启用行级安全策略
 -- ==========================================================
 ALTER TABLE public.duty_rosters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.duty_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.duty_swaps ENABLE ROW LEVEL SECURITY;
 
 -- ==========================================================
--- 3. RLS 安全策略配置
+-- 3. 行级安全策略配置
 -- ==========================================================
 
 -- ----------------------------------------------------
--- 表: duty_rosters (排班池)
+-- 表：排班池表
 -- ----------------------------------------------------
 -- 允许所有认证用户自由查看排班情况
 DROP POLICY IF EXISTS "允许认证用户查看值班表" ON public.duty_rosters;
@@ -94,7 +94,7 @@ USING (
 );
 
 -- ----------------------------------------------------
--- 表: duty_logs (打卡流水)
+-- 表：签到流水表
 -- ----------------------------------------------------
 -- 允许大家查看他人的打卡记录 (用于透明度和看板)
 DROP POLICY IF EXISTS "允许认证用户查看打卡记录" ON public.duty_logs;
@@ -149,7 +149,7 @@ USING (
 );
 
 -- ----------------------------------------------------
--- 表: duty_swaps (换班申请表)
+-- 表：换班申请表
 -- ----------------------------------------------------
 -- 允许查看大厅里的所有换班请求
 DROP POLICY IF EXISTS "允许认证用户查看换班请求" ON public.duty_swaps;

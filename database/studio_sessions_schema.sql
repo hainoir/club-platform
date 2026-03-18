@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.studio_sessions (
   is_active boolean DEFAULT true  -- 方便快速查询
 );
 
--- 启用 RLS
+-- 启用行级安全策略
 ALTER TABLE public.studio_sessions ENABLE ROW LEVEL SECURITY;
 
 -- 所有认证用户可查看

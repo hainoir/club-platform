@@ -26,7 +26,7 @@ export default function DashboardAttendance({ data }: DashboardAttendanceProps) 
                 backgroundColor: isDark ? 'rgba(24, 24, 27, 0.9)' : 'rgba(255, 255, 255, 0.9)',
                 borderColor: isDark ? '#3f3f46' : '#e4e4e7',
                 textStyle: { color: isDark ? '#f4f4f5' : '#18181b' },
-                formatter: '{b}: {c}%' // Format as percentage
+                formatter: '{b}: {c}%' // 按百分比格式显示
             },
             grid: {
                 left: '3%',

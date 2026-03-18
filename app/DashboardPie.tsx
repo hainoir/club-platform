@@ -7,12 +7,12 @@ interface DashboardPieProps {
     data: { name: string; value: number }[]
 }
 
-// 定义各部门专用的主题颜色 (对齐 MembersClient 的 Tailwind CSS Color Palette)
+// 定义各部门专用主题色（与成员页配色体系保持一致）
 const DEPT_COLORS: Record<string, string> = {
-    '开发部': '#3b82f6', // blue-500
-    '设计部': '#ec4899', // pink-500
-    '摄影部': '#f59e0b', // amber-500
-    '未分配': '#64748b'  // slate-500
+    '开发部': '#3b82f6', // 蓝色系
+    '设计部': '#ec4899', // 粉色系
+    '摄影部': '#f59e0b', // 琥珀色系
+    '未分配': '#64748b'  // 石板灰
 }
 
 export default function DashboardPie({ data }: DashboardPieProps) {

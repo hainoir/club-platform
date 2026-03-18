@@ -1,7 +1,7 @@
 -- ==========================================================
--- 为 members 表添加 grade (年级) 列
+-- 为成员表添加年级列
 -- ==========================================================
--- 提示：请在 Supabase SQL Editor 中手动执行此脚本
+-- 提示：请在数据库控制台的查询编辑器中手动执行此脚本
 
 ALTER TABLE public.members
 ADD COLUMN IF NOT EXISTS grade TEXT DEFAULT NULL;

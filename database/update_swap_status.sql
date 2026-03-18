@@ -1,14 +1,14 @@
 -- ==========================================================
--- duty_swaps status constraint + secure RPC
--- canonical source for accept_duty_swap behavior
+-- 换班状态约束与安全审批函数
+-- 换班审批函数的行为以此文件定义为准
 -- ==========================================================
 
--- 1) Ensure duty_swaps status supports accepted workflow
+-- 1）确保换班状态支持“已应答”流程
 ALTER TABLE public.duty_swaps DROP CONSTRAINT IF EXISTS duty_swaps_status_check;
 ALTER TABLE public.duty_swaps ADD CONSTRAINT duty_swaps_status_check
   CHECK (status IN ('pending', 'accepted', 'approved', 'rejected'));
 
--- 2) Secure RPC: only admins can approve accepted swap requests
+-- 2）安全审批函数：仅管理员可批准“已应答”换班请求
 CREATE OR REPLACE FUNCTION public.accept_duty_swap(
   p_swap_id uuid,
   p_acceptor_id uuid

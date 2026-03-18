@@ -1,14 +1,14 @@
 -- ==========================================================
--- Supabase Row Level Security (RLS) 策略文件
+-- 行级安全策略文件
 -- ==========================================================
--- 提示：将此文件中的 SQL 代码复制到 Supabase 的 SQL Editor 运行以启用真正的底层数据安全
+-- 提示：将此文件中的查询脚本复制到数据库控制台的查询编辑器运行，以启用真正的底层数据安全
 
--- 1. 开启表的 RLS
+-- 1. 开启表的行级安全策略
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_attendees ENABLE ROW LEVEL SECURITY;
 
--- 2. members 表策略
+-- 2. 成员表策略
 -- 允许所有查询 (内部所有登录用户可互看)
 DROP POLICY IF EXISTS "允许认证用户读取所有成员信息" ON members;
 CREATE POLICY "允许认证用户读取所有成员信息" 
@@ -17,7 +17,7 @@ TO authenticated
 USING (true);
 
 -- 允许主席/管理员组修改成员信息
--- 注意：这里使用关联子查询来验证当前操作者的 role 身份
+-- 注意：这里使用关联子查询来验证当前操作者的角色身份
 DROP POLICY IF EXISTS "允许管理员更新成员" ON members;
 CREATE POLICY "允许管理员更新成员" 
 ON members FOR UPDATE 
@@ -64,7 +64,7 @@ USING (
   )
 );
 
--- 3. events 表策略
+-- 3. 活动表策略
 DROP POLICY IF EXISTS "允许任何人/认证用户读取活动" ON events;
 CREATE POLICY "允许任何人/认证用户读取活动" 
 ON events FOR SELECT 
@@ -107,7 +107,7 @@ USING (
   )
 );
 
--- 4. event_attendees 表策略
+-- 4. 活动报名表策略
 -- 允许所有查询 (内部所有登录用户可查看报名列表)
 DROP POLICY IF EXISTS "允许认证用户读取活动参与者列表" ON event_attendees;
 CREATE POLICY "允许认证用户读取活动参与者列表" 
@@ -157,9 +157,9 @@ USING (
 );
 
 -- ==========================================================
--- 5. Storage (文件存储) 策略
--- 针对 events bucket (用于上传活动封面海报)
--- 注意：需要先在 Supabase 控制台中创建名为 'events' 的 bucket
+-- 5. 文件存储策略
+-- 针对活动封面存储桶（用于上传活动封面海报）
+-- 注意：需要先在数据库控制台中创建对应存储桶
 -- ==========================================================
 
 -- 允许认证用户读取活动封面海报
@@ -169,7 +169,7 @@ ON storage.objects FOR SELECT
 TO authenticated
 USING (bucket_id = 'events');
 
--- 仅允许管理员上传 (Insert) 图片
+-- 仅允许管理员上传图片（插入）
 DROP POLICY IF EXISTS "events_bucket_insert_admin" ON storage.objects;
 CREATE POLICY "events_bucket_insert_admin"
 ON storage.objects FOR INSERT
@@ -183,7 +183,7 @@ WITH CHECK (
   )
 );
 
--- 仅允许管理员更新 (Update) 图片
+-- 仅允许管理员更新图片
 DROP POLICY IF EXISTS "events_bucket_update_admin" ON storage.objects;
 CREATE POLICY "events_bucket_update_admin"
 ON storage.objects FOR UPDATE
@@ -205,7 +205,7 @@ WITH CHECK (
   )
 );
 
--- 仅允许管理员删除 (Delete) 图片
+-- 仅允许管理员删除图片
 DROP POLICY IF EXISTS "events_bucket_delete_admin" ON storage.objects;
 CREATE POLICY "events_bucket_delete_admin"
 ON storage.objects FOR DELETE

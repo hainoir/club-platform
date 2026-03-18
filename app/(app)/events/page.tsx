@@ -5,8 +5,8 @@ export default async function EventsPage() {
     const supabase = await createClient();
 
     // 【系统学习：服务端数据拉取与外键连表】
-    // 在 Server Component 中直接连接 Supabase 获取所有的活动记录。
-    // "select('*, event_attendees(...))" 会利用我们在数据库中建立的外键约束，
+    // 在服务端组件中直接连接数据库，获取全部活动记录。
+    // 该查询会利用我们在数据库中建立的外键约束，
     // 在取活动的同时，把与之关联的报名名单一并“连表查询”出来一次性拿给前端。
     const { data: eventsData, error } = await supabase
         .from('events')
@@ -17,9 +17,9 @@ export default async function EventsPage() {
         console.error("获取活动数据失败:", error);
     }
 
-    // 【系统学习：数据对象的序列化与映射 (Mapping)】
-    // 数据库直接吐出来的数据往往带有后端特征(比如 ISO 格式的格林威治时间戳)。
-    // 在把它们交给客户端组件之前，我们需要把它们统一解构转换(map)成符合前端 UI 展示逻辑的纯粹 Event 对象。
+    // 【系统学习：数据对象的序列化与映射】
+    // 数据库直接返回的数据往往带有后端特征（例如协调世界时格式的时间戳）。
+    // 在交给客户端组件前，需要统一映射为符合前端展示逻辑的活动对象。
     const events: Event[] = eventsData?.map((e) => {
         const dateObj = new Date(e.event_date);
         let dateStr = "N/A";
@@ -45,7 +45,7 @@ export default async function EventsPage() {
         const determinedType = e.type || "讲座";
 
         // 【系统学习：健壮的数据兜底处理】
-        // 对于嵌套的活动报名列表，在拿给底层子组件进行 .map() 或 .length 计算前必须强制判定是否为有效数组，避免前端引发空指针白屏崩溃。
+        // 对于嵌套活动报名列表，在交给子组件做遍历或计数前必须先判定为有效数组，避免空指针白屏。
         const attendeesList = Array.isArray(e.event_attendees) ? e.event_attendees : [];
 
         return {

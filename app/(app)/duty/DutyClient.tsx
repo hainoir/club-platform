@@ -175,7 +175,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                     <KeyTransferCard dutyManager={dutyManager} allMembers={initialMembers} />
                 </div>
 
-                {/* 右侧：课表级可视化 5x4 大表格 + 钥匙持有者 */}
+                {/* 右侧：课表级可视化五列四行大表格与钥匙持有者 */}
                 <div className="lg:col-span-3 min-w-0 overflow-hidden space-y-4">
                     <DutyTable
                         rosters={rosters}

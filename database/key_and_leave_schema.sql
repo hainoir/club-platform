@@ -1,9 +1,9 @@
 -- ==========================================================
--- 钥匙管理 + 请假补班 + 钥匙交接 数据 Schema
+-- 钥匙管理 + 请假补班 + 钥匙交接数据结构
 -- ==========================================================
--- 提示：请在 Supabase SQL Editor 中执行此脚本
+-- 提示：请在数据库控制台的查询编辑器中执行此脚本
 
--- 1. duty_rosters 新增 has_key 字段
+-- 1. 排班池表新增“是否持钥匙”字段
 ALTER TABLE public.duty_rosters
 ADD COLUMN IF NOT EXISTS has_key boolean DEFAULT false;
 
@@ -44,17 +44,17 @@ CREATE TABLE IF NOT EXISTS public.key_transfers (
 );
 
 -- ==========================================================
--- 5. 启用行级安全 (RLS)
+-- 5. 启用行级安全策略
 -- ==========================================================
 ALTER TABLE public.duty_leaves ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.duty_compensations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.key_transfers ENABLE ROW LEVEL SECURITY;
 
 -- ==========================================================
--- 6. RLS 策略
+-- 6. 行级安全策略
 -- ==========================================================
 
--- duty_leaves: 所有认证用户可查看，本人可插入，管理员可修改
+-- 请假记录：所有认证用户可查看，本人可插入，管理员可修改
 DROP POLICY IF EXISTS "允许认证用户查看请假" ON public.duty_leaves;
 CREATE POLICY "允许认证用户查看请假"
 ON public.duty_leaves FOR SELECT TO authenticated USING (true);
@@ -88,7 +88,7 @@ USING (
   )
 );
 
--- duty_compensations: 
+-- 补班安排：所有认证用户可查看，本人可插入
 DROP POLICY IF EXISTS "允许认证用户查看补班" ON public.duty_compensations;
 CREATE POLICY "允许认证用户查看补班"
 ON public.duty_compensations FOR SELECT TO authenticated USING (true);
@@ -100,7 +100,7 @@ WITH CHECK (
   EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email')))
 );
 
--- key_transfers: 
+-- 钥匙交接：所有认证用户可查看，本人可发起，相关方可更新
 DROP POLICY IF EXISTS "允许认证用户查看钥匙交接" ON public.key_transfers;
 CREATE POLICY "允许认证用户查看钥匙交接"
 ON public.key_transfers FOR SELECT TO authenticated USING (true);
@@ -122,7 +122,7 @@ USING (
   )
 );
 
--- duty_rosters 新增 UPDATE 策略
+-- 排班池表新增更新策略
 DROP POLICY IF EXISTS "允许管理员修改排班" ON public.duty_rosters;
 CREATE POLICY "允许管理员修改排班"
 ON public.duty_rosters FOR UPDATE TO authenticated
@@ -139,7 +139,7 @@ WITH CHECK (
   )
 );
 
--- RPC: 确认钥匙交接 (接收人确认后，更新排班中的钥匙持有状态)
+-- 远程过程函数：确认钥匙交接（接收人确认后，更新排班中的钥匙持有状态）
 CREATE OR REPLACE FUNCTION public.confirm_key_transfer(p_transfer_id uuid, p_confirmer_id uuid)
 RETURNS void AS $$
 DECLARE

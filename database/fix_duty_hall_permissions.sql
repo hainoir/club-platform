@@ -1,13 +1,13 @@
 -- ==========================================================
--- Patch: duty hall permission compatibility fix
--- Purpose:
--- 1) make role check compatible with 管理员 alias and admin case variants
--- 2) make email comparison case-insensitive + trimmed
--- 3) restore write access for duty roster/key/studio workflows
+-- 修复：值班大厅权限兼容性
+-- 目的：
+-- 1）让角色校验兼容“管理员”别名与英文管理员角色的大小写变体
+-- 2）让邮箱比较忽略大小写并自动去除首尾空白
+-- 3）恢复值班排班、钥匙与自习流程的写入权限
 -- ==========================================================
 
 -- ------------------------------------------------------------------
--- duty_rosters: owner/admin insert-delete + admin update
+-- 排班池：本人或管理员可插入和删除，管理员可更新
 -- ------------------------------------------------------------------
 DROP POLICY IF EXISTS duty_rosters_insert_owner_or_admin_v2 ON public.duty_rosters;
 CREATE POLICY duty_rosters_insert_owner_or_admin_v2
@@ -99,7 +99,7 @@ WITH CHECK (
 );
 
 -- ------------------------------------------------------------------
--- studio_sessions: owner insert/update + admin delete
+-- 自习会话：本人可插入和更新，管理员可删除
 -- ------------------------------------------------------------------
 DROP POLICY IF EXISTS studio_sessions_insert_owner_v2 ON public.studio_sessions;
 CREATE POLICY studio_sessions_insert_owner_v2
@@ -153,7 +153,7 @@ USING (
 );
 
 -- ------------------------------------------------------------------
--- accept_duty_swap RPC: admin compatibility
+-- 换班审批函数：管理员兼容处理
 -- ------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.accept_duty_swap(
   p_swap_id uuid,

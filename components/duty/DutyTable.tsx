@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 
-// 简易成员类型（从 members 表选取的字段）
+// 简易成员类型（从成员表选取的字段）
 export interface SimpleMember {
     id: string;
     name: string;
@@ -54,7 +54,7 @@ interface DutyTableProps {
 }
 
 // ------------------------------------------------------------------
-// 成员选择器 Popover（管理员专用）
+// 成员选择器浮层（管理员专用）
 // ------------------------------------------------------------------
 function MemberPickerPopover({
     allMembers,
@@ -150,7 +150,7 @@ export function DutyTable({
     onToggleKey,
     isPending,
 }: DutyTableProps) {
-    // 按照 [day][period] 的二维矩阵预处理数据
+    // 按照“星期 + 节次”的二维矩阵预处理数据
     const rosterMap = React.useMemo(() => {
         const map: Record<number, Record<number, RosterWithMember[]>> = {};
         DAYS.forEach(d => {
@@ -187,7 +187,7 @@ export function DutyTable({
             );
             if (hasLeave) return 'leave';
 
-            // 检查代班（已批准的 swap 中 target 是该成员）
+            // 检查代班（已批准记录中目标成员是该成员）
             const isSubstitute = approvedSwaps.some(
                 s => s.target_id === memberId && s.original_day === day && s.original_period === period
             );

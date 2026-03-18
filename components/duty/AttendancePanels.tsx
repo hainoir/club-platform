@@ -49,7 +49,7 @@ function getMatchedPeriod(minutes: number): number {
 }
 
 function getTodayDow(): number {
-    return new Date().getDay(); // 0=Sun, 1=Mon...5=Fri
+    return new Date().getDay(); // 0=周日，1=周一，...，5=周五
 }
 
 function isPeriodPast(day: number, period: number): boolean {

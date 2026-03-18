@@ -15,9 +15,9 @@ export async function ensureClientSession(
     supabase: SupabaseClient<Database>,
     minValidityMs = DEFAULT_MIN_VALIDITY_MS
 ): Promise<Session | null> {
-    // 【面试考点：前端并发请求与 Session 缓存】
-    // 在客户端由于 React 并发特性或多个组件同时挂载，可能会在一瞬间发起多次鉴权请求。
-    // 这个函数的存在并借助 Supabase 底层缓存机制，有效防止了重复的无意义网络请求，减轻鉴权服务器压力。
+    // 【面试考点：前端并发请求与会话缓存】
+    // 在客户端由于并发渲染特性或多个组件同时挂载，可能会在一瞬间发起多次鉴权请求。
+    // 这个函数借助底层缓存机制，可有效防止重复的无意义网络请求，减轻鉴权服务压力。
     const {
         data: { session },
         error: sessionError,
@@ -27,7 +27,7 @@ export async function ensureClientSession(
         return null
     }
 
-    // No local auth state to refresh.
+    // 本地没有可刷新的鉴权状态。
     if (!session) {
         return null
     }
@@ -36,14 +36,14 @@ export async function ensureClientSession(
         return session
     }
 
-    // 【面试考点：刷新机制 (Silent Auth Refresh)】
-    // 尝试无感刷新令牌。由于 Access Token 寿命较短（出于安全考虑），我们在客户端静默尝试通过 Refresh Token 换取新令牌。
+    // 【面试考点：刷新机制（静默刷新）】
+    // 尝试无感刷新令牌。由于访问令牌寿命较短（出于安全考虑），这里会静默使用刷新令牌换取新令牌。
     const {
         data: { session: refreshedSession },
         error: refreshError,
     } = await supabase.auth.refreshSession()
 
-    // Stale/invalid refresh token should be treated as signed-out state.
+    // 过期或失效的刷新令牌应视为已登出状态。
     if (refreshError) {
         await supabase.auth.signOut()
         return null
@@ -53,9 +53,9 @@ export async function ensureClientSession(
         return refreshedSession
     }
 
-    // 【面试考点：SSR 水合与状态同步 (Session Rehydration)】
-    // 如果客户端通过前面的方法均未取到合法的 Session，存在一种情况是服务端已经完成了登录，但客户端的上下文环境丢失了缓存。
-    // 我们在此触发一个专门的重水合过程，拉取服务端安全 HttpOnly Cookie 中保存的最新鉴权状态。
+    // 【面试考点：服务端水合与状态同步（会话重建）】
+    // 如果客户端通过前面的方法仍未取到合法会话，可能是服务端已登录但客户端上下文缓存丢失。
+    // 我们在此触发专门的重水合流程，拉取服务端仅后端可读标记中保存的最新鉴权状态。
     const bridged = await rehydrateSessionFromServer(supabase)
     if (!bridged) {
         return null

@@ -53,7 +53,7 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
             );
         }
 
-        // 管理员看 accepted 状态：批准/驳回
+        // 管理员看到“已应答”状态：批准或驳回
         if (isAdmin && isAccepted) {
             return (
                 <div className="flex gap-1">
@@ -78,7 +78,7 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
             );
         }
 
-        // pending 状态且不是自己的请求：可以应答
+        // 状态为“待处理”且不是自己的请求：可以应答
         if (isPending) {
             return (
                 <Button
@@ -92,7 +92,7 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
             );
         }
 
-        // accepted 状态但非管理员：显示等待审批
+        // 状态为“已应答”且非管理员：显示等待审批
         if (isAccepted) {
             return (
                 <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:bg-amber-950/30">

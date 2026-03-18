@@ -1,4 +1,4 @@
-﻿import { createClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
 import MembersClient, { Member } from './MembersClient';
 
 const DEPARTMENT_LABEL_MAP: Record<string, string> = {
@@ -28,11 +28,11 @@ function normalizeGrade(value: string | null): string {
 export default async function MembersPage() {
     const supabase = await createClient();
 
-    // 从 Supabase 的 members 表中查询所有社团成员数据
+    // 从数据库成员表中查询所有社团成员数据
     const { data: membersData, error } = await supabase
         .from('members')
         .select('*')
-        .order('id', { ascending: true }); // 按 ID 升序排列，保证新加入的成员在底部
+        .order('id', { ascending: true }); // 按编号升序排列，保证新加入成员排在底部
 
     // 如果出错或没数据，你可以选择处理（比如传空数组进行容错或者显示错误）
     if (error) {

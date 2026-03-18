@@ -118,7 +118,7 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
             await submitSwapRequest(
                 selectedRoster.day_of_week,
                 selectedRoster.period
-                // 不指定 targetId/targetDay/targetPeriod → 公开到代班大厅
+                // 不指定目标成员和目标时段，直接公开到代班大厅
             );
         }
 

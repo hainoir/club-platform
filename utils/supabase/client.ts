@@ -23,10 +23,10 @@ function createServerRenderFallback(): SupabaseClient<Database> {
 }
 
 /**
- * 【面试考点：客户端 Supabase 实例 (Client Component)】
- * 在 Next.js 中，带有 "use client" 的组件运行在用户的浏览器里。
- * 这个函数利用 @supabase/ssr 包创建了一个面向浏览器的客户端。
- * 它的秘钥 (NEXT_PUBLIC_...) 是对外公开的，因此只能进行配置了 RLS (行级安全策略) 的安全读写。
+ * 【面试考点：浏览器端数据库实例】
+ * 在本项目中，带有客户端指令的组件运行在用户浏览器里。
+ * 这个函数通过浏览器适配库创建数据库客户端实例。
+ * 它使用公开环境变量，因此只能配合行级权限策略进行安全读写。
  */
 export function createClient() {
     if (browserClient) return browserClient
@@ -35,7 +35,7 @@ export function createClient() {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseAnonKey) {
-        // During build/prerender of Client Components, avoid crashing SSR output.
+        // 在构建或预渲染浏览器端组件时，避免让服务端渲染结果直接崩溃。
         if (typeof window === 'undefined') {
             if (!serverRenderFallbackClient) {
                 serverRenderFallbackClient = createServerRenderFallback()

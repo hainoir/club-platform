@@ -1,8 +1,7 @@
-﻿-- ==========================================================
--- DEPRECATED
--- This file is kept for backward compatibility only.
--- Canonical definition of public.accept_duty_swap lives in:
---   database/update_swap_status.sql
+-- ==========================================================
+-- 已废弃
+-- 此文件仅为向后兼容保留。
+-- 换班审批函数的权威定义位于更新换班状态脚本。
 -- ==========================================================
 
 DO $$

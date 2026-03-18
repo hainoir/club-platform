@@ -50,7 +50,7 @@ const SIGN_IN_ATTEMPT_COOLDOWN_MS = 5000;
 const DAYS_LABEL = ['一', '二', '三', '四', '五'];
 
 /**
- * 计算两个经纬度之间的地球表面距离 (Haversine 公式)
+ * 计算两个经纬度之间的地表距离（哈弗辛公式）
  */
 function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371e3; // 地球半径，单位米
@@ -154,7 +154,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         const existingSlot = rosters.find(r => r.day_of_week === day && r.period === period && r.member_id === memberId);
         const isAdding = !existingSlot;
 
-        // 乐观更新 UI
+        // 乐观更新界面
         startTransition(() => {
             if (isAdding) {
                 // 添加占位符
@@ -407,7 +407,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 if (error) throw error;
                 toast({ title: '已移除请求', description: '该换班请求已被撤销或拒绝。' });
             } else {
-                // 管理员批准代班：调用 RPC 函数原子性完成排班转让
+                // 管理员批准代班：调用远程过程函数，原子性完成排班转让
                 if (!isAdminRole(user.role)) {
                     toast({ title: '权限不足', description: '仅管理员可以审批换班请求。', variant: 'destructive' });
                     setIsSwapping(false);
@@ -421,7 +421,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                     return;
                 }
 
-                // 调用 RPC，此时 RPC 内部使用 target_id（已由 volunteerForSwap 设置）
+                // 调用远程过程函数，此时内部会使用目标成员字段（已在前一步应答流程中设置）
                 const { error: rpcError } = await supabase.rpc('accept_duty_swap', {
                     p_swap_id: swapId,
                     p_acceptor_id: swapRecord.target?.id || '',
@@ -444,7 +444,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     };
 
-    // 普通用户应答代班请求（设置 target_id 和 status→accepted，等待管理员审批）
+    // 普通用户应答代班请求（写入目标成员，并将状态设为“已应答”，等待管理员审批）
     const volunteerForSwap = async (swapId: string) => {
         if (!user) return;
         if (!(await ensureActiveSession())) return;
@@ -470,7 +470,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     };
 
-    // 管理员驳回代班请求（将 accepted 退回 pending，清除 target_id）
+    // 管理员驳回代班请求（将状态从“已应答”回退到“待处理”，并清除目标成员）
     const rejectSwap = async (swapId: string) => {
         if (!user) return;
         if (!(await ensureActiveSession())) return;

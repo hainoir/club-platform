@@ -55,7 +55,7 @@ async function findMemberByEmail(supabase: AppSupabaseClient, email: string): Pr
 export async function createAcceptedSwapFixtureForAdmin(adminEmail: string, adminPassword: string): Promise<AcceptedSwapFixture> {
     const supabase = await createAuthedClient(adminEmail, adminPassword)
     const admin = await findMemberByEmail(supabase, adminEmail)
-    // Remove previous accepted rows from this requester to keep the test selector deterministic.
+    // 先清理该发起人历史上的“已应答”记录，保证测试选择器稳定可复现。
     const { error: cleanupError } = await supabase
         .from('duty_swaps')
         .delete()

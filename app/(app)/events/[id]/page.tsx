@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm'
 import { CalendarIcon, MapPin, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
-// ISR: 设置该页面在服务端缓存 60 秒
+// 增量静态再生成：该页面在服务端缓存 60 秒
 export const revalidate = 60
 
 interface EventPageProps {
