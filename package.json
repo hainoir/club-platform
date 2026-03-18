@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:smoke": "playwright test tests/e2e/smoke --reporter=line"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.1",

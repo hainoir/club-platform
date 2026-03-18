@@ -50,7 +50,10 @@ jobs:
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run E2E Tests
+      - name: Run E2E Smoke Tests
+        run: pnpm run e2e:smoke
+
+      - name: Run Full E2E Tests
         run: pnpm run e2e -- --reporter=line
 
       - name: Upload Playwright Artifacts
