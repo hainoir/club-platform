@@ -15,11 +15,12 @@ const PERIOD_RANGES: Record<number, [number, number]> = {
 }
 
 const DEFAULT_STUDIO_COORDS = {
-    lat: 39.182216,
-    lng: 117.127909,
+    lat: 39.181074,
+    lng: 117.12138,
 }
 
 const DEFAULT_MAX_VALID_RADIUS_METERS = 50
+const DEFAULT_MAX_GEO_ACCURACY_METERS = 100
 const SIGN_IN_ATTEMPT_COOLDOWN_MS = 5000
 
 function parseClientNumber(value: string | undefined, fallback: number): number {
@@ -36,6 +37,10 @@ const STUDIO_COORDS = {
 const MAX_VALID_RADIUS_METERS = parseClientNumber(
     process.env.NEXT_PUBLIC_STUDIO_RADIUS_METERS,
     DEFAULT_MAX_VALID_RADIUS_METERS
+)
+const MAX_GEO_ACCURACY_METERS = parseClientNumber(
+    process.env.NEXT_PUBLIC_STUDIO_MAX_GEO_ACCURACY_METERS,
+    DEFAULT_MAX_GEO_ACCURACY_METERS
 )
 
 function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number) {

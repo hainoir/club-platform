@@ -65,8 +65,8 @@ test.describe('Duty sign-in error handling', () => {
                 getCurrentPosition: (success: (position: unknown) => void) => {
                     success({
                         coords: {
-                            latitude: 39.182216,
-                            longitude: 117.127909,
+                            latitude: 39.181074,
+                            longitude: 117.121380,
                             accuracy: 1,
                             altitude: null,
                             altitudeAccuracy: null,
@@ -105,8 +105,8 @@ test.describe('Duty sign-in error handling', () => {
                 getCurrentPosition: (success: (position: unknown) => void) => {
                     success({
                         coords: {
-                            latitude: 39.182216,
-                            longitude: 117.127909,
+                            latitude: 39.181074,
+                            longitude: 117.121380,
                             accuracy: 1,
                             altitude: null,
                             altitudeAccuracy: null,

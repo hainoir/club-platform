@@ -25,10 +25,11 @@ export interface SwapWithMember extends DutySwap {
 // 工作室预设坐标与有效打卡半径配置 (请按需修改)
 // -------------------------------------------------------------
 const DEFAULT_STUDIO_COORDS = {
-    lat: 39.182216,
-    lng: 117.127909,
+    lat: 39.181074,
+    lng: 117.12138,
 };
 const DEFAULT_MAX_VALID_RADIUS_METERS = 50;
+const DEFAULT_MAX_GEO_ACCURACY_METERS = 100;
 
 function parseClientNumber(value: string | undefined, fallback: number): number {
     if (!value) return fallback;
@@ -43,6 +44,10 @@ const STUDIO_COORDS = {
 const MAX_VALID_RADIUS_METERS = parseClientNumber(
     process.env.NEXT_PUBLIC_STUDIO_RADIUS_METERS,
     DEFAULT_MAX_VALID_RADIUS_METERS
+);
+const MAX_GEO_ACCURACY_METERS = parseClientNumber(
+    process.env.NEXT_PUBLIC_STUDIO_MAX_GEO_ACCURACY_METERS,
+    DEFAULT_MAX_GEO_ACCURACY_METERS
 );
 const SIGN_IN_ATTEMPT_COOLDOWN_MS = 5000;
 
@@ -317,6 +322,28 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             toast({
                 title: "\u7b7e\u5230\u5931\u8d25",
                 description: "\u5b9a\u4f4d\u5750\u6807\u65e0\u6548\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002",
+                variant: "destructive"
+            });
+            finishSignIn();
+            return;
+        }
+
+        const accuracy = Number(position.coords.accuracy);
+
+        if (!Number.isFinite(accuracy)) {
+            toast({
+                title: "签到失败",
+                description: "定位精度异常，请稍后重试。",
+                variant: "destructive"
+            });
+            finishSignIn();
+            return;
+        }
+
+        if (accuracy > MAX_GEO_ACCURACY_METERS) {
+            toast({
+                title: "定位精度不足",
+                description: `当前定位精度约 ${Math.round(accuracy)} 米，请移动到开阔区域后重试。`,
                 variant: "destructive"
             });
             finishSignIn();
