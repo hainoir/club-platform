@@ -225,6 +225,16 @@ interface StudioMember {
     period: number;
 }
 
+interface StudioSessionWithMember {
+    id: string;
+    member_id: string;
+    started_at: string;
+    member: {
+        id: string;
+        name: string | null;
+    } | null;
+}
+
 export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     const supabase = useMemo(() => createClient(), []);
     const { user } = useUserStore();
@@ -283,14 +293,14 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
             const { data: sessions, error: sessionError } = await runWithTimeout<any>(async (signal) =>
                 await supabase
                     .from('studio_sessions')
-                    .select('id, member_id, started_at')
+                    .select('id, member_id, started_at, member:members(id, name)')
                     .eq('is_active', true)
                     .abortSignal(signal)
             );
 
             if (sessionError) throw sessionError;
 
-            (sessions || []).forEach((s: { id: string; member_id: string; started_at: string }) => {
+            ((sessions as StudioSessionWithMember[] | null) || []).forEach((s) => {
                 if (seenIds.has(s.member_id)) return;
 
                 const startTime = new Date(s.started_at);
@@ -309,10 +319,11 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 }
 
                 const roster = rosters.find((r) => r.member_id === s.member_id);
+                const sessionMemberName = s.member?.name?.trim() || '';
                 members.push({
                     id: s.member_id,
                     sessionId: s.id,
-                    name: roster?.member.name || '成员',
+                    name: sessionMemberName || roster?.member.name || '成员',
                     type: 'study',
                     period: matchedPeriod,
                 });
