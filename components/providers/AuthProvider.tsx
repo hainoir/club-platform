@@ -11,6 +11,27 @@ type MemberLookupRow = {
     created_at: string
 }
 
+const AUTH_INIT_TIMEOUT_MS = 8000
+
+async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+    try {
+        return await Promise.race([
+            task,
+            new Promise<T>((_, reject) => {
+                timeoutId = setTimeout(() => {
+                    reject(new Error(`${label} timed out after ${timeoutMs}ms`))
+                }, timeoutMs)
+            }),
+        ])
+    } finally {
+        if (timeoutId) {
+            clearTimeout(timeoutId)
+        }
+    }
+}
+
 function rankRolePriority(role: string | null): number {
     return isAdminRole(role) ? 0 : 1
 }
@@ -47,71 +68,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const task = (async () => {
             try {
-                const activeSession = await ensureClientSession(supabase)
+                await withTimeout(
+                    (async () => {
+                        const activeSession = await ensureClientSession(supabase)
 
-                if (!activeSession) {
-                    setUser(null)
-                    return
-                }
-                const fallbackUser = {
-                    id: activeSession.user.id,
-                    email: activeSession.user.email || '',
-                    role: 'member' as const,
-                    name: typeof activeSession.user.user_metadata?.name === 'string'
-                        ? activeSession.user.user_metadata.name
-                        : undefined,
-                }
-
-                try {
-                    let memberData: MemberLookupRow | null = null
-
-                    const byIdResult = await supabase
-                        .from('members')
-                        .select('id, role, name, created_at')
-                        .eq('id', activeSession.user.id)
-                        .maybeSingle()
-
-                    if (byIdResult.error) {
-                        console.warn('[auth:init][lookup-error][id]', byIdResult.error.message)
-                    } else if (byIdResult.data) {
-                        memberData = byIdResult.data
-                    } else {
-                        console.warn('[auth:init][lookup-empty][id]', activeSession.user.id)
-                    }
-
-                    if (!memberData && activeSession.user.email) {
-                        const byEmailResult = await supabase
-                            .from('members')
-                            .select('id, role, name, created_at')
-                            .ilike('email', activeSession.user.email)
-                            .order('created_at', { ascending: false })
-                            .limit(20)
-
-                        if (byEmailResult.error) {
-                            console.warn('[auth:init][lookup-error][email]', byEmailResult.error.message)
-                        } else {
-                            const candidates = byEmailResult.data || []
-                            memberData = pickPreferredMember(candidates, activeSession.user.id)
-                            if (!memberData) {
-                                console.warn('[auth:init][lookup-empty][email]', activeSession.user.email)
-                            }
+                        if (!activeSession) {
+                            setUser(null)
+                            return
                         }
-                    }
-
-                    if (memberData) {
-                        setUser({
-                            id: memberData.id,
+                        const fallbackUser = {
+                            id: activeSession.user.id,
                             email: activeSession.user.email || '',
-                            role: normalizeUserRole(memberData.role),
-                            name: memberData.name ?? undefined,
-                        })
-                    } else {
-                        setUser(fallbackUser)
-                    }
-                } catch (lookupError) {
-                    console.warn('[auth:init][lookup-error][members]', lookupError)
-                    setUser(fallbackUser)
-                }
+                            role: 'member' as const,
+                            name: typeof activeSession.user.user_metadata?.name === 'string'
+                                ? activeSession.user.user_metadata.name
+                                : undefined,
+                        }
+
+                        try {
+                            let memberData: MemberLookupRow | null = null
+
+                            const byIdResult = await supabase
+                                .from('members')
+                                .select('id, role, name, created_at')
+                                .eq('id', activeSession.user.id)
+                                .maybeSingle()
+
+                            if (byIdResult.error) {
+                                console.warn('[auth:init][lookup-error][id]', byIdResult.error.message)
+                            } else if (byIdResult.data) {
+                                memberData = byIdResult.data
+                            } else {
+                                console.warn('[auth:init][lookup-empty][id]', activeSession.user.id)
+                            }
+
+                            if (!memberData && activeSession.user.email) {
+                                const byEmailResult = await supabase
+                                    .from('members')
+                                    .select('id, role, name, created_at')
+                                    .ilike('email', activeSession.user.email)
+                                    .order('created_at', { ascending: false })
+                                    .limit(20)
+
+                                if (byEmailResult.error) {
+                                    console.warn('[auth:init][lookup-error][email]', byEmailResult.error.message)
+                                } else {
+                                    const candidates = byEmailResult.data || []
+                                    memberData = pickPreferredMember(candidates, activeSession.user.id)
+                                    if (!memberData) {
+                                        console.warn('[auth:init][lookup-empty][email]', activeSession.user.email)
+                                    }
+                                }
+                            }
+
+                            if (memberData) {
+                                setUser({
+                                    id: memberData.id,
+                                    email: activeSession.user.email || '',
+                                    role: normalizeUserRole(memberData.role),
+                                    name: memberData.name ?? undefined,
+                                })
+                            } else {
+                                setUser(fallbackUser)
+                            }
+                        } catch (lookupError) {
+                            console.warn('[auth:init][lookup-error][members]', lookupError)
+                            setUser(fallbackUser)
+                        }
+                    })(),
+                    AUTH_INIT_TIMEOUT_MS,
+                    'auth init'
+                )
             } catch (error) {
                 console.error('Auth init error:', error)
                 setUser(null)
