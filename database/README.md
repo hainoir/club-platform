@@ -21,9 +21,10 @@ This project uses SQL-first migrations. Run files in a strict order to avoid dri
 ## Incremental Upgrade Order (Existing Environments)
 
 1. `database/fix_duty_hall_permissions.sql` (recommended first when duty hall writes are rejected by RLS)
-2. `database/update_swap_status.sql`
-3. `database/key_and_leave_schema.sql` (to refresh secure `confirm_key_transfer` and grants)
-4. Re-apply `database/rls_policies.sql` only if you changed member/event policies.
+2. `database/normalize_profile_fields_to_zh.sql` (one-time backfill for legacy English `department`/`grade` in `public.members` and `auth.users.raw_user_meta_data`)
+3. `database/update_swap_status.sql`
+4. `database/key_and_leave_schema.sql` (to refresh secure `confirm_key_transfer` and grants)
+5. Re-apply `database/rls_policies.sql` only if you changed member/event policies.
 
 ## Rollback (Security Hardening)
 
@@ -52,3 +53,4 @@ GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO public;
 - Function definitions include: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - `event_attendees_event_email_unique` exists to enforce one RSVP per event/email (case-insensitive).
 - `duty_logs_member_sign_in_date_unique` exists to block repeated sign-ins in the same day.
+- `members.department` / `members.grade` and `auth.users.raw_user_meta_data` no longer contain legacy English enum values.

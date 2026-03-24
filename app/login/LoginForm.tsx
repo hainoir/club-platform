@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
 import { createClient } from "@/utils/supabase/client"
+import { DEPARTMENT_OPTIONS, GRADE_OPTIONS, normalizeDepartmentValue, normalizeGradeValue } from "@/utils/profile-fields"
 import { normalizeUserRole, useUserStore } from "@/store/useUserStore"
 import { useToast } from "@/components/ui/toast-simple"
 import { Button } from "@/components/ui/button"
@@ -17,19 +18,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-
-const DEPARTMENT_OPTIONS = [
-    { value: "Design", label: "设计部" },
-    { value: "Development", label: "开发部" },
-    { value: "Photography", label: "摄影部" },
-]
-
-const GRADE_OPTIONS = [
-    { value: "Freshman", label: "大一" },
-    { value: "Sophomore", label: "大二" },
-    { value: "Junior", label: "大三" },
-    { value: "Senior", label: "大四" },
-]
 
 export default function LoginForm() {
     const router = useRouter()
@@ -91,8 +79,8 @@ export default function LoginForm() {
             }
         ) => {
             const safeName = profileSeed?.name?.trim() || "社团成员"
-            const safeDepartment = profileSeed?.department || null
-            const safeGrade = profileSeed?.grade || null
+            const safeDepartment = normalizeDepartmentValue(profileSeed?.department) || null
+            const safeGrade = normalizeGradeValue(profileSeed?.grade) || null
             const safeStudentId = profileSeed?.studentId || null
 
             const { data: existingMember, error: lookupError } = await supabase
@@ -168,6 +156,8 @@ export default function LoginForm() {
                 validateRegisterForm()
 
                 const safeStudentId = studentId.trim() || null
+                const normalizedDepartment = normalizeDepartmentValue(department)
+                const normalizedGrade = normalizeGradeValue(grade)
                 const { error: signUpError } = await supabase.auth.signUp({
                     email: normalizedEmail,
                     password,
@@ -175,8 +165,8 @@ export default function LoginForm() {
                         data: {
                             name: name.trim(),
                             student_id: safeStudentId,
-                            department: department || null,
-                            grade: grade || null,
+                            department: normalizedDepartment || null,
+                            grade: normalizedGrade || null,
                         },
                     },
                 })
@@ -194,8 +184,8 @@ export default function LoginForm() {
                 } else {
                     await syncOrCreateMemberProfile(normalizedEmail, signInData.user.id, {
                         name,
-                        department,
-                        grade,
+                        department: normalizedDepartment || undefined,
+                        grade: normalizedGrade || undefined,
                         studentId: safeStudentId,
                     })
                     toast({ title: "注册成功", description: "账号已创建并可立即使用。" })

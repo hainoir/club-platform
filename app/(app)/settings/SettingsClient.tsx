@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import * as React from "react"
 import { useTheme } from "next-themes"
@@ -20,6 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/toast-simple"
 import { createClient } from "@/utils/supabase/client"
+import { DEPARTMENT_OPTIONS, GRADE_OPTIONS, normalizeDepartmentForStorage, normalizeGradeValue } from "@/utils/profile-fields"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
 import { useUserStore } from "@/store/useUserStore"
 
@@ -37,19 +38,6 @@ const TAB_VALUES = ["notifications", "interface", "account", "security"] as cons
 
 type TabValue = (typeof TAB_VALUES)[number]
 
-const DEPARTMENT_OPTIONS = [
-    { value: "Design", label: "设计部" },
-    { value: "Development", label: "开发部" },
-    { value: "Photography", label: "摄影部" },
-]
-
-const GRADE_OPTIONS = [
-    { value: "Freshman", label: "大一" },
-    { value: "Sophomore", label: "大二" },
-    { value: "Junior", label: "大三" },
-    { value: "Senior", label: "大四" },
-]
-
 export default function SettingsClient({ profile }: { profile: SettingsProfile | null }) {
     const { theme, setTheme } = useTheme()
     const supabase = React.useMemo(() => createClient(), [])
@@ -66,8 +54,8 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
     const [activeTab, setActiveTab] = React.useState<TabValue>("notifications")
 
     const [profileName, setProfileName] = React.useState(profile?.name || "")
-    const [profileDepartment, setProfileDepartment] = React.useState(profile?.department || "")
-    const [profileGrade, setProfileGrade] = React.useState(profile?.grade || "")
+    const [profileDepartment, setProfileDepartment] = React.useState(normalizeDepartmentForStorage(profile?.department))
+    const [profileGrade, setProfileGrade] = React.useState(normalizeGradeValue(profile?.grade) || "")
     const [profileStudentId, setProfileStudentId] = React.useState(profile?.studentId || "")
     const [isSavingProfile, setIsSavingProfile] = React.useState(false)
 
@@ -77,8 +65,8 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
 
     React.useEffect(() => {
         setProfileName(profile?.name || "")
-        setProfileDepartment(profile?.department || "")
-        setProfileGrade(profile?.grade || "")
+        setProfileDepartment(normalizeDepartmentForStorage(profile?.department))
+        setProfileGrade(normalizeGradeValue(profile?.grade) || "")
         setProfileStudentId(profile?.studentId || "")
     }, [profile])
 
@@ -114,6 +102,8 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
 
         const safeName = profileName.trim()
         const safeStudentId = profileStudentId.trim()
+        const safeDepartment = normalizeDepartmentForStorage(profileDepartment)
+        const safeGrade = normalizeGradeValue(profileGrade)
 
         if (safeName.length < 2) {
             toast({ title: "姓名过短", description: "姓名至少需要 2 个字符。", variant: "destructive" })
@@ -130,8 +120,8 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
             const { error: authError } = await supabase.auth.updateUser({
                 data: {
                     name: safeName,
-                    department: profileDepartment || null,
-                    grade: profileGrade || null,
+                    department: safeDepartment,
+                    grade: safeGrade || null,
                     student_id: safeStudentId || null,
                 },
             })
@@ -155,8 +145,8 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
                     email: profile.email,
                     name: safeName,
                     role: profile.role || "member",
-                    department: profileDepartment || null,
-                    grade: profileGrade || null,
+                    department: safeDepartment,
+                    grade: safeGrade || null,
                     student_id: safeStudentId || null,
                     status: "active",
                     join_date: new Date().toISOString().slice(0, 10),
@@ -170,8 +160,8 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
                     .from("members")
                     .update({
                         name: safeName,
-                        department: profileDepartment || null,
-                        grade: profileGrade || null,
+                        department: safeDepartment,
+                        grade: safeGrade || null,
                         student_id: safeStudentId || null,
                     })
                     .eq("id", profile.id)
@@ -388,12 +378,12 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
 
                                         <div className="space-y-2">
                                             <Label htmlFor="profile-department">部门</Label>
-                                            <Select value={profileDepartment || "unset"} onValueChange={(v) => setProfileDepartment(v === "unset" ? "" : v)}>
+                                            <Select value={profileDepartment} onValueChange={setProfileDepartment}>
                                                 <SelectTrigger id="profile-department">
                                                     <SelectValue placeholder="选择部门" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="unset">未设置</SelectItem>
+                                                    <SelectItem value="未分配">未分配</SelectItem>
                                                     {DEPARTMENT_OPTIONS.map((item) => (
                                                         <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
                                                     ))}
