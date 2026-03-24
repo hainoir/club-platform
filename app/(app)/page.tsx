@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { AbsentMembersCard, StudioMembersCard } from "@/components/duty/AttendancePanels"
 import { WeeklyProgressCard } from "@/components/dashboard/WeeklyProgressCard"
 import { DashboardSignInWidget } from "@/components/dashboard/DashboardSignInWidget"
+import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from "@/lib/keyTransferFilters"
 import { createClient } from "@/utils/supabase/server"
 import type { RosterWithMember } from "@/hooks/useDuty"
 
@@ -223,7 +224,8 @@ export default async function DashboardPage() {
                 .from("key_transfers")
                 .select("id", { count: "exact", head: true })
                 .eq("to_member_id", me.id)
-                .eq("status", "pending"),
+                .eq("status", "pending")
+                .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER),
             supabase
                 .from("duty_swaps")
                 .select("id", { count: "exact", head: true })

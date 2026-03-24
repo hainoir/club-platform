@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { createClient } from "@/utils/supabase/client"
+import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from "@/lib/keyTransferFilters"
 import { isAdminRole, useUserStore } from "@/store/useUserStore"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
 
@@ -137,6 +138,7 @@ export function useNotifications() {
                           .select("id, note, created_at, from_member:members!key_transfers_from_member_id_fkey(name)")
                           .eq("to_member_id", user.id)
                           .eq("status", "pending")
+                          .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER)
                           .order("created_at", { ascending: false })
                           .limit(6)
                     : Promise.resolve({ data: [] as any[] }),
@@ -146,6 +148,7 @@ export function useNotifications() {
                           .select("id, created_at, to_member:members!key_transfers_to_member_id_fkey(name)")
                           .eq("from_member_id", user.id)
                           .eq("status", "pending")
+                          .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER)
                           .order("created_at", { ascending: false })
                           .limit(6)
                     : Promise.resolve({ data: [] as any[] }),

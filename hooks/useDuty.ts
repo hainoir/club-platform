@@ -4,6 +4,7 @@ import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { Database } from '@/types/supabase';
 import { useToast } from '@/components/ui/toast-simple';
 import { getCurrentPositionWithFallback, getLocationErrorReason } from '@/lib/geolocation';
+import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from '@/lib/keyTransferFilters';
 import { useUserStore, isAdminRole } from '@/store/useUserStore';
 
 type DutyRoster = Database['public']['Tables']['duty_rosters']['Row'];
@@ -632,6 +633,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         const { data, error } = await supabase
             .from('key_transfers')
             .select('*, from_member:members!key_transfers_from_member_id_fkey(id, name), to_member:members!key_transfers_to_member_id_fkey(id, name)')
+            .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER)
             .order('created_at', { ascending: false })
             .limit(10);
 
