@@ -9,6 +9,11 @@ import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 
 type OptimisticAction = { action: 'delete'; payload: string } | { action: 'add' | 'update'; payload: Member }
 
+function normalizeSearchValue(value: unknown): string {
+    if (value === null || value === undefined) return ""
+    return String(value).toLowerCase()
+}
+
 export function useMembers(initialMembers: Member[]) {
     const router = useRouter()
     const supabase = createClient()
@@ -53,11 +58,19 @@ export function useMembers(initialMembers: Member[]) {
 
     const [currentPage, setCurrentPage] = React.useState(1)
     const itemsPerPage = 7
+    const normalizedQuery = debouncedSearchQuery.trim().toLowerCase()
 
-    const filteredMembers = optimisticMembers.filter((m) =>
-        m.name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-        m.student_id?.includes(debouncedSearchQuery)
-    )
+    const filteredMembers = React.useMemo(() => {
+        if (!normalizedQuery) {
+            return optimisticMembers
+        }
+
+        return optimisticMembers.filter((m) => {
+            const normalizedName = normalizeSearchValue(m.name)
+            const normalizedStudentId = normalizeSearchValue(m.student_id)
+            return normalizedName.includes(normalizedQuery) || normalizedStudentId.includes(normalizedQuery)
+        })
+    }, [optimisticMembers, normalizedQuery])
 
     const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
 

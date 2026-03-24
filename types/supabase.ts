@@ -15,7 +15,7 @@ export interface Database {
                     email: string
                     name: string
                     role: string
-                    student_id: string | null
+                    student_id: string | number | null
                     department: string | null
                     grade: string | null
                     status: string | null
@@ -27,7 +27,7 @@ export interface Database {
                     email?: string
                     name: string
                     role?: string
-                    student_id?: string | null
+                    student_id?: string | number | null
                     department?: string | null
                     grade?: string | null
                     status?: string | null
@@ -39,7 +39,7 @@ export interface Database {
                     email?: string
                     name?: string
                     role?: string
-                    student_id?: string | null
+                    student_id?: string | number | null
                     department?: string | null
                     grade?: string | null
                     status?: string | null

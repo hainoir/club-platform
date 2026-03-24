@@ -187,7 +187,7 @@ function MemberSelectButton({
 
     const filtered = allMembers.filter(
         m => m.name.toLowerCase().includes(search.toLowerCase()) ||
-            (m.student_id && m.student_id.includes(search))
+            (m.student_id !== null && m.student_id !== undefined && String(m.student_id).includes(search))
     );
 
     return (

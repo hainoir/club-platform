@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 export interface SimpleMember {
     id: string;
     name: string;
-    student_id: string | null;
+    student_id: string | number | null;
 }
 
 const PERIODS = [
@@ -75,7 +75,7 @@ function MemberPickerPopover({
         m =>
             !existingMemberIds.includes(m.id) &&
             (m.name.toLowerCase().includes(search.toLowerCase()) ||
-                (m.student_id && m.student_id.includes(search)))
+                (m.student_id !== null && m.student_id !== undefined && String(m.student_id).includes(search)))
     );
 
     return (

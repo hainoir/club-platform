@@ -15,7 +15,7 @@ import { useMembers } from "@/hooks/useMembers"
 export type Member = {
     id: string
     name: string
-    student_id?: string
+    student_id?: string | number | null
     role: string
     department?: string
     grade?: string

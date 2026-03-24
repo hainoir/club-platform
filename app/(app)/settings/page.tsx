@@ -1,4 +1,4 @@
-﻿import { createClient } from "@/utils/supabase/server"
+import { createClient } from "@/utils/supabase/server"
 import SettingsClient, { SettingsProfile } from "./SettingsClient"
 
 export const dynamic = "force-dynamic"
@@ -27,7 +27,10 @@ export default async function SettingsPage() {
                 role: memberData.role,
                 department: memberData.department || user.user_metadata?.department || null,
                 grade: memberData.grade || user.user_metadata?.grade || null,
-                studentId: memberData.student_id || user.user_metadata?.student_id || null,
+                studentId:
+                    memberData.student_id === null || memberData.student_id === undefined
+                        ? (user.user_metadata?.student_id ? String(user.user_metadata.student_id) : null)
+                        : String(memberData.student_id),
             }
         } else {
             profile = {
@@ -37,7 +40,7 @@ export default async function SettingsPage() {
                 role: "member",
                 department: user.user_metadata?.department || null,
                 grade: user.user_metadata?.grade || null,
-                studentId: user.user_metadata?.student_id || null,
+                studentId: user.user_metadata?.student_id ? String(user.user_metadata.student_id) : null,
             }
         }
     }
