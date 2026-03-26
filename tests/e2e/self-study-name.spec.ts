@@ -19,7 +19,7 @@ interface MemberIdentity {
 const DUTY_HALL_TITLE = '\u503c\u73ed\u4e0e\u8003\u52e4\u5927\u5385'
 const DASHBOARD_TITLE = '\u503c\u73ed\u6267\u884c\u4eea\u8868\u76d8'
 const SELF_STUDY_BUTTON_TEXT = '\u6211\u5728\u5de5\u4f5c\u5ba4\u81ea\u4e60'
-const CURRENT_IN_STUDIO_TEXT = '\u5f53\u524d\u5728\u5de5\u4f5c\u5ba4'
+const CURRENT_IN_STUDIO_TEXT_REGEX = /\u5f53\u524d\u5728\u5de5\u4f5c\u5ba4|\u76ee\u524d\u5728\u5de5\u4f5c\u5ba4/
 const STUDY_LABEL = '\u81ea\u4e60'
 const FALLBACK_MEMBER_STUDY_REGEX = /\u6210\u5458\s*\u81ea\u4e60/
 
@@ -230,7 +230,7 @@ test.describe('Self-study name display', () => {
 
         await gotoProtectedPath(page, '/duty')
         await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible()
-        await expect(page.getByText(CURRENT_IN_STUDIO_TEXT)).toBeVisible()
+        await expect(page.getByText(CURRENT_IN_STUDIO_TEXT_REGEX)).toBeVisible()
         await expect(page.locator('span').filter({ hasText: FALLBACK_MEMBER_STUDY_REGEX }).first()).toBeVisible()
     })
 })

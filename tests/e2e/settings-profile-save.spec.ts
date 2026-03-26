@@ -39,8 +39,14 @@ test('settings profile save shows success feedback', async ({ page }) => {
     test.skip(firstFeedback !== 'success', 'Profile save feedback not stable in current env')
 
     // 恢复原始值，避免污染成员数据。
-    await nameInput.fill(baseName)
-    await saveButton.click()
+    await gotoProtectedPath(page, '/settings#account')
+    const restoredNameInput = page.locator('#profile-name')
+    const restoredSaveButton = page.getByRole('button', { name: '保存资料' })
+    await expect(restoredNameInput).toBeVisible()
+    await expect(restoredSaveButton).toBeVisible()
+
+    await restoredNameInput.fill(baseName)
+    await restoredSaveButton.click()
     const secondFeedback = await waitForProfileSaveFeedback(page)
     test.skip(secondFeedback !== 'success', 'Profile save feedback not stable in current env')
 })
