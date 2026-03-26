@@ -5,6 +5,9 @@ const SESSION_LOADING_TEXT = 'Checking session...'
 const PROTECTED_NAV_MAX_ATTEMPTS = 4
 const PROTECTED_NAV_READY_CHECK_TIMEOUT_MS = 3_500
 const PROTECTED_NAV_BACKOFF_MS = [200, 500, 1_000]
+const PROTECTED_STABILITY_WINDOW_MS = 1_000
+const PROTECTED_STABILITY_POLL_INTERVAL_MS = 200
+const APP_SHELL_MARKER_TEST_ID = 'notification-trigger'
 
 export function requireEnv(keys: string[]): Record<string, string> {
     const missing = keys.filter((key) => !process.env[key])
@@ -21,6 +24,66 @@ function getPathname(value: string): string {
     return new URL(value, 'http://localhost').pathname
 }
 
+async function isLocatorVisible(page: Page, selector: string): Promise<boolean> {
+    const locator = page.locator(selector).first()
+    if ((await locator.count()) === 0) return false
+    return locator.isVisible()
+}
+
+async function isNotificationTriggerVisible(page: Page): Promise<boolean> {
+    const trigger = page.getByTestId(APP_SHELL_MARKER_TEST_ID).first()
+    if ((await trigger.count()) === 0) return false
+    return trigger.isVisible()
+}
+
+async function isLoginSurfaceVisible(page: Page): Promise<boolean> {
+    if (getPathname(page.url()).startsWith('/login')) {
+        return true
+    }
+
+    const hasEmail = await isLocatorVisible(page, '#email')
+    const hasPassword = await isLocatorVisible(page, '#password')
+    return hasEmail && hasPassword
+}
+
+async function isProtectedShellReady(page: Page): Promise<boolean> {
+    const mainVisible = await isLocatorVisible(page, 'main')
+    if (!mainVisible) return false
+
+    if (await isNotificationTriggerVisible(page)) {
+        return true
+    }
+
+    // Fallback for pages where notification trigger is absent, while still excluding login/guard blank states.
+    return !(await isLoginSurfaceVisible(page))
+}
+
+async function isStableProtectedPath(
+    page: Page,
+    expectedPathname: string,
+    stabilityWindowMs = PROTECTED_STABILITY_WINDOW_MS
+): Promise<boolean> {
+    const deadline = Date.now() + stabilityWindowMs
+
+    while (Date.now() < deadline) {
+        if (getPathname(page.url()) !== expectedPathname) {
+            return false
+        }
+
+        if (await isLoginSurfaceVisible(page)) {
+            return false
+        }
+
+        if (!(await isProtectedShellReady(page))) {
+            return false
+        }
+
+        await page.waitForTimeout(PROTECTED_STABILITY_POLL_INTERVAL_MS)
+    }
+
+    return getPathname(page.url()) === expectedPathname && (await isProtectedShellReady(page))
+}
+
 export async function waitForProtectedAppReady(page: Page, timeoutMs = APP_ROUTE_READY_TIMEOUT_MS): Promise<void> {
     await expect
         .poll(
@@ -35,7 +98,15 @@ export async function waitForProtectedAppReady(page: Page, timeoutMs = APP_ROUTE
                     return false
                 }
 
-                return !(await page.getByText(SESSION_LOADING_TEXT).isVisible())
+                if (await isLoginSurfaceVisible(page)) {
+                    return false
+                }
+
+                if (await page.getByText(SESSION_LOADING_TEXT).isVisible()) {
+                    return false
+                }
+
+                return await isProtectedShellReady(page)
             },
             {
                 timeout: timeoutMs,
@@ -58,7 +129,7 @@ export async function gotoProtectedPath(page: Page, path: string, timeoutMs = AP
             // Keep retrying while auth/session propagation catches up in CI.
         }
 
-        if (getPathname(page.url()) === expectedPathname) {
+        if (getPathname(page.url()) === expectedPathname && (await isStableProtectedPath(page, expectedPathname))) {
             return
         }
 
@@ -82,5 +153,9 @@ export async function loginWithPassword(page: Page, email: string, password: str
 
     await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15000 })
     await waitForProtectedAppReady(page)
+    await expect.poll(() => isProtectedShellReady(page), { timeout: 5_000, intervals: [100, 250, 500] }).toBe(true)
+    await expect
+        .poll(() => isStableProtectedPath(page, getPathname(page.url())), { timeout: 5_000, intervals: [100, 250, 500] })
+        .toBe(true)
     await expect(page).not.toHaveURL(/\/login(?:\?.*)?$/)
 }
