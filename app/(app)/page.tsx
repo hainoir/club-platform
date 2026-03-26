@@ -17,6 +17,13 @@ import { Button } from "@/components/ui/button"
 import { AbsentMembersCard, StudioMembersCard } from "@/components/duty/AttendancePanels"
 import { WeeklyProgressCard } from "@/components/dashboard/WeeklyProgressCard"
 import { DashboardSignInWidget } from "@/components/dashboard/DashboardSignInWidget"
+import {
+    addDaysToDateKey,
+    getDutyNow,
+    getDutyPeriodEndMinutes,
+    getDutyWeekMondayDateKey,
+    resolveDutySignInSlot,
+} from "@/lib/duty-time"
 import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from "@/lib/keyTransferFilters"
 import { createClient } from "@/utils/supabase/server"
 import type { RosterWithMember } from "@/hooks/useDuty"
@@ -39,38 +46,7 @@ const PERIOD_START_MINUTES: Record<number, number> = {
     4: 15 * 60 + 35,
 }
 
-const PERIOD_END_MINUTES: Record<number, number> = {
-    1: 9 * 60 + 35,
-    2: 11 * 60 + 40,
-    3: 15 * 60 + 5,
-    4: 17 * 60 + 10,
-}
-
 const ADMIN_ROLE_SET = new Set(["admin", "管理员", "主席", "执行主席", "副主席", "部长"])
-
-function getWeekMonday(base: Date): Date {
-    const d = new Date(base)
-    const dow = d.getDay()
-    const diff = dow === 0 ? -6 : 1 - dow
-    d.setDate(d.getDate() + diff)
-    d.setHours(0, 0, 0, 0)
-    return d
-}
-
-function getDateKey(date: Date): string {
-    const y = date.getFullYear()
-    const m = String(date.getMonth() + 1).padStart(2, "0")
-    const d = String(date.getDate()).padStart(2, "0")
-    return `${y}-${m}-${d}`
-}
-
-function getMatchedPeriod(minutes: number): number {
-    if (minutes >= 7 * 60 + 30 && minutes <= 9 * 60 + 35) return 1
-    if (minutes >= 9 * 60 + 35 && minutes <= 11 * 60 + 40) return 2
-    if (minutes >= 13 * 60 && minutes <= 15 * 60 + 5) return 3
-    if (minutes >= 15 * 60 + 5 && minutes <= 17 * 60 + 10) return 4
-    return 0
-}
 
 function resolveNextDutyTime(day: number, period: number, now: Date): Date {
     const candidate = new Date(now)
@@ -93,10 +69,11 @@ export default async function DashboardPage() {
     const supabase = await createClient()
 
     const now = new Date()
-    const todayDow = now.getDay()
-    const nowMinutes = now.getHours() * 60 + now.getMinutes()
-    const todayDateKey = getDateKey(now)
-    const monday = getWeekMonday(now)
+    const dutyNow = getDutyNow()
+    const todayDow = dutyNow.dayOfWeek
+    const nowMinutes = dutyNow.minutes
+    const todayDateKey = dutyNow.dateKey
+    const mondayDateKey = getDutyWeekMondayDateKey(now)
 
     const [
         { data: rostersData },
@@ -115,8 +92,8 @@ export default async function DashboardPage() {
             .order("period", { ascending: true }),
         supabase
             .from("duty_logs")
-            .select("member_id, sign_in_time, location_verified")
-            .gte("sign_in_time", monday.toISOString())
+            .select("member_id, sign_in_time, sign_in_date, location_verified")
+            .gte("sign_in_date", mondayDateKey)
             .eq("location_verified", true),
         supabase
             .from("events")
@@ -133,21 +110,18 @@ export default async function DashboardPage() {
     const weekLogs = (weekLogsData || []) as Array<{
         member_id: string
         sign_in_time: string
+        sign_in_date: string | null
         location_verified: boolean | null
     }>
 
     const signedSlotMap = new Map<string, string>()
     weekLogs.forEach((log) => {
         if (!log.location_verified) return
-        const signTime = new Date(log.sign_in_time)
-        const minutes = signTime.getHours() * 60 + signTime.getMinutes()
-        const period = getMatchedPeriod(minutes)
-        const dow = signTime.getDay()
-        if (period === 0 || dow < 1 || dow > 5) return
+        const slot = resolveDutySignInSlot(log)
+        if (!slot) return
 
-        const slotKey = `${log.member_id}-${getDateKey(signTime)}-${period}`
-        if (!signedSlotMap.has(slotKey)) {
-            signedSlotMap.set(slotKey, signTime.toISOString())
+        if (!signedSlotMap.has(slot.slotKey)) {
+            signedSlotMap.set(slot.slotKey, slot.signedAtLabel)
         }
     })
 
@@ -167,14 +141,13 @@ export default async function DashboardPage() {
         if (r.day_of_week < 1 || r.day_of_week > 5) return
 
         const isPastDay = r.day_of_week < todayDow
-        const isPastPeriodToday = r.day_of_week === todayDow && nowMinutes >= (PERIOD_END_MINUTES[r.period] || 24 * 60)
+        const isPastPeriodToday = r.day_of_week === todayDow && nowMinutes >= getDutyPeriodEndMinutes(r.period)
         if (!isPastDay && !isPastPeriodToday) return
 
         weekPastExpected += 1
 
-        const slotDate = new Date(monday)
-        slotDate.setDate(monday.getDate() + (r.day_of_week - 1))
-        const slotKey = `${r.member_id}-${getDateKey(slotDate)}-${r.period}`
+        const slotDateKey = addDaysToDateKey(mondayDateKey, r.day_of_week - 1)
+        const slotKey = `${r.member_id}-${slotDateKey}-${r.period}`
         if (signedSlotSet.has(slotKey)) {
             weekPastSigned += 1
         }
@@ -185,9 +158,7 @@ export default async function DashboardPage() {
     const weekdayStats = DAYS.map((label, idx) => {
         const day = idx + 1
         const dayRosters = rosters.filter((r) => r.day_of_week === day)
-        const slotDate = new Date(monday)
-        slotDate.setDate(monday.getDate() + idx)
-        const dateKey = getDateKey(slotDate)
+        const dateKey = addDaysToDateKey(mondayDateKey, idx)
         const signed = dayRosters.filter((r) => signedSlotSet.has(`${r.member_id}-${dateKey}-${r.period}`)).length
         const planned = dayRosters.length
         return {
@@ -341,7 +312,7 @@ export default async function DashboardPage() {
                                                     {signedAt ? (
                                                         <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50">
                                                             <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                            {format(new Date(signedAt), "HH:mm", { locale: zhCN })}
+                                                            {signedAt}
                                                         </Badge>
                                                     ) : (
                                                         <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
@@ -434,7 +405,7 @@ export default async function DashboardPage() {
                                                         {signedAt ? (
                                                             <Badge variant="outline" className="h-5 border-emerald-300 text-emerald-700 bg-emerald-50">
                                                                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                                {format(new Date(signedAt), "HH:mm", { locale: zhCN })}
+                                                                {signedAt}
                                                             </Badge>
                                                         ) : (
                                                             <Badge variant="outline" className="h-5 border-amber-300 text-amber-700 bg-amber-50">

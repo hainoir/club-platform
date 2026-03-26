@@ -162,6 +162,7 @@ export interface Database {
                     id: string
                     member_id: string
                     sign_in_time: string
+                    sign_in_date: string
                     location_verified: boolean | null
                     device_info: string | null
                     week_number: number | null
@@ -170,6 +171,7 @@ export interface Database {
                     id?: string
                     member_id: string
                     sign_in_time?: string
+                    sign_in_date?: string
                     location_verified?: boolean | null
                     device_info?: string | null
                     week_number?: number | null
@@ -178,6 +180,7 @@ export interface Database {
                     id?: string
                     member_id?: string
                     sign_in_time?: string
+                    sign_in_date?: string
                     location_verified?: boolean | null
                     device_info?: string | null
                     week_number?: number | null

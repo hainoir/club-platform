@@ -9,6 +9,14 @@ import { AlertTriangle, MapPin, BookOpen, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast-simple';
 import { cn } from '@/lib/utils';
+import {
+    addDaysToDateKey,
+    getDutyNow,
+    getDutyPeriodByMinutes,
+    getDutyWeekMondayDateKey,
+    resolveDutySignInSlot,
+    toDutyDateTimeParts,
+} from '@/lib/duty-time';
 
 const PERIOD_RANGES: Record<number, { start: [number, number]; end: [number, number] }> = {
     1: { start: [8, 0], end: [9, 35] },
@@ -20,54 +28,21 @@ const PERIOD_RANGES: Record<number, { start: [number, number]; end: [number, num
 const DAYS_LABEL = ['一', '二', '三', '四', '五'];
 const QUERY_TIMEOUT_MS = 10_000;
 
-function getLocalDateKey(date: Date): string {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-
 function getPeriodEndPlusMinutes(period: number, extraMin: number): number {
     const [h, m] = PERIOD_RANGES[period]?.end || [23, 59];
     return h * 60 + m + extraMin;
 }
 
-function getNowMinutes(): number {
-    const now = new Date();
-    return now.getHours() * 60 + now.getMinutes();
-}
-
 function getMatchedPeriod(minutes: number): number {
-    for (const [pid, range] of Object.entries(PERIOD_RANGES)) {
-        const startMin = range.start[0] * 60 + range.start[1] - 30;
-        const endMin = range.end[0] * 60 + range.end[1];
-        if (minutes >= startMin && minutes <= endMin) {
-            return Number(pid);
-        }
-    }
-    return 0;
-}
-
-function getTodayDow(): number {
-    return new Date().getDay(); // 0=周日，1=周一，...，5=周五
+    return getDutyPeriodByMinutes(minutes);
 }
 
 function isPeriodPast(day: number, period: number): boolean {
-    const todayDow = getTodayDow();
-    if (todayDow > day && todayDow <= 5) return true;
-    if (todayDow !== day) return false;
+    const now = getDutyNow();
+    if (now.dayOfWeek > day && now.dayOfWeek <= 5) return true;
+    if (now.dayOfWeek !== day) return false;
     const [endH, endM] = PERIOD_RANGES[period]?.end || [23, 59];
-    return getNowMinutes() >= endH * 60 + endM;
-}
-
-function getWeekMonday(): Date {
-    const now = new Date();
-    const dow = now.getDay();
-    const diff = dow === 0 ? -6 : 1 - dow;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + diff);
-    monday.setHours(0, 0, 0, 0);
-    return monday;
+    return now.minutes >= endH * 60 + endM;
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -105,12 +80,12 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
                 throw new Error('登录状态已失效，请重新登录。');
             }
 
-            const monday = getWeekMonday();
+            const mondayDateKey = getDutyWeekMondayDateKey(new Date());
             const { data, error } = await runWithTimeout<any>(async (signal) =>
                 await supabase
                     .from('duty_logs')
-                    .select('member_id, sign_in_time')
-                    .gte('sign_in_time', monday.toISOString())
+                    .select('member_id, sign_in_time, sign_in_date')
+                    .gte('sign_in_date', mondayDateKey)
                     .eq('location_verified', true)
                     .abortSignal(signal)
             );
@@ -118,15 +93,10 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
             if (error) throw error;
 
             const nextSignedSlots = new Set<string>();
-            (data || []).forEach((log: { member_id: string; sign_in_time: string }) => {
-                const signTime = new Date(log.sign_in_time);
-                const signMinutes = signTime.getHours() * 60 + signTime.getMinutes();
-                const matchedPeriod = getMatchedPeriod(signMinutes);
-                const dayOfWeek = signTime.getDay();
-                if (matchedPeriod === 0 || dayOfWeek < 1 || dayOfWeek > 5) return;
-
-                const slotKey = `${log.member_id}-${getLocalDateKey(signTime)}-${matchedPeriod}`;
-                nextSignedSlots.add(slotKey);
+            (data || []).forEach((log: { member_id: string; sign_in_time: string; sign_in_date: string | null }) => {
+                const slot = resolveDutySignInSlot(log);
+                if (!slot) return;
+                nextSignedSlots.add(slot.slotKey);
             });
 
             setSignedSlotKeys(nextSignedSlots);
@@ -164,14 +134,13 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
 
     const absentMembers = React.useMemo(() => {
         const map = new Map<string, { name: string; slots: string[] }>();
-        const monday = getWeekMonday();
+        const mondayDateKey = getDutyWeekMondayDateKey(new Date());
 
         rosters.forEach((r) => {
             if (!isPeriodPast(r.day_of_week, r.period)) return;
 
-            const slotDate = new Date(monday);
-            slotDate.setDate(monday.getDate() + (r.day_of_week - 1));
-            const slotKey = `${r.member_id}-${getLocalDateKey(slotDate)}-${r.period}`;
+            const slotDateKey = addDaysToDateKey(mondayDateKey, r.day_of_week - 1);
+            const slotKey = `${r.member_id}-${slotDateKey}-${r.period}`;
             if (signedSlotKeys.has(slotKey)) return;
 
             const existing = map.get(r.member_id);
@@ -250,29 +219,29 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 throw new Error('登录状态已失效，请重新登录。');
             }
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const nowMin = getNowMinutes();
+            const dutyNow = getDutyNow();
+            const todayDateKey = dutyNow.dateKey;
+            const nowMin = dutyNow.minutes;
             const members: StudioMember[] = [];
             const seenIds = new Set<string>();
 
             const { data: dutyLogs, error: dutyError } = await runWithTimeout<any>(async (signal) =>
                 await supabase
                     .from('duty_logs')
-                    .select('id, member_id, sign_in_time, device_info')
-                    .gte('sign_in_time', today.toISOString())
+                    .select('id, member_id, sign_in_time, sign_in_date, device_info')
+                    .eq('sign_in_date', todayDateKey)
                     .eq('location_verified', true)
                     .abortSignal(signal)
             );
 
             if (dutyError) throw dutyError;
 
-            (dutyLogs || []).forEach((log: { id: string; member_id: string; sign_in_time: string; device_info: string | null }) => {
+            (dutyLogs || []).forEach((log: { id: string; member_id: string; sign_in_time: string; sign_in_date: string | null; device_info: string | null }) => {
                 if (seenIds.has(log.member_id)) return;
                 if (log.device_info?.includes('self-study')) return;
 
-                const signTime = new Date(log.sign_in_time);
-                const signMin = signTime.getHours() * 60 + signTime.getMinutes();
+                const signInParts = toDutyDateTimeParts(log.sign_in_time);
+                const signMin = signInParts.minutes;
                 let matchedPeriod = getMatchedPeriod(signMin);
                 if (matchedPeriod === 0) matchedPeriod = 1;
 
@@ -303,8 +272,8 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
             ((sessions as StudioSessionWithMember[] | null) || []).forEach((s) => {
                 if (seenIds.has(s.member_id)) return;
 
-                const startTime = new Date(s.started_at);
-                const startMin = startTime.getHours() * 60 + startTime.getMinutes();
+                const startParts = toDutyDateTimeParts(s.started_at);
+                const startMin = startParts.minutes;
                 const matchedPeriod = getMatchedPeriod(startMin);
 
                 if (matchedPeriod > 0) {
