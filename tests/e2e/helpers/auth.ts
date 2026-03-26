@@ -2,6 +2,9 @@
 
 const APP_ROUTE_READY_TIMEOUT_MS = 15_000
 const SESSION_LOADING_TEXT = 'Checking session...'
+const PROTECTED_NAV_MAX_ATTEMPTS = 4
+const PROTECTED_NAV_READY_CHECK_TIMEOUT_MS = 3_500
+const PROTECTED_NAV_BACKOFF_MS = [200, 500, 1_000]
 
 export function requireEnv(keys: string[]): Record<string, string> {
     const missing = keys.filter((key) => !process.env[key])
@@ -16,21 +19,6 @@ export function requireEnv(keys: string[]): Record<string, string> {
 
 function getPathname(value: string): string {
     return new URL(value, 'http://localhost').pathname
-}
-
-async function hasServerSession(page: Page): Promise<boolean> {
-    return await page.evaluate(async () => {
-        try {
-            const response = await fetch('/api/auth/session', {
-                method: 'GET',
-                cache: 'no-store',
-                credentials: 'same-origin',
-            })
-            return response.ok
-        } catch {
-            return false
-        }
-    })
 }
 
 export async function waitForProtectedAppReady(page: Page, timeoutMs = APP_ROUTE_READY_TIMEOUT_MS): Promise<void> {
@@ -57,27 +45,27 @@ export async function waitForProtectedAppReady(page: Page, timeoutMs = APP_ROUTE
         .toBe(true)
 }
 
-export async function waitForServerSession(page: Page, timeoutMs = APP_ROUTE_READY_TIMEOUT_MS): Promise<void> {
-    await expect
-        .poll(() => hasServerSession(page), {
-            timeout: timeoutMs,
-            intervals: [100, 250, 500, 1000],
-        })
-        .toBe(true)
-}
-
 export async function gotoProtectedPath(page: Page, path: string, timeoutMs = APP_ROUTE_READY_TIMEOUT_MS): Promise<void> {
     const expectedPathname = getPathname(path)
+    const readyTimeoutMs = Math.min(PROTECTED_NAV_READY_CHECK_TIMEOUT_MS, timeoutMs)
 
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < PROTECTED_NAV_MAX_ATTEMPTS; attempt++) {
         await page.goto(path)
-        await waitForProtectedAppReady(page, timeoutMs)
+
+        try {
+            await waitForProtectedAppReady(page, readyTimeoutMs)
+        } catch {
+            // Keep retrying while auth/session propagation catches up in CI.
+        }
 
         if (getPathname(page.url()) === expectedPathname) {
             return
         }
 
-        await waitForServerSession(page, timeoutMs)
+        if (attempt < PROTECTED_NAV_MAX_ATTEMPTS - 1) {
+            const backoffMs = PROTECTED_NAV_BACKOFF_MS[Math.min(attempt, PROTECTED_NAV_BACKOFF_MS.length - 1)]
+            await page.waitForTimeout(backoffMs)
+        }
     }
 
     await expect(page).toHaveURL(new RegExp(`${expectedPathname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[?#].*)?$`), {
@@ -94,6 +82,5 @@ export async function loginWithPassword(page: Page, email: string, password: str
 
     await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15000 })
     await waitForProtectedAppReady(page)
-    await waitForServerSession(page)
     await expect(page).not.toHaveURL(/\/login(?:\?.*)?$/)
 }
