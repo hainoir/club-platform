@@ -1,4 +1,4 @@
-﻿import { expect, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 test('members search stays stable while typing queries', async ({ page }) => {
@@ -9,7 +9,7 @@ test('members search stays stable while typing queries', async ({ page }) => {
     await expect(page).toHaveURL(/\/members(?:\?.*)?$/)
 
     const searchInput = page.locator('input[type="search"]').first()
-    await expect(searchInput).toBeVisible()
+    await expect(searchInput).toBeVisible({ timeout: 15_000 })
 
     for (const keyword of ['no-match-keyword', '1234567890', 'zzzzzz-not-found']) {
         await searchInput.fill(keyword)

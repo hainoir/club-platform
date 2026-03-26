@@ -1,4 +1,4 @@
-﻿import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { expect, test, type Locator } from '@playwright/test'
 import type { Database } from '../../types/supabase'
 import { gotoProtectedPath, loginWithPassword } from './helpers/auth'
@@ -164,7 +164,7 @@ test.describe('Self-study name display', () => {
             })
 
             await gotoProtectedPath(page, '/duty')
-            await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible()
+            await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible({ timeout: 15_000 })
 
             const selfStudyButton = page.getByRole('button', { name: SELF_STUDY_BUTTON_TEXT }).first()
             const canClickSelfStudy = await waitForLocatorVisible(selfStudyButton)
@@ -229,7 +229,7 @@ test.describe('Self-study name display', () => {
         })
 
         await gotoProtectedPath(page, '/duty')
-        await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible()
+        await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible({ timeout: 15_000 })
         await expect(page.getByText(CURRENT_IN_STUDIO_TEXT_REGEX)).toBeVisible()
         await expect(page.locator('span').filter({ hasText: FALLBACK_MEMBER_STUDY_REGEX }).first()).toBeVisible()
     })

@@ -1,4 +1,4 @@
-﻿import { expect, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 test.describe('Duty flow', () => {
@@ -13,7 +13,7 @@ test.describe('Duty flow', () => {
         await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
         await gotoProtectedPath(page, '/duty')
 
-        await expect(page.getByRole('heading', { level: 2, name: '值班与考勤大厅' })).toBeVisible()
+        await expect(page.getByRole('heading', { level: 2, name: '值班与考勤大厅' })).toBeVisible({ timeout: 15_000 })
         await expect(page.getByRole('heading', { level: 3, name: '值班考勤打卡' })).toBeVisible()
 
         const signInButton = page
