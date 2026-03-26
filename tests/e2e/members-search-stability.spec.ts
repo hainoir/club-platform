@@ -1,11 +1,11 @@
-import { expect, test } from '@playwright/test'
-import { loginWithPassword, requireEnv } from './helpers/auth'
+﻿import { expect, test } from '@playwright/test'
+import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 test('members search stays stable while typing queries', async ({ page }) => {
     const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
 
     await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
-    await page.goto('/members')
+    await gotoProtectedPath(page, '/members')
     await expect(page).toHaveURL(/\/members(?:\?.*)?$/)
 
     const searchInput = page.locator('input[type="search"]').first()
@@ -24,3 +24,5 @@ test('members search stays stable while typing queries', async ({ page }) => {
     await expect(page).toHaveURL(/\/members(?:\?.*)?$/)
     await expect(searchInput).toBeVisible()
 })
+
+

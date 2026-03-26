@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { loginWithPassword, requireEnv } from './helpers/auth'
+﻿import { expect, test, type Page } from '@playwright/test'
+import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 type SaveFeedback = 'success' | 'failure' | 'timeout'
 
@@ -21,7 +21,7 @@ test('settings profile save shows success feedback', async ({ page }) => {
     const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
 
     await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
-    await page.goto('/settings#account')
+    await gotoProtectedPath(page, '/settings#account')
 
     const nameInput = page.locator('#profile-name')
     test.skip((await nameInput.count()) === 0, 'Profile form is not available for current account')

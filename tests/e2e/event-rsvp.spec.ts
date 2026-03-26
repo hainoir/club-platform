@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test'
-import { loginWithPassword, requireEnv } from './helpers/auth'
+﻿import { expect, test } from '@playwright/test'
+import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 async function waitForWriteMethod(
     getMethod: () => 'POST' | 'DELETE' | null,
@@ -20,7 +20,7 @@ test('event RSVP toggle smoke', async ({ page }) => {
     const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
 
     await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
-    await page.goto('/events')
+    await gotoProtectedPath(page, '/events')
 
     const candidateCard = page
         .locator('div.flex.flex-col.overflow-hidden')

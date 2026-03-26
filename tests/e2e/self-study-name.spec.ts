@@ -1,7 +1,7 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+﻿import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { expect, test, type Locator } from '@playwright/test'
 import type { Database } from '../../types/supabase'
-import { loginWithPassword } from './helpers/auth'
+import { gotoProtectedPath, loginWithPassword } from './helpers/auth'
 
 type AppSupabaseClient = SupabaseClient<Database>
 
@@ -163,7 +163,7 @@ test.describe('Self-study name display', () => {
                 })
             })
 
-            await page.goto('/duty')
+            await gotoProtectedPath(page, '/duty')
             await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible()
 
             const selfStudyButton = page.getByRole('button', { name: SELF_STUDY_BUTTON_TEXT }).first()
@@ -173,7 +173,7 @@ test.describe('Self-study name display', () => {
 
             await expect(page.locator('span').filter({ hasText: expectedStudyText }).first()).toBeVisible()
 
-            await page.goto('/')
+            await gotoProtectedPath(page, '/')
             await expect(page.getByRole('heading', { name: DASHBOARD_TITLE })).toBeVisible()
             await expect(page.locator('span').filter({ hasText: expectedStudyText }).first()).toBeVisible()
         } finally {
@@ -228,9 +228,12 @@ test.describe('Self-study name display', () => {
             })
         })
 
-        await page.goto('/duty')
+        await gotoProtectedPath(page, '/duty')
         await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible()
         await expect(page.getByText(CURRENT_IN_STUDIO_TEXT)).toBeVisible()
         await expect(page.locator('span').filter({ hasText: FALLBACK_MEMBER_STUDY_REGEX }).first()).toBeVisible()
     })
 })
+
+
+

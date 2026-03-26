@@ -1,11 +1,11 @@
 ﻿import { expect, test } from '@playwright/test'
-import { loginWithPassword, requireEnv } from './helpers/auth'
+import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 test('notifications are sorted by priority', async ({ page }) => {
     const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
 
     await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
-    await page.goto('/')
+    await gotoProtectedPath(page, '/')
 
     await page.getByTestId('notification-trigger').click()
 
@@ -33,3 +33,5 @@ test('notifications are sorted by priority', async ({ page }) => {
         expect(priority[levels[i]]).toBeGreaterThanOrEqual(priority[levels[i - 1]])
     }
 })
+
+

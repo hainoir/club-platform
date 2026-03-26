@@ -1,7 +1,7 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+﻿import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { expect, test, type Locator } from '@playwright/test'
 import type { Database } from '../../types/supabase'
-import { loginWithPassword, requireEnv } from './helpers/auth'
+import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 type AppSupabaseClient = SupabaseClient<Database>
 
@@ -241,7 +241,7 @@ test.describe('Duty RPC integration', () => {
             })
 
             await loginWithPassword(page, env.E2E_ADMIN_EMAIL, env.E2E_ADMIN_PASSWORD)
-            await page.goto('/duty')
+            await gotoProtectedPath(page, '/duty')
             await page.getByRole('button', { name: SWAP_HALL_REGEX }).click()
             await expect(page.getByRole('heading', { name: SWAP_HALL_TITLE })).toBeVisible()
 
@@ -285,7 +285,7 @@ test.describe('Duty RPC integration', () => {
             })
 
             await loginWithPassword(page, env.E2E_KEY_RECEIVER_EMAIL, env.E2E_KEY_RECEIVER_PASSWORD)
-            await page.goto('/duty')
+            await gotoProtectedPath(page, '/duty')
             await expect(page.getByRole('heading', { level: 3, name: KEY_TRANSFER_TITLE })).toBeVisible()
 
             const fixtureRow = page
@@ -305,3 +305,5 @@ test.describe('Duty RPC integration', () => {
         }
     })
 })
+
+

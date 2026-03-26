@@ -1,12 +1,12 @@
 ﻿import { expect, test } from '@playwright/test'
-import { loginWithPassword, requireEnv } from './helpers/auth'
+import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 test.describe('Admin duty smoke', () => {
     test('admin can open swap hall and approve accepted request', async ({ page }) => {
         const env = requireEnv(['E2E_ADMIN_EMAIL', 'E2E_ADMIN_PASSWORD'])
 
         await loginWithPassword(page, env.E2E_ADMIN_EMAIL, env.E2E_ADMIN_PASSWORD)
-        await page.goto('/duty')
+        await gotoProtectedPath(page, '/duty')
 
         await page.getByRole('button', { name: /代班大厅/ }).click()
         await expect(page.getByRole('heading', { name: '代班大厅' })).toBeVisible()
@@ -22,7 +22,7 @@ test.describe('Admin duty smoke', () => {
         const env = requireEnv(['E2E_KEY_RECEIVER_EMAIL', 'E2E_KEY_RECEIVER_PASSWORD'])
 
         await loginWithPassword(page, env.E2E_KEY_RECEIVER_EMAIL, env.E2E_KEY_RECEIVER_PASSWORD)
-        await page.goto('/duty')
+        await gotoProtectedPath(page, '/duty')
 
         await expect(page.getByRole('heading', { level: 3, name: '钥匙交接' })).toBeVisible()
 
@@ -33,3 +33,5 @@ test.describe('Admin duty smoke', () => {
         await expect(page.getByRole('heading', { level: 3, name: '钥匙交接' })).toBeVisible()
     })
 })
+
+

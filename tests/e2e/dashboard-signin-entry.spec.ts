@@ -1,11 +1,11 @@
 ﻿import { expect, test } from '@playwright/test'
-import { loginWithPassword, requireEnv } from './helpers/auth'
+import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 test('dashboard sign-in entry is visible', async ({ page }) => {
     const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
 
     await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
-    await page.goto('/')
+    await gotoProtectedPath(page, '/')
 
     await expect(page.getByRole('heading', { name: '值班执行仪表盘' })).toBeVisible()
     await expect(page.getByText('值班考勤打卡')).toBeVisible()
@@ -22,3 +22,5 @@ test('dashboard sign-in entry is visible', async ({ page }) => {
 
     await expect(signInButton).toBeVisible()
 })
+
+
