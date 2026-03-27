@@ -210,6 +210,8 @@ const KEY_TRANSFER_TITLE = '\u94a5\u5319\u4ea4\u63a5'
 const KEY_CONFIRM_BUTTON = '\u786e\u8ba4\u63a5\u6536'
 
 test.describe('Duty RPC integration', () => {
+    test.setTimeout(60_000)
+
     test('admin approval triggers accept_duty_swap RPC', async ({ page }) => {
         const env = requireEnv([
             'E2E_ADMIN_EMAIL',

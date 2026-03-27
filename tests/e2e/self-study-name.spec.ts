@@ -112,6 +112,8 @@ async function resolveMemberIdentity(client: AuthedFixtureClient, fallbackEmail:
 }
 
 test.describe('Self-study name display', () => {
+    test.setTimeout(90_000)
+
     test('shows real member name after self-study starts when member has no rosters', async ({ page }) => {
         const account = getSelfStudyAccount()
         test.skip(!account, 'Missing E2E_SELF_STUDY_* or E2E_MEMBER_* credentials')

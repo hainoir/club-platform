@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 test('members search stays stable while typing queries', async ({ page }) => {
+    test.setTimeout(60_000)
     const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
 
     await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)

@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test'
 import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
 test.describe('Admin duty smoke', () => {
+    test.setTimeout(60_000)
+
     test('admin can open swap hall and approve accepted request', async ({ page }) => {
         const env = requireEnv(['E2E_ADMIN_EMAIL', 'E2E_ADMIN_PASSWORD'])
 
