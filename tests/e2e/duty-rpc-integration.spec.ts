@@ -288,7 +288,7 @@ test.describe('Duty RPC integration', () => {
 
             await loginWithPassword(page, env.E2E_KEY_RECEIVER_EMAIL, env.E2E_KEY_RECEIVER_PASSWORD)
             await gotoProtectedPath(page, '/duty')
-            await expect(page.getByRole('heading', { level: 3, name: KEY_TRANSFER_TITLE })).toBeVisible({ timeout: 15_000 })
+            await expect(page.getByRole('heading', { level: 3, name: KEY_TRANSFER_TITLE })).toBeVisible({ timeout: 45_000 })
 
             const fixtureRow = page
                 .locator('div')

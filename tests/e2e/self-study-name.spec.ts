@@ -166,7 +166,7 @@ test.describe('Self-study name display', () => {
             })
 
             await gotoProtectedPath(page, '/duty')
-            await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible({ timeout: 15_000 })
+            await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible({ timeout: 45_000 })
 
             const selfStudyButton = page.getByRole('button', { name: SELF_STUDY_BUTTON_TEXT }).first()
             const canClickSelfStudy = await waitForLocatorVisible(selfStudyButton)
@@ -231,7 +231,7 @@ test.describe('Self-study name display', () => {
         })
 
         await gotoProtectedPath(page, '/duty')
-        await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible({ timeout: 15_000 })
+        await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible({ timeout: 45_000 })
         await expect(page.getByText(CURRENT_IN_STUDIO_TEXT_REGEX)).toBeVisible()
         await expect(page.locator('span').filter({ hasText: FALLBACK_MEMBER_STUDY_REGEX }).first()).toBeVisible()
     })

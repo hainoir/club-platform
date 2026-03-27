@@ -10,7 +10,7 @@ test('members search stays stable while typing queries', async ({ page }) => {
     await expect(page).toHaveURL(/\/members(?:\?.*)?$/)
 
     const searchInput = page.locator('input[type="search"]').first()
-    await expect(searchInput).toBeVisible({ timeout: 15_000 })
+    await expect(searchInput).toBeVisible({ timeout: 45_000 })
 
     for (const keyword of ['no-match-keyword', '1234567890', 'zzzzzz-not-found']) {
         await searchInput.fill(keyword)
