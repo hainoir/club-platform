@@ -11,7 +11,7 @@ type MemberLookupRow = {
     created_at: string
 }
 
-const AUTH_INIT_TIMEOUT_MS = 8000
+const AUTH_INIT_TIMEOUT_MS = 30000
 
 async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label: string): Promise<T> {
     let timeoutId: ReturnType<typeof setTimeout> | undefined
