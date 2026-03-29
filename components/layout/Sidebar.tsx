@@ -16,7 +16,7 @@ export function Sidebar({ className }: { className?: string }) {
                 <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md">
                     <Code2 size={20} />
                 </div>
-                <span className="font-bold text-lg tracking-tight">前端开发社团</span>
+                <span className="font-bold text-lg tracking-tight">技术中心签到系统</span>
             </div>
             <nav className="flex-1 px-4 space-y-1">
                 {appNavigation.map((item) => {
