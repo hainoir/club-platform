@@ -49,7 +49,7 @@ ON members FOR INSERT
 TO authenticated 
 WITH CHECK (
   email = auth.jwt()->>'email'
-  AND role = 'member'
+  AND role IN ('member', '干事')
 );
 
 DROP POLICY IF EXISTS "允许管理员删除成员" ON members;

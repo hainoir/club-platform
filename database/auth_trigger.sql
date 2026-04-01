@@ -23,7 +23,7 @@ BEGIN
     NEW.email,
     -- 尝试从元数据中解析注册时传入的姓名等参数，若未提供则使用默认值
     COALESCE(NEW.raw_user_meta_data->>'name', '新成员'),
-    'member',
+    '干事',
     NULLIF(NEW.raw_user_meta_data->>'student_id', '')::bigint,
     NEW.raw_user_meta_data->>'department',
     NEW.raw_user_meta_data->>'grade',
