@@ -1,10 +1,10 @@
-﻿import { expect, Page, test } from '@playwright/test'
+import { expect, Page, test } from '@playwright/test'
 
 const APP_ROUTE_READY_TIMEOUT_MS = 15_000
 const SESSION_LOADING_TEXT = 'Checking session...'
-const PROTECTED_NAV_MAX_ATTEMPTS = 4
-const PROTECTED_NAV_READY_CHECK_TIMEOUT_MS = 3_500
-const PROTECTED_NAV_BACKOFF_MS = [200, 500, 1_000]
+const PROTECTED_NAV_MAX_ATTEMPTS = 2
+const PROTECTED_NAV_READY_CHECK_TIMEOUT_MS = 2_000
+const PROTECTED_NAV_BACKOFF_MS = [200, 500]
 const PROTECTED_STABILITY_WINDOW_MS = 1_000
 const PROTECTED_STABILITY_POLL_INTERVAL_MS = 200
 const APP_SHELL_MARKER_TEST_ID = 'notification-trigger'
@@ -149,7 +149,9 @@ export async function loginWithPassword(page: Page, email: string, password: str
     await expect(page.locator('#email')).toBeVisible()
     await page.locator('#email').fill(email)
     await page.locator('#password').fill(password)
-    await page.getByRole('button', { name: /登录|log in|sign in/i }).click()
+    const submitButton = page.locator('form button[type="submit"]').first()
+    await expect(submitButton).toBeVisible()
+    await submitButton.click()
 
     await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15000 })
     await waitForProtectedAppReady(page)
@@ -159,3 +161,5 @@ export async function loginWithPassword(page: Page, email: string, password: str
         .toBe(true)
     await expect(page).not.toHaveURL(/\/login(?:\?.*)?$/)
 }
+
+

@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react"
 
 import { createClient } from "@/utils/supabase/client"
 import { DEPARTMENT_OPTIONS, GRADE_OPTIONS, normalizeDepartmentValue, normalizeGradeValue } from "@/utils/profile-fields"
-import { normalizeUserRole, useUserStore } from "@/store/useUserStore"
+import { DEFAULT_MEMBER_ROLE, normalizeUserRole, useUserStore } from "@/store/useUserStore"
 import { useToast } from "@/components/ui/toast-simple"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -98,7 +98,7 @@ export default function LoginForm() {
                     id: fallbackAuthId,
                     email: normalizedEmail,
                     name: safeName,
-                    role: "member",
+                    role: DEFAULT_MEMBER_ROLE,
                     student_id: safeStudentId,
                     department: safeDepartment,
                     grade: safeGrade,
@@ -120,7 +120,7 @@ export default function LoginForm() {
             setUser({
                 id: memberData?.id || fallbackAuthId,
                 email: normalizedEmail,
-                role: normalizeUserRole(memberData?.role) || "member",
+                role: normalizeUserRole(memberData?.role) || DEFAULT_MEMBER_ROLE,
                 name: memberData?.name || safeName,
             })
         },

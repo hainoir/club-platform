@@ -1,4 +1,4 @@
-import * as React from "react"
+﻿import * as React from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,7 @@ import type { Member } from "@/app/members/MembersClient"
 interface MemberModalProps {
     isOpen: boolean
     onClose: () => void
-    onSave: (e: React.FormEvent<HTMLFormElement>) => void
+    onSave: (event: React.FormEvent<HTMLFormElement>) => void
     editingMember: Member | null
     isSubmitting: boolean
 }
@@ -41,7 +41,7 @@ export function MemberModal({ isOpen, onClose, onSave, editingMember, isSubmitti
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="grid gap-2">
                                 <Label htmlFor="role">平台角色</Label>
                                 <select

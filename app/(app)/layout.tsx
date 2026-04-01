@@ -1,14 +1,24 @@
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
 import { AppRouteGuard } from "@/components/providers/AppRouteGuard"
+import { createClient } from "@/utils/supabase/server"
+import { resolveAppUser } from "@/utils/supabase/resolve-app-user"
 
-export default function AppLayout({
+export const dynamic = "force-dynamic"
+
+export default async function AppLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
+    const supabase = await createClient()
+    const {
+        data: { user: authUser },
+    } = await supabase.auth.getUser()
+    const initialUser = await resolveAppUser(supabase, authUser)
+
     return (
-        <AppRouteGuard>
+        <AppRouteGuard initialUser={initialUser}>
             <div className="flex min-h-screen w-full bg-slate-50/50 dark:bg-zinc-950/50">
                 <Sidebar className="hidden md:flex w-64 flex-col border-r bg-background/50 backdrop-blur-xl" />
                 <div className="flex flex-col flex-1 relative w-full overflow-hidden shrink-0">

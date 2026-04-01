@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { RosterWithMember } from '@/hooks/useDuty';
-import { useUserStore } from '@/store/useUserStore';
+import { isAdminRole, useUserStore } from '@/store/useUserStore';
 import { AlertTriangle, MapPin, BookOpen, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast-simple';
@@ -211,7 +211,9 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     const [studioMembers, setStudioMembers] = useState<StudioMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [ending, setEnding] = useState(false);
+    const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const isAdmin = isAdminRole(user?.role);
 
     const fetchStudioMembers = useCallback(async () => {
         try {
@@ -380,6 +382,31 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
         }
     };
 
+    const handleAdminDeleteStudy = async (member: StudioMember) => {
+        if (!isAdmin || member.type !== 'study') return;
+
+        setDeletingSessionId(member.sessionId);
+        try {
+            if (!(await ensureSession(supabase))) {
+                throw new Error('登录状态已失效，请重新登录。');
+            }
+
+            const { error } = await supabase.from('studio_sessions').delete().eq('id', member.sessionId);
+            if (error) throw error;
+
+            toast({ title: '已移除自习记录', description: `${member.name} 已从工作室列表移除。` });
+            void fetchStudioMembers();
+        } catch (err) {
+            toast({
+                title: '移除自习记录失败',
+                description: extractErrorMessage(err, '请检查数据库权限策略后重试。'),
+                variant: 'destructive',
+            });
+        } finally {
+            setDeletingSessionId(null);
+        }
+    };
+
     const isAlreadyInStudio = studioMembers.some((m) => m.id === user?.id);
     const isSelfStudying = studioMembers.some((m) => m.id === user?.id && m.type === 'study');
 
@@ -409,14 +436,26 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                         <span
                             key={m.id}
                             className={cn(
-                                'inline-flex items-center px-2 py-1 rounded-full text-[11px] font-medium ring-1 ring-inset',
+                                'inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium ring-1 ring-inset',
                                 m.type === 'study'
                                     ? 'bg-purple-100 text-purple-700 ring-purple-300/50 dark:bg-purple-950/30 dark:text-purple-400 dark:ring-purple-700/50'
                                     : 'bg-green-100 text-green-700 ring-green-300/50 dark:bg-green-950/30 dark:text-green-400 dark:ring-green-700/50'
                             )}
                         >
-                            {m.name}
-                            <span className="text-[9px] opacity-70 ml-1">{m.type === 'study' ? '自习' : '值班'}</span>
+                            <span>{m.name}</span>
+                            <span className="text-[9px] opacity-70">{m.type === 'study' ? '自习' : '值班'}</span>
+                            {isAdmin && m.type === 'study' ? (
+                                <button
+                                    type="button"
+                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full opacity-70 transition hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                    aria-label={`移除 ${m.name} 的自习记录`}
+                                    title={`移除 ${m.name} 的自习记录`}
+                                    onClick={() => void handleAdminDeleteStudy(m)}
+                                    disabled={deletingSessionId === m.sessionId}
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
+                            ) : null}
                         </span>
                     ))}
                 </div>

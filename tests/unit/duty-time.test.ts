@@ -7,7 +7,7 @@ import {
     getDutyWeekMondayDateKey,
     resolveDutySignInSlot,
     toDutyDateTimeParts,
-} from '../../lib/duty-time'
+} from '../../lib/duty-time.ts'
 
 const FIXED_SIGN_IN_UTC = '2026-03-24T07:38:00.000Z'
 
@@ -59,3 +59,6 @@ test('week monday date key is computed in duty timezone', () => {
     assert.equal(getDutyWeekMondayDateKey('2026-03-29T10:00:00.000Z'), '2026-03-23')
     assert.equal(addDaysToDateKey('2026-03-23', 1), '2026-03-24')
 })
+
+
+

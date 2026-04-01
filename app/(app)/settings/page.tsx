@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server"
+import { DEFAULT_MEMBER_ROLE } from "@/lib/app-user"
 import SettingsClient, { SettingsProfile } from "./SettingsClient"
 
 export const dynamic = "force-dynamic"
@@ -37,7 +38,7 @@ export default async function SettingsPage() {
                 id: user.id,
                 email: user.email || "",
                 name: user.user_metadata?.name || "社团成员",
-                role: "member",
+                role: DEFAULT_MEMBER_ROLE,
                 department: user.user_metadata?.department || null,
                 grade: user.user_metadata?.grade || null,
                 studentId: user.user_metadata?.student_id ? String(user.user_metadata.student_id) : null,

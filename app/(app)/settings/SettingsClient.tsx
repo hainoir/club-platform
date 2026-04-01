@@ -22,7 +22,7 @@ import { useToast } from "@/components/ui/toast-simple"
 import { createClient } from "@/utils/supabase/client"
 import { DEPARTMENT_OPTIONS, GRADE_OPTIONS, normalizeDepartmentForStorage, normalizeGradeValue } from "@/utils/profile-fields"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
-import { useUserStore } from "@/store/useUserStore"
+import { DEFAULT_MEMBER_ROLE, useUserStore } from "@/store/useUserStore"
 
 export interface SettingsProfile {
     id: string
@@ -144,7 +144,7 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
                     id: profile.id,
                     email: profile.email,
                     name: safeName,
-                    role: profile.role || "member",
+                    role: profile.role || DEFAULT_MEMBER_ROLE,
                     department: safeDepartment,
                     grade: safeGrade || null,
                     student_id: safeStudentId || null,
@@ -372,7 +372,7 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
                                         <div className="space-y-2">
                                             <Label>角色</Label>
                                             <div>
-                                                <Badge variant="outline">{profile.role || "member"}</Badge>
+                                                <Badge variant="outline">{profile.role || DEFAULT_MEMBER_ROLE}</Badge>
                                             </div>
                                         </div>
 

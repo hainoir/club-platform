@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import {
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { AbsentMembersCard, StudioMembersCard } from "@/components/duty/AttendancePanels"
 import { WeeklyProgressCard } from "@/components/dashboard/WeeklyProgressCard"
 import { DashboardSignInWidget } from "@/components/dashboard/DashboardSignInWidget"
+import { StudioStudyStatsCard } from "@/components/dashboard/StudioStudyStatsCard"
 import {
     addDaysToDateKey,
     getDutyNow,
@@ -25,6 +26,7 @@ import {
     resolveDutySignInSlot,
 } from "@/lib/duty-time"
 import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from "@/lib/keyTransferFilters"
+import { buildStudioStudyLeaderboard } from "@/lib/studio-time"
 import { createClient } from "@/utils/supabase/server"
 import type { RosterWithMember } from "@/hooks/useDuty"
 
@@ -81,6 +83,7 @@ export default async function DashboardPage() {
         { data: upcomingEventData },
         { count: pendingSwapCount },
         { count: acceptedSwapCount },
+        { data: studioSessionsData },
         {
             data: { user: authUser },
         },
@@ -103,6 +106,7 @@ export default async function DashboardPage() {
             .limit(1),
         supabase.from("duty_swaps").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("duty_swaps").select("id", { count: "exact", head: true }).eq("status", "accepted"),
+        supabase.from("studio_sessions").select("member_id, started_at, ended_at, is_active, member:members(name)"),
         supabase.auth.getUser(),
     ])
 
@@ -112,6 +116,15 @@ export default async function DashboardPage() {
         sign_in_time: string
         sign_in_date: string | null
         location_verified: boolean | null
+    }>
+    const studioSessions = (studioSessionsData || []) as Array<{
+        member_id: string
+        started_at: string
+        ended_at: string | null
+        is_active: boolean | null
+        member: {
+            name: string | null
+        } | null
     }>
 
     const signedSlotMap = new Map<string, string>()
@@ -232,6 +245,7 @@ export default async function DashboardPage() {
     }
 
     const upcomingEvent = upcomingEventData?.[0]
+    const studioStudyLeaderboard = buildStudioStudyLeaderboard(studioSessions, now)
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-in-out">
@@ -262,72 +276,89 @@ export default async function DashboardPage() {
                     />
                 </div>
 
-                <Card className="bg-card/60 backdrop-blur-sm shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="text-base flex items-center gap-2">
-                            <CalendarClock className="h-4 w-4 text-primary" />
-                            我的值班概览
-                        </CardTitle>
-                        <CardDescription>签到前后都可在这里快速确认当前安排。</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-sm">
-                        {!me ? (
-                            <p className="text-muted-foreground">未找到成员身份，请重新登录或联系管理员。</p>
-                        ) : (
-                            <>
-                                <div className="rounded-md border p-2">
-                                    <p className="text-xs text-muted-foreground">今日排班</p>
-                                    <p className="mt-1 font-medium">
-                                        {myTodayAssignedPeriods.length > 0
-                                            ? myTodayAssignedPeriods.map((period) => `第${period}节`).join("、")
-                                            : "今日无排班"}
-                                    </p>
-                                </div>
-
-                                <div className="rounded-md border p-2">
-                                    <p className="text-xs text-muted-foreground">下一次值班</p>
-                                    {!nextDuty ? (
-                                        <p className="mt-1 text-muted-foreground">暂无后续排班</p>
-                                    ) : (
-                                        <>
-                                            <p className="mt-1 font-medium">
-                                                周{DAYS[nextDuty.roster.day_of_week - 1]} {PERIODS.find((p) => p.id === nextDuty.roster.period)?.label}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                {format(nextDuty.time, "M月d日 HH:mm", { locale: zhCN })} 开始
-                                            </p>
-                                        </>
-                                    )}
-                                </div>
-
-                                {myTodayRosters.length > 0 && (
-                                    <div className="rounded-md border p-2 space-y-1">
-                                        <p className="text-xs text-muted-foreground">今日签到状态</p>
-                                        {myTodayRosters.map((roster) => {
-                                            const slotKey = `${roster.member_id}-${todayDateKey}-${roster.period}`
-                                            const signedAt = signedSlotMap.get(slotKey)
-                                            return (
-                                                <div key={roster.id} className="flex items-center justify-between text-xs">
-                                                    <span>第{roster.period}节</span>
-                                                    {signedAt ? (
-                                                        <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50">
-                                                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                            {signedAt}
-                                                        </Badge>
-                                                    ) : (
-                                                        <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
-                                                            <Clock3 className="w-3 h-3 mr-1" />待签到
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            )
-                                        })}
+                <div className="space-y-4">
+                    <Card className="bg-card/60 backdrop-blur-sm shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <CalendarClock className="h-4 w-4 text-primary" />
+                                我的值班概览
+                            </CardTitle>
+                            <CardDescription>签到前后都可在这里快速确认当前安排。</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3 text-sm">
+                            {!me ? (
+                                <p className="text-muted-foreground">未找到成员身份，请重新登录或联系管理员。</p>
+                            ) : (
+                                <>
+                                    <div className="rounded-md border p-2">
+                                        <p className="text-xs text-muted-foreground">今日排班</p>
+                                        <p className="mt-1 font-medium">
+                                            {myTodayAssignedPeriods.length > 0
+                                                ? myTodayAssignedPeriods.map((period) => `第${period}节`).join("、")
+                                                : "今日无排班"}
+                                        </p>
                                     </div>
-                                )}
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
+
+                                    <div className="rounded-md border p-2">
+                                        <p className="text-xs text-muted-foreground">下一次值班</p>
+                                        {!nextDuty ? (
+                                            <p className="mt-1 text-muted-foreground">暂无后续排班</p>
+                                        ) : (
+                                            <>
+                                                <p className="mt-1 font-medium">
+                                                    周{DAYS[nextDuty.roster.day_of_week - 1]} {PERIODS.find((p) => p.id === nextDuty.roster.period)?.label}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    {format(nextDuty.time, "M月d日 HH:mm", { locale: zhCN })} 开始
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {myTodayRosters.length > 0 && (
+                                        <div className="rounded-md border p-2 space-y-1">
+                                            <p className="text-xs text-muted-foreground">今日签到状态</p>
+                                            {myTodayRosters.map((roster) => {
+                                                const slotKey = `${roster.member_id}-${todayDateKey}-${roster.period}`
+                                                const signedAt = signedSlotMap.get(slotKey)
+                                                return (
+                                                    <div key={roster.id} className="flex items-center justify-between text-xs">
+                                                        <span>第{roster.period}节</span>
+                                                        {signedAt ? (
+                                                            <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50">
+                                                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                                {signedAt}
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
+                                                                <Clock3 className="w-3 h-3 mr-1" />待签到
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3 items-start">
+                <StudioMembersCard rosters={rosters} />
+
+                <div className="lg:col-span-2">
+                    <StudioStudyStatsCard
+                        todayRanking={studioStudyLeaderboard.today}
+                        weekRanking={studioStudyLeaderboard.week}
+                        monthRanking={studioStudyLeaderboard.month}
+                        semesterRanking={studioStudyLeaderboard.semester}
+                        totalRanking={studioStudyLeaderboard.total}
+                        activeCount={studioStudyLeaderboard.activeCount}
+                    />
+                </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -461,10 +492,15 @@ export default async function DashboardPage() {
 
             <WeeklyProgressCard stats={weekdayStats} />
 
-            <div className="grid gap-4 lg:grid-cols-2">
-                <AbsentMembersCard rosters={rosters} />
-                <StudioMembersCard rosters={rosters} />
-            </div>
+            <AbsentMembersCard rosters={rosters} />
         </div>
     )
 }
+
+
+
+
+
+
+
+
