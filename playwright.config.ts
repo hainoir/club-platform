@@ -33,8 +33,12 @@ function loadLocalEnvFile(filePath: string) {
 loadLocalEnvFile(path.resolve(process.cwd(), '.env'));
 loadLocalEnvFile(path.resolve(process.cwd(), '.env.local'));
 
-const playwrightPort = Number(process.env.PLAYWRIGHT_PORT || 3000);
+const playwrightPort = Number(process.env.PLAYWRIGHT_PORT || 3001);
 const baseURL = `http://localhost:${playwrightPort}`;
+const webServerCommand =
+    process.env.PLAYWRIGHT_WEB_SERVER_COMMAND ||
+    process.env.PLAYWRIGHT_DEV_COMMAND ||
+    `npm run build && npm run start -- --port ${playwrightPort}`;
 
 export default defineConfig({
     testDir: './tests/e2e',
@@ -54,9 +58,9 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: process.env.PLAYWRIGHT_DEV_COMMAND || `npm run dev -- --port ${playwrightPort}`,
+        command: webServerCommand,
         url: baseURL,
-        reuseExistingServer: !process.env.CI,
-        timeout: 120 * 1000,
+        reuseExistingServer: false,
+        timeout: 300 * 1000,
     },
 });

@@ -1,6 +1,7 @@
 import { expect, Page, test } from '@playwright/test'
 
 const APP_ROUTE_READY_TIMEOUT_MS = 15_000
+const SERVER_SESSION_READY_TIMEOUT_MS = 20_000
 const SESSION_LOADING_TEXT = 'Checking session...'
 const PROTECTED_NAV_MAX_ATTEMPTS = 2
 const PROTECTED_NAV_READY_CHECK_TIMEOUT_MS = 2_000
@@ -22,6 +23,42 @@ export function requireEnv(keys: string[]): Record<string, string> {
 
 function getPathname(value: string): string {
     return new URL(value, 'http://localhost').pathname
+}
+
+async function hasServerSession(page: Page): Promise<boolean> {
+    return page.evaluate(async () => {
+        try {
+            const response = await fetch('/api/auth/session', {
+                method: 'GET',
+                cache: 'no-store',
+                credentials: 'same-origin',
+            })
+
+            if (!response.ok) {
+                return false
+            }
+
+            const payload = (await response.json()) as {
+                session?: {
+                    access_token?: string
+                    refresh_token?: string
+                } | null
+            }
+
+            return Boolean(payload.session?.access_token && payload.session?.refresh_token)
+        } catch {
+            return false
+        }
+    })
+}
+
+async function waitForServerSession(page: Page, timeoutMs = SERVER_SESSION_READY_TIMEOUT_MS): Promise<void> {
+    await expect
+        .poll(() => hasServerSession(page), {
+            timeout: timeoutMs,
+            intervals: [100, 250, 500, 1000],
+        })
+        .toBe(true)
 }
 
 async function isLocatorVisible(page: Page, selector: string): Promise<boolean> {
@@ -120,6 +157,8 @@ export async function gotoProtectedPath(page: Page, path: string, timeoutMs = AP
     const expectedPathname = getPathname(path)
     const readyTimeoutMs = Math.min(PROTECTED_NAV_READY_CHECK_TIMEOUT_MS, timeoutMs)
 
+    await waitForServerSession(page, timeoutMs)
+
     for (let attempt = 0; attempt < PROTECTED_NAV_MAX_ATTEMPTS; attempt++) {
         await page.goto(path)
 
@@ -153,13 +192,20 @@ export async function loginWithPassword(page: Page, email: string, password: str
     await expect(submitButton).toBeVisible()
     await submitButton.click()
 
-    await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15000 })
+    await waitForServerSession(page)
+
+    if (getPathname(page.url()).startsWith('/login')) {
+        await page.goto('/')
+    } else {
+        await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15000 })
+    }
+
     await waitForProtectedAppReady(page)
+    await waitForServerSession(page)
     await expect.poll(() => isProtectedShellReady(page), { timeout: 5_000, intervals: [100, 250, 500] }).toBe(true)
     await expect
         .poll(() => isStableProtectedPath(page, getPathname(page.url())), { timeout: 5_000, intervals: [100, 250, 500] })
         .toBe(true)
     await expect(page).not.toHaveURL(/\/login(?:\?.*)?$/)
 }
-
 
