@@ -8,6 +8,7 @@ import { isAdminRole, useUserStore } from '@/store/useUserStore';
 import { AlertTriangle, MapPin, BookOpen, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast-simple';
+import { resolveCurrentDutyAvailability } from '@/lib/duty-sign-in';
 import { cn } from '@/lib/utils';
 import {
     addDaysToDateKey,
@@ -409,6 +410,10 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
 
     const isAlreadyInStudio = studioMembers.some((m) => m.id === user?.id);
     const isSelfStudying = studioMembers.some((m) => m.id === user?.id && m.type === 'study');
+    const todayAssignedPeriods = user
+        ? Array.from(new Set(rosters.filter((r) => r.member_id === user.id && r.day_of_week === new Date().getDay()).map((r) => r.period)))
+        : [];
+    const isInOwnDutyPeriod = resolveCurrentDutyAvailability(todayAssignedPeriods).canSignInNow;
 
     return (
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -462,8 +467,8 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
             )}
 
             {!loading && !errorMsg && !isAlreadyInStudio ? (
-                <Button variant="outline" size="sm" className="w-full text-xs h-8" onClick={handleSelfStudy}>
-                    <BookOpen className="w-3 h-3 mr-1" />
+                    <Button variant="outline" size="sm" className="w-full text-xs h-8" onClick={handleSelfStudy} disabled={isInOwnDutyPeriod}>
+                        <BookOpen className="w-3 h-3 mr-1" />
                     我在工作室自习
                 </Button>
             ) : !loading && !errorMsg && isSelfStudying ? (
