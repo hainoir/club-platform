@@ -36,6 +36,32 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 Optional E2E account variables are listed in `.env.example`.
 
+## Deployment Workflow
+
+This repository uses a Git-driven Vercel workflow:
+
+- `main` is the production branch.
+- Non-`main` branches and pull requests should deploy to Vercel Preview.
+- Merge to `main` only after the Preview URL has been verified.
+
+Configure the following Vercel environment variables for both `Preview` and `Production`:
+
+```properties
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+Optional `E2E_*` variables can be added later if preview deployments need protected-flow testing.
+
+Recommended release flow:
+
+1. Create a feature branch.
+2. Push the branch and open the Vercel Preview URL.
+3. Verify the preview behavior and CI status.
+4. Merge into `main` to trigger the production deployment.
+
+Do not commit `.vercel` or `.env*.local` files.
+
 ## Security Hardening Notes (Release Checklist)
 
 ### Local environment files
