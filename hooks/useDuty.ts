@@ -12,7 +12,8 @@ type Member = Database['public']['Tables']['members']['Row'];
 
 type DutySwap = Database['public']['Tables']['duty_swaps']['Row'];
 
-// 联合类型，用于前端展示合并的信息
+// 【学习注释：前端展示类型整形】
+// 数据库原表结构偏向存储，而页面渲染需要直接拿到成员信息，所以这里先把联表后的展示类型定义清楚。
 export interface RosterWithMember extends DutyRoster {
     member: Pick<Member, 'id' | 'name' | 'student_id'>;
 }
@@ -22,9 +23,8 @@ export interface SwapWithMember extends DutySwap {
     target?: Pick<Member, 'id' | 'name'> | null;
 }
 
-// -------------------------------------------------------------
-// 工作室预设坐标与有效打卡半径配置 (请按需修改)
-// -------------------------------------------------------------
+// 【学习注释：定位签到的可配置阈值】
+// 把坐标、允许半径和精度阈值收敛成常量，方便后续针对不同场地或环境变量做替换。
 const DEFAULT_STUDIO_COORDS = {
     lat: 39.181074,
     lng: 117.12138,
@@ -52,11 +52,13 @@ const MAX_GEO_ACCURACY_METERS = parseClientNumber(
 );
 const SIGN_IN_ATTEMPT_COOLDOWN_MS = 5000;
 
-// 星期标签，用于生成可读的提示信息
+// 【学习注释：展示层星期文案】
+// 业务逻辑里保留数字更稳定，真正渲染给用户前再转换成中文标签。
 const DAYS_LABEL = ['一', '二', '三', '四', '五'];
 
 /**
- * 计算两个经纬度之间的地表距离（哈弗辛公式）
+ * 【学习注释：地理定位算距】
+ * 浏览器返回的是经纬度，签到判断需要的是“与工作室相距多少米”，所以这里用哈弗辛公式做地表距离换算。
  */
 function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371e3; // 地球半径，单位米
@@ -72,6 +74,11 @@ function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2
     return R * c;
 }
 
+/**
+ * 【学习注释：值班大厅的业务编排 Hook】
+ * `useDuty` 不是单一功能 Hook，而是把排班、签到、换班、请假和钥匙交接这些高关联业务折叠成一个前端编排层。
+ * 页面组件只负责展示和触发动作，真正的权限守卫、乐观更新和数据刷新在这里集中管理。
+ */
 export function useDuty(initialRosters: RosterWithMember[]) {
     const [rosters, setRosters] = useState<RosterWithMember[]>(initialRosters);
     const [swaps, setSwaps] = useState<SwapWithMember[]>([]);
@@ -81,6 +88,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     const { user, setUser } = useUserStore();
     const supabase = useMemo(() => createClient(), []);
 
+    // 【学习注释：所有写操作共用一层 session 续命】
+    // 这样排班、签到、换班等动作都不需要各自重复实现 token 恢复逻辑。
     const ensureActiveSession = useCallback(async () => {
         try {
             const activeSession = await ensureClientSession(supabase);
@@ -100,9 +109,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         return false;
     }, [setUser, supabase, toast]);
 
-    // ------------------------------------------------------------------------
-    // 初始化与刷新数据
-    // ------------------------------------------------------------------------
+    // 【学习注释：基础数据刷新】
+    // 这些刷新函数负责把数据库里的真实状态重新拉回前端，是所有乐观更新最终收口的依据。
     const refreshRosters = useCallback(async () => {
         const { data, error } = await supabase
             .from('duty_rosters')
@@ -125,7 +133,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     }, [supabase]);
 
-    // 获取已批准的代班记录（供值班表显示标签用）
+    // 【学习注释：已批准代班单独拉取】
+    // 值班表上的“代班”标签只关心最终生效的记录，因此和待处理请求分开维护更清晰。
     const refreshApprovedSwaps = useCallback(async () => {
         const { data, error } = await supabase
             .from('duty_swaps')
@@ -138,16 +147,16 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     }, [supabase]);
 
-    // ------------------------------------------------------------------------
-    // 1. 排班操作 (指派/移除成员) - 仅管理员可操作，带乐观更新
-    // ------------------------------------------------------------------------
+    // 【学习注释：排班操作与 optimistic update】
+    // 管理员点击后先更新本地界面，再回写数据库；失败时再刷新真实数据回滚，兼顾速度感和正确性。
     const toggleDutySlot = useCallback(async (day: number, period: number, memberId: string, memberName: string) => {
         if (!user) {
             toast({ title: '尚未登录', description: '请先登录后再进行排班操作。', variant: 'destructive' });
             return;
         }
 
-        // 权限前置守卫：仅管理员可操作
+        // 【学习注释：权限前置守卫】
+        // 先在前端拦掉明显无权操作，既减少无效请求，也让用户更快得到反馈。
         if (!isAdminRole(user.role)) {
             toast({ title: '权限不足', description: '仅管理员可以进行排班操作。', variant: 'destructive' });
             return;
@@ -160,10 +169,11 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         const existingSlot = rosters.find(r => r.day_of_week === day && r.period === period && r.member_id === memberId);
         const isAdding = !existingSlot;
 
-        // 乐观更新界面
+        // 【学习注释：optimistic update】
+        // 先假设请求会成功，立即更新表格，提高后台管理操作的响应感。
         startTransition(() => {
             if (isAdding) {
-                // 添加占位符
+                // 先塞入一个临时排班项，等服务端返回后再用真实数据覆盖。
                 const optimisticRoster: RosterWithMember = {
                     id: `temp-${Date.now()}`,
                     member_id: memberId,
@@ -179,7 +189,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 };
                 setRosters(prev => [...prev, optimisticRoster]);
             } else {
-                // 移除
+                // 删除动作同样先改本地列表，失败时再整表回拉。
                 setRosters(prev => prev.filter(r => r.id !== existingSlot.id));
             }
         });
@@ -205,7 +215,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 if (error) throw error;
                 toast({ title: '已移除排班', description: `已将 ${memberName} 从该时段移除。` });
             }
-            // 重新加载真实数据
+            // 【学习注释：用真实数据校正乐观状态】
             refreshRosters();
         } catch (error: any) {
             await refreshRosters();
@@ -220,9 +230,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     }, [rosters, user, toast, refreshRosters, supabase, ensureActiveSession]);
 
-    // ------------------------------------------------------------------------
-    // 2. 签到打卡 (包含地理位置定位与算距防作弊)
-    // ------------------------------------------------------------------------
+    // 【学习注释：签到流程与定位防作弊】
+    // 这部分把防重复点击、定位权限、精度校验和半径限制串在一起，保证“能签到”不只是点到了按钮。
     const [isSigningIn, setIsSigningIn] = useState(false);
     const lastSignInAttemptAtRef = useRef(0);
 
@@ -391,9 +400,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     }, [isSigningIn, user, toast, supabase]);
 
-    // ------------------------------------------------------------------------
-    // 3. 换班系统逻辑
-    // ------------------------------------------------------------------------
+    // 【学习注释：换班请求状态机】
+    // 普通成员负责发起和应答，管理员负责最终审批，前端需要把不同身份看到的动作折叠成统一接口。
     const [isSwapping, setIsSwapping] = useState(false);
 
     const submitSwapRequest = async (originalDay: number, originalPeriod: number, targetId?: string, targetDay?: number, targetPeriod?: number) => {
@@ -430,12 +438,13 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         setIsSwapping(true);
         try {
             if (!accept) {
-                // 撤销或删除请求
+                // 请求被拒绝或撤销时，直接从数据层移除。
                 const { error } = await supabase.from('duty_swaps').delete().eq('id', swapId);
                 if (error) throw error;
                 toast({ title: '已移除请求', description: '该换班请求已被撤销或拒绝。' });
             } else {
-                // 管理员批准代班：调用远程过程函数，原子性完成排班转让
+                // 【学习注释：审批动作交给数据库 RPC】
+                // 排班转让涉及多张记录一致性，交给远程过程函数做原子更新，比前端手工串多次写入更安全。
                 if (!isAdminRole(user.role)) {
                     toast({ title: '权限不足', description: '仅管理员可以审批换班请求。', variant: 'destructive' });
                     setIsSwapping(false);
@@ -449,7 +458,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                     return;
                 }
 
-                // 调用远程过程函数，此时内部会使用目标成员字段（已在前一步应答流程中设置）
+                // 前面的“应答”阶段已经写入目标成员，这里只需要把审批动作提交给 RPC 完成最终转让。
                 const { error: rpcError } = await supabase.rpc('accept_duty_swap', {
                     p_swap_id: swapId,
                     p_acceptor_id: swapRecord.target?.id || '',
@@ -472,7 +481,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     };
 
-    // 普通用户应答代班请求（写入目标成员，并将状态设为“已应答”，等待管理员审批）
+    // 【学习注释：普通成员只能应答，不能直接完成换班】
     const volunteerForSwap = async (swapId: string) => {
         if (!user) return;
         if (!(await ensureActiveSession())) return;
@@ -498,7 +507,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     };
 
-    // 管理员驳回代班请求（将状态从“已应答”回退到“待处理”，并清除目标成员）
+    // 【学习注释：管理员驳回时回退状态机】
     const rejectSwap = async (swapId: string) => {
         if (!user) return;
         if (!(await ensureActiveSession())) return;
@@ -518,11 +527,10 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             setIsSwapping(false);
         }
     };
-    // ------------------------------------------------------------------------
-    // 4. 钥匙管理
-    // ------------------------------------------------------------------------
+    // 【学习注释：钥匙状态管理】
+    // 钥匙是跨多个值班槽位共享的状态，因此这里按成员批量更新相关排班记录。
 
-    // 管理员切换某成员的钥匙持有状态（更新该成员所有排班记录）
+    // 【学习注释：钥匙权限同样前置到前端】
     const toggleKey = async (memberId: string, hasKey: boolean) => {
         if (!user) {
             toast({ title: '尚未登录', description: '请先登录后再进行钥匙操作。', variant: 'destructive' });
@@ -553,9 +561,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     };
 
-    // ------------------------------------------------------------------------
-    // 5. 请假与补班
-    // ------------------------------------------------------------------------
+    // 【学习注释：请假与补班联动】
+    // 请假并不是只写一条 leave 记录，还可能连带生成补班安排，所以这里统一在一个动作里编排。
     const [leaves, setLeaves] = useState<any[]>([]);
 
     const refreshLeaves = useCallback(async () => {
@@ -570,7 +577,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     }, [supabase, user]);
 
-    // 提交请假申请（含补班安排）
+    // 【学习注释：请假提交流程】
     const submitLeave = async (
         day: number,
         period: number,
@@ -581,7 +588,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         if (!user) return false;
         if (!(await ensureActiveSession())) return false;
         try {
-            // 1. 创建请假记录
+            // 第一步先拿到 leave id，后续补班记录要依赖这个主键。
             const { data: leaveData, error: leaveError } = await supabase
                 .from('duty_leaves')
                 .insert({
@@ -596,7 +603,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
 
             if (leaveError) throw leaveError;
 
-            // 2. 创建补班安排
+            // 第二步再批量写入补班时段，保持“请假 + 补班”是同一条交互链路。
             if (compensations.length > 0 && leaveData) {
                 const compRecords = compensations.map(c => ({
                     leave_id: leaveData.id,
@@ -624,9 +631,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     };
 
-    // ------------------------------------------------------------------------
-    // 6. 钥匙交接
-    // ------------------------------------------------------------------------
+    // 【学习注释：钥匙交接】
+    // 这部分把“发起交接”和“接收确认”拆成两段，符合真实业务里的双人确认流程。
     const [keyTransfers, setKeyTransfers] = useState<any[]>([]);
 
     const refreshKeyTransfers = useCallback(async () => {
@@ -642,7 +648,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     }, [supabase]);
 
-    // 发起钥匙交接
+    // 【学习注释：交接发起】
     const submitKeyTransfer = async (toMemberId: string, note: string) => {
         if (!user) return false;
         if (!(await ensureActiveSession())) return false;
@@ -665,7 +671,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     };
 
-    // 确认接收钥匙
+    // 【学习注释：交接确认】
     const confirmKeyTransfer = async (transferId: string) => {
         if (!user) return;
         if (!(await ensureActiveSession())) return;

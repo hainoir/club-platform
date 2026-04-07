@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import {
@@ -50,6 +50,8 @@ const PERIOD_START_MINUTES: Record<number, number> = {
 
 const ADMIN_ROLE_SET = new Set(["admin", "管理员", "主席", "执行主席", "副主席", "部长"])
 
+// 【学习注释：把“周几第几节”换算成下一次真实时间点】
+// 首页要展示的是用户能理解的日期时间，而不是数据库里的排班维度，所以这里先做一次领域转换。
 function resolveNextDutyTime(day: number, period: number, now: Date): Date {
     const candidate = new Date(now)
     const currentDow = now.getDay()
@@ -67,6 +69,11 @@ function resolveNextDutyTime(day: number, period: number, now: Date): Date {
     return candidate
 }
 
+/**
+ * 【学习注释：首页是一个服务端聚合层】
+ * 这个页面不直接承载复杂交互，而是负责把排班、签到、活动和自习统计等数据一次性聚合好，
+ * 再交给下游客户端组件消费。面试里可以把它描述成“面向首屏展示的 BFF 式数据整形”。
+ */
 export default async function DashboardPage() {
     const supabase = await createClient()
 
@@ -77,6 +84,8 @@ export default async function DashboardPage() {
     const todayDateKey = dutyNow.dateKey
     const mondayDateKey = getDutyWeekMondayDateKey(now)
 
+    // 【学习注释：首屏并发取数】
+    // 这些卡片彼此独立，适合在服务端并发拉取；这样既减少总等待时间，也避免客户端再发一轮瀑布请求。
     const [
         { data: rostersData },
         { data: weekLogsData },
@@ -127,6 +136,8 @@ export default async function DashboardPage() {
         } | null
     }>
 
+    // 【学习注释：签到记录先压成 slot 索引】
+    // 首页后面会频繁按“成员 + 日期 + 节次”查询是否签到，用 Map 预处理后能把后续统计逻辑写得更直接。
     const signedSlotMap = new Map<string, string>()
     weekLogs.forEach((log) => {
         if (!log.location_verified) return
@@ -147,6 +158,8 @@ export default async function DashboardPage() {
     const todaySignedCount = todayRosters.filter((r) => signedSlotSet.has(`${r.member_id}-${todayDateKey}-${r.period}`)).length
     const todayPendingCount = Math.max(todayRosters.length - todaySignedCount, 0)
 
+    // 【学习注释：统计口径只计算“理论上已经结束的班次”】
+    // 这样本周完成率不会把未来班次算进分母，更符合仪表盘的业务含义。
     let weekPastExpected = 0
     let weekPastSigned = 0
 
@@ -183,6 +196,8 @@ export default async function DashboardPage() {
         }
     })
 
+    // 【学习注释：当前用户身份在首页继续下沉成业务成员】
+    // 这里不是重复鉴权，而是为了拿到 members 表中的 role 和 name，驱动页面里的管理员分支与个性化展示。
     let me: { id: string; role: string; name: string } | null = null
     if (authUser?.email) {
         const { data: meRow } = await supabase
@@ -227,6 +242,8 @@ export default async function DashboardPage() {
     const myTodayAssignedPeriods = Array.from(new Set(myTodayRosters.map((r) => r.period))).sort((a, b) => a - b)
     const myHasSignedInToday = !!me?.id && myTodayAssignedPeriods.some((period) => signedSlotSet.has(`${me.id}-${todayDateKey}-${period}`))
 
+    // 【学习注释：把“我的排班列表”压缩成一个最近事项】
+    // 仪表盘不追求展示全部细节，而是优先给用户一个下一步动作最明确的提醒。
     let nextDuty:
         | {
             roster: RosterWithMember
@@ -496,10 +513,4 @@ export default async function DashboardPage() {
         </div>
     )
 }
-
-
-
-
-
-
 

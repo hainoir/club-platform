@@ -7,6 +7,11 @@ import { useToast } from "@/components/ui/toast-simple"
 import { getCurrentPositionWithFallback, getLocationErrorReason } from "@/lib/geolocation"
 import { createClient } from "@/utils/supabase/client"
 
+/**
+ * 【学习注释：仪表盘签到入口的客户端职责】
+ * 这个组件同时依赖当前时间、今日排班、浏览器定位和数据库写入，天然属于 Client Component。
+ * 把它从首页服务端组件里拆出来后，数据聚合和强交互逻辑的边界会更清晰。
+ */
 const PERIOD_RANGES: Record<number, [number, number]> = {
     1: [8 * 60, 9 * 60 + 35],
     2: [10 * 60 + 5, 11 * 60 + 40],
@@ -23,6 +28,8 @@ const DEFAULT_MAX_VALID_RADIUS_METERS = 50
 const DEFAULT_MAX_GEO_ACCURACY_METERS = 100
 const SIGN_IN_ATTEMPT_COOLDOWN_MS = 5000
 
+// 【学习注释：签到阈值允许被环境变量覆盖】
+// 这样切换校区、测试环境或容忍范围时，不需要改组件逻辑本身。
 function parseClientNumber(value: string | undefined, fallback: number): number {
     if (!value) return fallback
     const parsed = Number(value)
@@ -43,6 +50,8 @@ const MAX_GEO_ACCURACY_METERS = parseClientNumber(
     DEFAULT_MAX_GEO_ACCURACY_METERS
 )
 
+// 【学习注释：哈弗辛公式算距】
+// 浏览器定位拿到的是经纬度，是否允许签到要靠真实地表距离，而不是简单比较经纬度差值。
 function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371e3
     const p1 = (lat1 * Math.PI) / 180
@@ -83,6 +92,8 @@ export function DashboardSignInWidget({
         [todayAssignedPeriods]
     )
 
+    // 【学习注释：按钮是否可点，先由“当前是否轮到我值班”决定】
+    // 这一步只做前端交互层的快速反馈，真正写库前仍会继续做重复签到和定位校验。
     const refreshSignInState = React.useCallback(() => {
         const now = new Date()
         const todayDow = now.getDay()
@@ -115,6 +126,9 @@ export function DashboardSignInWidget({
         return () => window.clearInterval(timer)
     }, [refreshSignInState])
 
+    // 【学习注释：签到写入前的三层防线】
+    // 先做点击节流，再查当天是否已签到，最后才进入定位与写库流程。
+    // 这种顺序能把最便宜的失败尽量前置，减少无意义的定位请求和数据库压力。
     const onSignIn = React.useCallback(() => {
         if (isSigningIn) return
 
@@ -160,6 +174,8 @@ export function DashboardSignInWidget({
         today.setHours(0, 0, 0, 0)
 
         const preCheckAndSignIn = async () => {
+            // 【学习注释：写操作前先确认 session 还有足够寿命】
+            // 否则定位成功后才发现 token 过期，会把用户体验变成“看起来能点，提交时失败”。
             const { data: { session } } = await supabase.auth.getSession()
             if (session) {
                 const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
@@ -231,6 +247,8 @@ export function DashboardSignInWidget({
 
             const distance = getDistanceFromLatLonInM(latitude, longitude, STUDIO_COORDS.lat, STUDIO_COORDS.lng)
 
+            // 【学习注释：定位防作弊】
+            // 只有坐标合法且落在允许半径内才允许写入签到记录，避免把远程打开页面也记成到场。
             if (distance > MAX_VALID_RADIUS_METERS) {
                 toast({
                     title: "签到失败",

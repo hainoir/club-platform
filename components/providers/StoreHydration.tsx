@@ -4,12 +4,10 @@ import { useEffect } from "react"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
 
 /**
- * 组件挂载后在客户端触发持久化状态重水合。
- *
- * 偏好设置状态启用了“跳过首次水合”选项，用于保证首次客户端渲染
- * 与服务端输出的页面结构保持一致。
- * 组件挂载后从本地存储加载持久化状态，
- * 从而触发一次安全的重新渲染。
+ * 【学习注释：持久化偏好的安全重水合】
+ * 偏好设置使用了 Zustand persist，但服务端渲染阶段拿不到本地存储里的旧值。
+ * 因此这里选择先输出稳定的服务端结果，再在客户端挂载后主动 `rehydrate`，
+ * 既避免 hydration mismatch，也能恢复用户之前保存的界面偏好。
  */
 export function StoreHydration() {
     useEffect(() => {

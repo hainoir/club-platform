@@ -1,6 +1,11 @@
-import { createServerClient } from '@supabase/ssr'
+﻿import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+/**
+ * 【学习注释：中间件里的统一会话收口】
+ * middleware 是所有页面请求进入应用前最早经过的节点，适合集中处理 token 刷新和访问控制。
+ * 这样页面本身就能更专注于渲染，不需要在每个入口都重复写一套登录判断。
+ */
 export async function updateSession(request: NextRequest) {
     if (request.nextUrl.pathname === '/api/auth/session') {
         const passthrough = NextResponse.next({ request })
@@ -33,16 +38,15 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    // 【面试考点：会话刷新与令牌保活】
-    // 调用鉴权接口不只是读取当前用户信息，底层还会自动检查访问令牌是否即将过期。
-    // 若令牌已过期或即将过期，会自动使用刷新令牌换取新令牌并写入响应标记，实现无感刷新。
+    // 【学习注释：借一次 getUser 完成 token 保活】
+    // 这里不只是“取用户”，更重要的是让 Supabase 在请求入口就有机会刷新即将过期的 session。
+    // 面试时可以强调：鉴权查询和令牌续期被集中放在 middleware，减少了页面层的重复逻辑。
     const {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // 【面试考点：白名单机制与路由守卫】
-    // 定义受保护的路由列表。只有经过身份验证的用户才能访问这些内部页面。
-    // 相比在每个页面单独检查权限，在中间件中集中处理能在渲染前提前拦截请求，显著降低服务器开销。
+    // 【学习注释：受保护路由判定】
+    // 这里把“哪些页面必须登录”收敛成一处判断，后续如果新增后台页面，只需要扩展这份规则即可。
     const pathname = request.nextUrl.pathname
     const isProtectedRoute =
         pathname === '/' ||
@@ -52,17 +56,15 @@ export async function updateSession(request: NextRequest) {
         pathname.startsWith('/settings')
 
     if (!user && isProtectedRoute) {
-        // 【面试考点：未授权访问拦截】
-        // 如果用户未携带有效会话且试图访问受保护路由，我们直接将其重定向到登录页。
-        // 使用地址克隆对象构建新地址，可确保重定向时保留原始主机和协议信息。
+        // 【学习注释：未登录时的前置拦截】
+        // 在进入页面渲染前直接重定向，能避免“先渲染半页内容再跳登录”的闪烁体验。
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)
     }
 
-    // 【面试考点：重定向与用户体验优化】
-    // 当系统检测到用户已经拥有有效登录凭证，且正试图访问登录页（或其它开放入口页）时，
-    // 我们会将其拦截并自动重定向回系统的首页或管理控制台，避免重复登录带来的疑惑，提升用户体验。
+    // 【学习注释：已登录用户不再回到登录页】
+    // 这类跳转不只是“方便”，它还能保持登录后路径语义稳定，减少用户对当前身份状态的困惑。
     if (user && pathname.startsWith('/login')) {
         const url = request.nextUrl.clone()
         url.pathname = '/'
