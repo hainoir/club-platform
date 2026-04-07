@@ -1,14 +1,20 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { RosterWithMember } from '@/hooks/useDuty';
 import { isAdminRole, useUserStore } from '@/store/useUserStore';
-import { AlertTriangle, MapPin, BookOpen, X } from 'lucide-react';
+import { AlertTriangle, MapPin, BookOpen, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast-simple';
 import { resolveCurrentDutyAvailability } from '@/lib/duty-sign-in';
+import {
+    getStudioLocationErrorMessage,
+    isStudioLocationValidationFailure,
+    STUDIO_LOCATION_ACTION_COOLDOWN_MS,
+    validateStudioLocation,
+} from '@/lib/studio-location';
 import { cn } from '@/lib/utils';
 import {
     addDaysToDateKey,
