@@ -192,24 +192,24 @@ export function DashboardSignInWidget({
             } catch (geoError) {
                 if (completed) return
 
-                let description = "\u5b9a\u4f4d\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u6743\u9650\u540e\u91cd\u8bd5\u3002"
+                let description = "定位失败，请检查权限后重试。"
                 const reason = getLocationErrorReason(geoError)
 
-                if (reason === "permission_denied") description = "\u5b9a\u4f4d\u6743\u9650\u88ab\u62d2\u7edd\uff0c\u65e0\u6cd5\u8fdb\u884c\u7b7e\u5230\u3002"
-                if (reason === "position_unavailable") description = "\u65e0\u6cd5\u83b7\u53d6\u5b9a\u4f4d\u4fe1\u606f\uff0c\u8bf7\u68c0\u67e5\u8bbe\u5907\u5b9a\u4f4d\u670d\u52a1\u3002"
-                if (reason === "timeout") description = "\u5b9a\u4f4d\u8bf7\u6c42\u8d85\u65f6\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002"
-                if (reason === "not_supported") description = "\u5f53\u524d\u8bbe\u5907\u6216\u6d4f\u89c8\u5668\u4e0d\u652f\u6301\u5b9a\u4f4d\u3002"
-                if (reason === "insecure_context") description = "\u8bf7\u4f7f\u7528 HTTPS \u6216 localhost \u8bbf\u95ee\u540e\u518d\u8bd5\u3002"
+                if (reason === "permission_denied") description = "定位权限被拒绝，无法进行签到。"
+                if (reason === "position_unavailable") description = "无法获取定位信息，请检查设备定位服务。"
+                if (reason === "timeout") description = "定位请求超时，请稍后重试。"
+                if (reason === "not_supported") description = "当前设备或浏览器不支持定位。"
+                if (reason === "insecure_context") description = "请使用 HTTPS 或 localhost 访问后再试。"
 
-                toast({ title: "\u7b7e\u5230\u5931\u8d25", description, variant: "destructive" })
+                toast({ title: "签到失败", description, variant: "destructive" })
                 finishSignIn()
                 return
             }
 
             if (!position || !position.coords) {
                 toast({
-                    title: "\u5b9a\u4f4d\u6570\u636e\u5f02\u5e38",
-                    description: "\u672a\u83b7\u53d6\u5230\u6709\u6548\u5b9a\u4f4d\u4fe1\u606f\uff0c\u8bf7\u68c0\u67e5\u8bbe\u5907\u5b9a\u4f4d\u670d\u52a1\u540e\u91cd\u8bd5\u3002",
+                    title: "定位数据异常",
+                    description: "未获取到有效定位信息，请检查设备定位服务后重试。",
                     variant: "destructive",
                 })
                 finishSignIn()
@@ -221,8 +221,8 @@ export function DashboardSignInWidget({
 
             if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
                 toast({
-                    title: "\u7b7e\u5230\u5931\u8d25",
-                    description: "\u5b9a\u4f4d\u5750\u6807\u65e0\u6548\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002",
+                    title: "签到失败",
+                    description: "定位坐标无效，请稍后重试。",
                     variant: "destructive",
                 })
                 finishSignIn()
@@ -233,8 +233,8 @@ export function DashboardSignInWidget({
 
             if (distance > MAX_VALID_RADIUS_METERS) {
                 toast({
-                    title: "\u7b7e\u5230\u5931\u8d25",
-                    description: `\u5f53\u524d\u4f4d\u7f6e\u8ddd\u79bb\u5de5\u4f5c\u5ba4\u7ea6 ${Math.round(distance)} \u7c73\uff0c\u8d85\u51fa\u5141\u8bb8\u8303\u56f4\u3002`,
+                    title: "签到失败",
+                    description: `当前位置距离工作室约 ${Math.round(distance)} 米，超出允许范围。`,
                     variant: "destructive",
                 })
                 finishSignIn()
@@ -252,16 +252,16 @@ export function DashboardSignInWidget({
 
                 setHasSignedInToday(true)
                 refreshSignInState()
-                toast({ title: "\u7b7e\u5230\u6210\u529f", description: "\u5df2\u5b8c\u6210\u4f4d\u7f6e\u9a8c\u8bc1\u5e76\u8bb0\u5f55\u5230\u503c\u73ed\u8003\u52e4\u3002" })
+                toast({ title: "签到成功", description: "已完成位置验证并记录到值班考勤。" })
             } catch (error: unknown) {
                 const typedError = error as { code?: string; message?: string }
                 if (typedError?.code === "23505") {
                     setHasSignedInToday(true)
-                    toast({ title: "\u4eca\u65e5\u5df2\u7b7e\u5230", description: "\u68c0\u6d4b\u5230\u91cd\u590d\u7b7e\u5230\u8bf7\u6c42\uff0c\u7cfb\u7edf\u5df2\u81ea\u52a8\u62e6\u622a\u3002" })
+                    toast({ title: "今日已签到", description: "检测到重复签到请求，系统已自动拦截。" })
                 } else {
                     toast({
-                        title: "\u7b7e\u5230\u5931\u8d25",
-                        description: typedError?.message || "\u65e0\u6cd5\u5199\u5165\u7b7e\u5230\u8bb0\u5f55\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002",
+                        title: "签到失败",
+                        description: typedError?.message || "无法写入签到记录，请稍后重试。",
                         variant: "destructive",
                     })
                 }
