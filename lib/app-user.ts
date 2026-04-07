@@ -1,16 +1,16 @@
 export const KNOWN_ROLES = [
     'admin',
     'member',
-    '\u4e3b\u5e2d',
-    '\u6267\u884c\u4e3b\u5e2d',
-    '\u526f\u4e3b\u5e2d',
-    '\u90e8\u957f',
-    '\u5e72\u4e8b',
+    '主席',
+    '执行主席',
+    '副主席',
+    '部长',
+    '干事',
 ] as const
 
 export type KnownRole = (typeof KNOWN_ROLES)[number]
 export type UserRole = KnownRole | null
-export const DEFAULT_MEMBER_ROLE: KnownRole = '\u5e72\u4e8b'
+export const DEFAULT_MEMBER_ROLE: KnownRole = '干事'
 
 export interface AppUser {
     id: string
@@ -21,33 +21,33 @@ export interface AppUser {
 
 export const ADMIN_ROLES: ReadonlyArray<string> = [
     'admin',
-    '\u7ba1\u7406\u5458',
-    '\u4e3b\u5e2d',
-    '\u6267\u884c\u4e3b\u5e2d',
-    '\u526f\u4e3b\u5e2d',
-    '\u90e8\u957f',
+    '管理员',
+    '主席',
+    '执行主席',
+    '副主席',
+    '部长',
 ]
 
 const ROLE_SET = new Set<string>(KNOWN_ROLES as readonly string[])
 const ADMIN_ROLE_SET = new Set<KnownRole>([
     'admin',
-    '\u4e3b\u5e2d',
-    '\u6267\u884c\u4e3b\u5e2d',
-    '\u526f\u4e3b\u5e2d',
-    '\u90e8\u957f',
+    '主席',
+    '执行主席',
+    '副主席',
+    '部长',
 ])
 
 const ROLE_ALIASES: Readonly<Record<string, KnownRole>> = {
     admin: 'admin',
     administrator: 'admin',
-    '\u7ba1\u7406\u5458': 'admin',
+    '管理员': 'admin',
     member: 'member',
-    '\u6210\u5458': 'member',
-    '\u4e3b\u5e2d': '\u4e3b\u5e2d',
-    '\u6267\u884c\u4e3b\u5e2d': '\u6267\u884c\u4e3b\u5e2d',
-    '\u526f\u4e3b\u5e2d': '\u526f\u4e3b\u5e2d',
-    '\u90e8\u957f': '\u90e8\u957f',
-    '\u5e72\u4e8b': '\u5e72\u4e8b',
+    '成员': 'member',
+    '主席': '主席',
+    '执行主席': '执行主席',
+    '副主席': '副主席',
+    '部长': '部长',
+    '干事': '干事',
 }
 
 function normalizeRoleInput(role: string | null | undefined): string {

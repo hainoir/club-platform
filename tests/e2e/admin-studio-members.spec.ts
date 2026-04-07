@@ -2,11 +2,11 @@ import { expect, test } from '@playwright/test'
 
 import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
-const DUTY_HALL_TITLE = '\u503c\u73ed\u4e0e\u8003\u52e4\u5927\u5385'
-const CURRENT_IN_STUDIO_TEXT_REGEX = /\u5f53\u524d\u5728\u5de5\u4f5c\u5ba4|\u76ee\u524d\u5728\u5de5\u4f5c\u5ba4/
-const STUDY_MEMBER_NAME = '\u6d4b\u8bd5\u6210\u5458'
-const STUDY_CHIP_TEXT_REGEX = new RegExp(`${STUDY_MEMBER_NAME}\\s*\u81ea\u4e60`)
-const DELETE_BUTTON_LABEL = `\u79fb\u9664 ${STUDY_MEMBER_NAME} \u7684\u81ea\u4e60\u8bb0\u5f55`
+const DUTY_HALL_TITLE = '值班与考勤大厅'
+const CURRENT_IN_STUDIO_TEXT_REGEX = /当前在工作室|目前在工作室/
+const STUDY_MEMBER_NAME = '测试成员'
+const STUDY_CHIP_TEXT_REGEX = new RegExp(`${STUDY_MEMBER_NAME}\\s*自习`)
+const DELETE_BUTTON_LABEL = `移除 ${STUDY_MEMBER_NAME} 的自习记录`
 
 test.describe('Admin studio members controls', () => {
     test.setTimeout(90_000)

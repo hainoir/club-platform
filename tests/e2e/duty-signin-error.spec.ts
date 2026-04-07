@@ -1,9 +1,9 @@
-﻿import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
-const SIGN_IN_BUTTON_REGEX = /\u7ACB\u5373\u9A8C\u8BC1\u5B9A\u4F4D\u5E76\u7B7E\u5230|\u6B63\u5728\u96F7\u8FBE\u63A2\u8DDD\u4E0E\u9A8C\u8BC1/
-const GEO_DENIED_REGEX = /\u5B9A\u4F4D\u6743\u9650\u88AB\u62D2\u7EDD|\u60A8\u62D2\u7EDD\u4E86\u5B9A\u4F4D\u8BF7\u6C42/
-const GEO_PAYLOAD_ERROR_REGEX = /\u5B9A\u4F4D\u6570\u636E\u5F02\u5E38|\u672A\u83B7\u53D6\u5230\u6709\u6548\u5B9A\u4F4D\u4FE1\u606F|Location payload is empty|Sign-in failed/
-const SIGN_IN_ERROR_REGEX = /\u7B7E\u5230\u8BB0\u5F55\u5931\u8D25|\u6253\u5361\u5B58\u6863\u5931\u8D25|\u7B7E\u5230\u5931\u8D25|mock duty_logs insert failed|Failed to fetch|fetch failed/i
+const SIGN_IN_BUTTON_REGEX = /立即验证定位并签到|正在雷达探距与验证/
+const GEO_DENIED_REGEX = /定位权限被拒绝|您拒绝了定位请求/
+const GEO_PAYLOAD_ERROR_REGEX = /定位数据异常|未获取到有效定位信息|Location payload is empty|Sign-in failed/
+const SIGN_IN_ERROR_REGEX = /签到记录失败|打卡存档失败|签到失败|mock duty_logs insert failed|Failed to fetch|fetch failed/i
 async function openDutyWithEnabledSignIn(page: Page) {
     const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
     await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)

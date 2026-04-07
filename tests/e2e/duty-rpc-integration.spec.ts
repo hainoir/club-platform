@@ -203,11 +203,11 @@ async function createPendingKeyTransferFixtureForReceiver(
     }
 }
 
-const SWAP_HALL_REGEX = new RegExp('\u4ee3\u73ed\u5927\u5385')
-const SWAP_HALL_TITLE = '\u4ee3\u73ed\u5927\u5385'
-const APPROVE_BUTTON = '\u6279\u51c6'
-const KEY_TRANSFER_TITLE = '\u94a5\u5319\u4ea4\u63a5'
-const KEY_CONFIRM_BUTTON = '\u786e\u8ba4\u63a5\u6536'
+const SWAP_HALL_REGEX = new RegExp('代班大厅')
+const SWAP_HALL_TITLE = '代班大厅'
+const APPROVE_BUTTON = '批准'
+const KEY_TRANSFER_TITLE = '钥匙交接'
+const KEY_CONFIRM_BUTTON = '确认接收'
 
 test.describe('Duty RPC integration', () => {
     test.setTimeout(60_000)
