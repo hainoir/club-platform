@@ -158,8 +158,8 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
 
     return (
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-sm mb-3">
-                <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
+            <div className="mb-3 flex items-center gap-2 text-sm">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-orange-500" />
                 <span className="font-medium text-muted-foreground">本周未签到人员</span>
             </div>
 
@@ -171,10 +171,10 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
                 <p className="text-xs text-muted-foreground">本周所有已结束班次均已签到</p>
             ) : (
                 <div className="space-y-1.5">
-                    {absentMembers.map((m) => (
-                        <div key={m.id} className="flex items-center justify-between text-xs">
-                            <span className="font-medium text-orange-700 dark:text-orange-400">{m.name}</span>
-                            <span className="text-muted-foreground">{m.slots.join('、')}</span>
+                    {absentMembers.map((member) => (
+                        <div key={member.id} className="flex items-center justify-between text-xs">
+                            <span className="font-medium text-orange-700 dark:text-orange-400">{member.name}</span>
+                            <span className="text-muted-foreground">{member.slots.join('、')}</span>
                         </div>
                     ))}
                 </div>
@@ -212,8 +212,10 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     const [studioMembers, setStudioMembers] = useState<StudioMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [ending, setEnding] = useState(false);
+    const [isStartingStudy, setIsStartingStudy] = useState(false);
     const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const lastStartStudyAttemptAtRef = useRef(0);
     const isAdmin = isAdminRole(user?.role);
 
     const fetchStudioMembers = useCallback(async () => {
@@ -272,10 +274,10 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
 
             if (sessionError) throw sessionError;
 
-            ((sessions as StudioSessionWithMember[] | null) || []).forEach((s) => {
-                if (seenIds.has(s.member_id)) return;
+            ((sessions as StudioSessionWithMember[] | null) || []).forEach((session) => {
+                if (seenIds.has(session.member_id)) return;
 
-                const startParts = toDutyDateTimeParts(s.started_at);
+                const startParts = toDutyDateTimeParts(session.started_at);
                 const startMin = startParts.minutes;
                 const matchedPeriod = getMatchedPeriod(startMin);
 
@@ -285,21 +287,21 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                         void supabase
                             .from('studio_sessions')
                             .update({ is_active: false, ended_at: new Date().toISOString() })
-                            .eq('id', s.id);
+                            .eq('id', session.id);
                         return;
                     }
                 }
 
-                const roster = rosters.find((r) => r.member_id === s.member_id);
-                const sessionMemberName = s.member?.name?.trim() || '';
+                const roster = rosters.find((r) => r.member_id === session.member_id);
+                const sessionMemberName = session.member?.name?.trim() || '';
                 members.push({
-                    id: s.member_id,
-                    sessionId: s.id,
+                    id: session.member_id,
+                    sessionId: session.id,
                     name: sessionMemberName || roster?.member.name || '成员',
                     type: 'study',
                     period: matchedPeriod,
                 });
-                seenIds.add(s.member_id);
+                seenIds.add(session.member_id);
             });
 
             setStudioMembers(members);
@@ -336,21 +338,45 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     }, [fetchStudioMembers]);
 
     const handleSelfStudy = async () => {
-        if (!user) return;
+        if (!user || isStartingStudy) return;
+
+        const nowTs = Date.now();
+        const elapsed = nowTs - lastStartStudyAttemptAtRef.current;
+        if (elapsed < STUDIO_LOCATION_ACTION_COOLDOWN_MS) {
+            const waitSeconds = Math.max(1, Math.ceil((STUDIO_LOCATION_ACTION_COOLDOWN_MS - elapsed) / 1000));
+            toast({
+                title: '请求过于频繁',
+                description: `请等待 ${waitSeconds} 秒后再尝试开始自习。`,
+                variant: 'destructive',
+            });
+            return;
+        }
+        lastStartStudyAttemptAtRef.current = nowTs;
+
+        setIsStartingStudy(true);
         try {
             if (!(await ensureSession(supabase))) {
                 throw new Error('登录状态已失效，请重新登录。');
             }
+
+            await validateStudioLocation();
+
             const { error } = await supabase.from('studio_sessions').insert({ member_id: user.id });
             if (error) throw error;
+
             toast({ title: '自习已开始', description: '已记录你在工作室自习。' });
             void fetchStudioMembers();
         } catch (err) {
+            const description = isStudioLocationValidationFailure(err)
+                ? getStudioLocationErrorMessage(err)
+                : extractErrorMessage(err, '请检查数据库权限策略后重试。');
             toast({
                 title: '开始自习失败',
-                description: extractErrorMessage(err, '请检查数据库权限策略后重试。'),
+                description,
                 variant: 'destructive',
             });
+        } finally {
+            setIsStartingStudy(false);
         }
     };
 
@@ -362,7 +388,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 throw new Error('登录状态已失效，请重新登录。');
             }
 
-            const mySession = studioMembers.find((m) => m.id === user.id && m.type === 'study');
+            const mySession = studioMembers.find((member) => member.id === user.id && member.type === 'study');
             if (mySession) {
                 const { error } = await supabase
                     .from('studio_sessions')
@@ -370,6 +396,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                     .eq('id', mySession.sessionId);
                 if (error) throw error;
             }
+
             toast({ title: '已结束自习' });
             void fetchStudioMembers();
         } catch (err) {
@@ -408,8 +435,8 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
         }
     };
 
-    const isAlreadyInStudio = studioMembers.some((m) => m.id === user?.id);
-    const isSelfStudying = studioMembers.some((m) => m.id === user?.id && m.type === 'study');
+    const isAlreadyInStudio = studioMembers.some((member) => member.id === user?.id);
+    const isSelfStudying = studioMembers.some((member) => member.id === user?.id && member.type === 'study');
     const todayAssignedPeriods = user
         ? Array.from(new Set(rosters.filter((r) => r.member_id === user.id && r.day_of_week === new Date().getDay()).map((r) => r.period)))
         : [];
@@ -417,12 +444,12 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
 
     return (
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="w-4 h-4 text-green-500 shrink-0" />
+                    <MapPin className="h-4 w-4 shrink-0 text-green-500" />
                     <span className="font-medium text-muted-foreground">目前在工作室</span>
                     {!loading && studioMembers.length > 0 && (
-                        <span className="text-xs bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 px-1.5 py-0.5 rounded-full">
+                        <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-950/30 dark:text-green-400">
                             {studioMembers.length}人
                         </span>
                     )}
@@ -434,29 +461,29 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
             ) : errorMsg ? (
                 <p className="text-xs text-destructive">{errorMsg}</p>
             ) : studioMembers.length === 0 ? (
-                <p className="text-xs text-muted-foreground">目前工作室暂无人员</p>
+                <p className="text-xs text-muted-foreground">目前工作室暂无人</p>
             ) : (
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                    {studioMembers.map((m) => (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                    {studioMembers.map((member) => (
                         <span
-                            key={m.id}
+                            key={member.id}
                             className={cn(
-                                'inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium ring-1 ring-inset',
-                                m.type === 'study'
+                                'inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ring-1 ring-inset',
+                                member.type === 'study'
                                     ? 'bg-purple-100 text-purple-700 ring-purple-300/50 dark:bg-purple-950/30 dark:text-purple-400 dark:ring-purple-700/50'
                                     : 'bg-green-100 text-green-700 ring-green-300/50 dark:bg-green-950/30 dark:text-green-400 dark:ring-green-700/50'
                             )}
                         >
-                            <span>{m.name}</span>
-                            <span className="text-[9px] opacity-70">{m.type === 'study' ? '自习' : '值班'}</span>
-                            {isAdmin && m.type === 'study' ? (
+                            <span>{member.name}</span>
+                            <span className="text-[9px] opacity-70">{member.type === 'study' ? '自习' : '值班'}</span>
+                            {isAdmin && member.type === 'study' ? (
                                 <button
                                     type="button"
                                     className="inline-flex h-4 w-4 items-center justify-center rounded-full opacity-70 transition hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                    aria-label={`移除 ${m.name} 的自习记录`}
-                                    title={`移除 ${m.name} 的自习记录`}
-                                    onClick={() => void handleAdminDeleteStudy(m)}
-                                    disabled={deletingSessionId === m.sessionId}
+                                    aria-label={`移除 ${member.name} 的自习记录`}
+                                    title={`移除 ${member.name} 的自习记录`}
+                                    onClick={() => void handleAdminDeleteStudy(member)}
+                                    disabled={deletingSessionId === member.sessionId}
                                 >
                                     <X className="h-3 w-3" />
                                 </button>
@@ -467,19 +494,25 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
             )}
 
             {!loading && !errorMsg && !isAlreadyInStudio ? (
-                    <Button variant="outline" size="sm" className="w-full text-xs h-8" onClick={handleSelfStudy} disabled={isInOwnDutyPeriod}>
-                        <BookOpen className="w-3 h-3 mr-1" />
-                    我在工作室自习
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-full text-xs"
+                    onClick={handleSelfStudy}
+                    disabled={isInOwnDutyPeriod || isStartingStudy}
+                >
+                    {isStartingStudy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <BookOpen className="mr-1 h-3 w-3" />}
+                    {isStartingStudy ? '正在验证定位...' : '我在工作室自习'}
                 </Button>
             ) : !loading && !errorMsg && isSelfStudying ? (
                 <Button
                     variant="outline"
                     size="sm"
-                    className="w-full text-xs h-8 text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950/30"
+                    className="h-8 w-full text-xs border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/30"
                     onClick={handleEndStudy}
                     disabled={ending}
                 >
-                    <X className="w-3 h-3 mr-1" />
+                    <X className="mr-1 h-3 w-3" />
                     {ending ? '处理中...' : '结束自习'}
                 </Button>
             ) : null}
