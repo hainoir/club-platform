@@ -14,7 +14,7 @@ export function SignInCard({ onSignIn, isSigningIn, hasSignedInToday = false, is
     const buttonDisabled = isSigningIn || !isInDutyPeriod;
 
     return (
-        <Card className="shadow-md border-primary/20 bg-gradient-to-br from-card to-primary/5">
+        <Card className="flex h-full flex-col border-primary/20 bg-gradient-to-br from-card to-primary/5 shadow-md">
             <CardHeader>
                 <CardTitle className="flex items-center text-lg">
                     <ShieldCheck className="w-5 h-5 mr-2 text-primary" />
@@ -24,7 +24,7 @@ export function SignInCard({ onSignIn, isSigningIn, hasSignedInToday = false, is
                     基于地理边界验证。请确保您已身处系统设定的 <strong>工作室 50 米</strong> 范围内。
                 </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-1 flex-col justify-center">
                 {hasSignedInToday ? (
                     <div className="rounded-lg bg-green-500/10 p-4 border border-green-500/20 text-center text-green-700 dark:text-green-400">
                         <p className="font-semibold mb-1">今日已签到</p>

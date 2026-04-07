@@ -163,7 +163,7 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
     }, [rosters, signedSlotKeys]);
 
     return (
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2 text-sm">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-orange-500" />
                 <span className="font-medium text-muted-foreground">本周未签到人员</span>
@@ -449,7 +449,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     const isInOwnDutyPeriod = resolveCurrentDutyAvailability(todayAssignedPeriods).canSignInNow;
 
     return (
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex h-full flex-col rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4 shrink-0 text-green-500" />
@@ -503,7 +503,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 w-full text-xs"
+                    className="mt-auto h-8 w-full text-xs"
                     onClick={handleSelfStudy}
                     disabled={isInOwnDutyPeriod || isStartingStudy}
                 >
@@ -514,7 +514,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 w-full text-xs border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/30"
+                    className="mt-auto h-8 w-full border-orange-300 text-xs text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/30"
                     onClick={handleEndStudy}
                     disabled={ending}
                 >

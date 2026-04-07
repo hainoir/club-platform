@@ -1,4 +1,4 @@
-﻿import { BookOpen, Crown } from "lucide-react"
+import { BookOpen, Crown } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -72,7 +72,7 @@ export function StudioStudyStatsCard({
     activeCount,
 }: StudioStudyStatsCardProps) {
     return (
-        <Card className="bg-card/60 backdrop-blur-sm shadow-sm">
+        <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                     <BookOpen className="h-5 w-5 text-primary" />
@@ -80,7 +80,7 @@ export function StudioStudyStatsCard({
                 </CardTitle>
                 <CardDescription>按不同统计周期查看成员自习时长排名，进行中的会话会实时累计。</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="flex flex-1 flex-col space-y-4">
                 <Tabs defaultValue="today" className="space-y-3">
                     <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0 text-xs">
                         <TabsTrigger value="today">今日</TabsTrigger>
