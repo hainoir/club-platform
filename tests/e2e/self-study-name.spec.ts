@@ -16,12 +16,12 @@ interface MemberIdentity {
     email: string | null
 }
 
-const DUTY_HALL_TITLE = '\u503c\u73ed\u4e0e\u8003\u52e4\u5927\u5385'
-const DASHBOARD_TITLE = '\u503c\u73ed\u6267\u884c\u4eea\u8868\u76d8'
-const SELF_STUDY_BUTTON_TEXT = '\u6211\u5728\u5de5\u4f5c\u5ba4\u81ea\u4e60'
-const CURRENT_IN_STUDIO_TEXT_REGEX = /\u5f53\u524d\u5728\u5de5\u4f5c\u5ba4|\u76ee\u524d\u5728\u5de5\u4f5c\u5ba4/
-const STUDY_LABEL = '\u81ea\u4e60'
-const FALLBACK_MEMBER_STUDY_REGEX = /\u6210\u5458\s*\u81ea\u4e60/
+const DUTY_HALL_TITLE = '值班与考勤大厅'
+const DASHBOARD_TITLE = '值班执行仪表盘'
+const SELF_STUDY_BUTTON_TEXT = '我在工作室自习'
+const CURRENT_IN_STUDIO_TEXT_REGEX = /当前在工作室|目前在工作室/
+const STUDY_LABEL = '自习'
+const FALLBACK_MEMBER_STUDY_REGEX = /成员\s*自习/
 const AUTH_RETRY_BACKOFF_MS = [500, 1_000, 2_000]
 
 function getSupabaseEnv() {

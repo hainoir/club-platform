@@ -3,10 +3,9 @@ import { cookies } from 'next/headers'
 import type { Database } from '@/types/supabase'
 
 /**
- * 【面试考点：服务端数据库实例】
- * 这个函数只能在服务端环境中运行（例如页面路由文件或服务端动作）。
- * 与浏览器端实例不同，这里需要手动读取并写入会话标记来管理登录状态。
- * 服务端可以安全访问数据库，因为这部分代码不会暴露给前端浏览器。
+ * 【学习注释：服务端 Supabase 客户端】
+ * 服务端拿到的是当前请求的 cookies，因此可以在渲染页面前直接恢复会话、查询数据并返回首屏结果。
+ * 和浏览器端不同，这里需要显式告诉 Supabase 如何读写 cookies，才能让 session 刷新结果回写到响应里。
  */
 export async function createClient() {
     const cookieStore = await cookies()
@@ -25,7 +24,9 @@ export async function createClient() {
                             cookieStore.set(name, value, options)
                         )
                     } catch {
-                        // 如果在服务端组件中调用，写入会话标记可能失败，这是预期行为
+                        // 【学习注释：Server Component 的写入限制】
+                        // 某些调用场景只允许读取 cookies，不允许在当前渲染阶段回写；
+                        // 这里选择静默吞掉，是因为读取用户态仍然有效，真正的刷新写回应交给中间件或路由处理。
                     }
                 },
             },

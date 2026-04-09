@@ -23,10 +23,9 @@ function createServerRenderFallback(): SupabaseClient<Database> {
 }
 
 /**
- * 【面试考点：浏览器端数据库实例】
- * 在本项目中，带有客户端指令的组件运行在用户浏览器里。
- * 这个函数通过浏览器适配库创建数据库客户端实例。
- * 它使用公开环境变量，因此只能配合行级权限策略进行安全读写。
+ * 【学习注释：浏览器端 Supabase 单例】
+ * 客户端组件会频繁重渲染，所以这里把浏览器端 Supabase 实例缓存成单例，避免重复创建连接器。
+ * 由于前端只能拿到匿名公钥，真正的安全边界不在这里，而是在 Supabase 的 RLS（行级权限）策略。
  */
 export function createClient() {
     if (browserClient) return browserClient
@@ -35,7 +34,9 @@ export function createClient() {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseAnonKey) {
-        // 在构建或预渲染浏览器端组件时，避免让服务端渲染结果直接崩溃。
+        // 【学习注释：预渲染兜底】
+        // 某些客户端模块在构建或预渲染阶段也会先被服务端触达，这里返回一个只会在真正调用时报错的代理对象，
+        // 让页面能把问题收敛到运行时，而不是在构建阶段直接整页崩掉。
         if (typeof window === 'undefined') {
             if (!serverRenderFallbackClient) {
                 serverRenderFallbackClient = createServerRenderFallback()

@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
@@ -19,6 +19,11 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
+/**
+ * 【学习注释：登录页承担认证层与业务层的衔接】
+ * Supabase 只负责账号体系，而系统真正使用的还是 members 表中的业务资料。
+ * 所以这个表单除了登录/注册，还负责把认证结果同步成前端可直接消费的 AppUser。
+ */
 export default function LoginForm() {
     const router = useRouter()
     const supabase = React.useMemo(() => createClient(), [])
@@ -36,6 +41,8 @@ export default function LoginForm() {
     const [isLoginMode, setIsLoginMode] = React.useState(true)
     const [isSendingResetEmail, setIsSendingResetEmail] = React.useState(false)
 
+    // 【学习注释：注册表单先做同步校验】
+    // 这样能把大部分低成本错误拦在本地，减少无意义的网络请求，也让交互反馈更快。
     const validateRegisterForm = React.useCallback(() => {
         if (name.trim().length < 2) {
             throw new Error("姓名至少需要 2 个字符")
@@ -67,6 +74,11 @@ export default function LoginForm() {
         }
     }, [confirmPassword, department, grade, name, password, studentId])
 
+    /**
+     * 【学习注释：认证用户与业务资料对齐】
+     * 登录成功并不代表 members 表里一定已经有资料，所以这里会先查、必要时补建，再把结果写入前端 store。
+     * 这一步把“身份验证成功”和“系统里有可用成员档案”两个问题串成了一条稳定链路。
+     */
     const syncOrCreateMemberProfile = React.useCallback(
         async (
             normalizedEmail: string,
@@ -127,6 +139,8 @@ export default function LoginForm() {
         [setUser, supabase]
     )
 
+    // 【学习注释：统一收口登录与注册提交】
+    // 两种模式共用一个入口，便于集中处理 loading、错误翻译和登录后跳转。
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
@@ -216,6 +230,8 @@ export default function LoginForm() {
         }
     }
 
+    // 【学习注释：密码重置仍然复用 Supabase 能力】
+    // 前端只负责拼接回跳地址和提示文案，真正的邮件发送与 token 校验交给 Auth 服务完成。
     const handleForgotPassword = async () => {
         const normalizedEmail = email.trim().toLowerCase()
         if (!normalizedEmail) {

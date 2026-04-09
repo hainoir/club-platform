@@ -50,6 +50,8 @@ const PERIOD_START_MINUTES: Record<number, number> = {
 
 const ADMIN_ROLE_SET = new Set(["admin", "管理员", "主席", "执行主席", "副主席", "部长"])
 
+// 【学习注释：把“周几第几节”换算成下一次真实时间点】
+// 首页要展示的是用户能理解的日期时间，而不是数据库里的排班维度，所以这里先做一次领域转换。
 function resolveNextDutyTime(day: number, period: number, now: Date): Date {
     const candidate = new Date(now)
     const currentDow = now.getDay()
@@ -67,6 +69,11 @@ function resolveNextDutyTime(day: number, period: number, now: Date): Date {
     return candidate
 }
 
+/**
+ * 【学习注释：首页是一个服务端聚合层】
+ * 这个页面不直接承载复杂交互，而是负责把排班、签到、活动和自习统计等数据一次性聚合好，
+ * 再交给下游客户端组件消费。面试里可以把它描述成“面向首屏展示的 BFF 式数据整形”。
+ */
 export default async function DashboardPage() {
     const supabase = await createClient()
 
@@ -77,6 +84,8 @@ export default async function DashboardPage() {
     const todayDateKey = dutyNow.dateKey
     const mondayDateKey = getDutyWeekMondayDateKey(now)
 
+    // 【学习注释：首屏并发取数】
+    // 这些卡片彼此独立，适合在服务端并发拉取；这样既减少总等待时间，也避免客户端再发一轮瀑布请求。
     const [
         { data: rostersData },
         { data: weekLogsData },
@@ -127,6 +136,8 @@ export default async function DashboardPage() {
         } | null
     }>
 
+    // 【学习注释：签到记录先压成 slot 索引】
+    // 首页后面会频繁按“成员 + 日期 + 节次”查询是否签到，用 Map 预处理后能把后续统计逻辑写得更直接。
     const signedSlotMap = new Map<string, string>()
     weekLogs.forEach((log) => {
         if (!log.location_verified) return
@@ -147,6 +158,8 @@ export default async function DashboardPage() {
     const todaySignedCount = todayRosters.filter((r) => signedSlotSet.has(`${r.member_id}-${todayDateKey}-${r.period}`)).length
     const todayPendingCount = Math.max(todayRosters.length - todaySignedCount, 0)
 
+    // 【学习注释：统计口径只计算“理论上已经结束的班次”】
+    // 这样本周完成率不会把未来班次算进分母，更符合仪表盘的业务含义。
     let weekPastExpected = 0
     let weekPastSigned = 0
 
@@ -183,6 +196,8 @@ export default async function DashboardPage() {
         }
     })
 
+    // 【学习注释：当前用户身份在首页继续下沉成业务成员】
+    // 这里不是重复鉴权，而是为了拿到 members 表中的 role 和 name，驱动页面里的管理员分支与个性化展示。
     let me: { id: string; role: string; name: string } | null = null
     if (authUser?.email) {
         const { data: meRow } = await supabase
@@ -227,6 +242,8 @@ export default async function DashboardPage() {
     const myTodayAssignedPeriods = Array.from(new Set(myTodayRosters.map((r) => r.period))).sort((a, b) => a - b)
     const myHasSignedInToday = !!me?.id && myTodayAssignedPeriods.some((period) => signedSlotSet.has(`${me.id}-${todayDateKey}-${period}`))
 
+    // 【学习注释：把“我的排班列表”压缩成一个最近事项】
+    // 仪表盘不追求展示全部细节，而是优先给用户一个下一步动作最明确的提醒。
     let nextDuty:
         | {
             roster: RosterWithMember
@@ -267,8 +284,8 @@ export default async function DashboardPage() {
                 </div>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-3 items-start">
-                <div className="lg:col-span-2">
+            <div className="grid gap-4 lg:grid-cols-3">
+                <div className="h-full lg:col-span-2">
                     <DashboardSignInWidget
                         memberId={me?.id || null}
                         todayAssignedPeriods={myTodayAssignedPeriods}
@@ -276,8 +293,8 @@ export default async function DashboardPage() {
                     />
                 </div>
 
-                <div className="space-y-4">
-                    <Card className="bg-card/60 backdrop-blur-sm shadow-sm">
+                <div className="h-full space-y-4">
+                    <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
                         <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
                                 <CalendarClock className="h-4 w-4 text-primary" />
@@ -285,7 +302,7 @@ export default async function DashboardPage() {
                             </CardTitle>
                             <CardDescription>签到前后都可在这里快速确认当前安排。</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-3 text-sm">
+                        <CardContent className="flex flex-1 flex-col space-y-3 text-sm">
                             {!me ? (
                                 <p className="text-muted-foreground">未找到成员身份，请重新登录或联系管理员。</p>
                             ) : (
@@ -346,10 +363,10 @@ export default async function DashboardPage() {
                 </div>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-3 items-start">
+            <div className="grid gap-4 lg:grid-cols-3">
                 <StudioMembersCard rosters={rosters} />
 
-                <div className="lg:col-span-2">
+                <div className="h-full lg:col-span-2">
                     <StudioStudyStatsCard
                         todayRanking={studioStudyLeaderboard.today}
                         weekRanking={studioStudyLeaderboard.week}
@@ -362,7 +379,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="bg-card/60 backdrop-blur-sm shadow-sm">
+                <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
                     <CardHeader className="pb-2">
                         <CardDescription>今日排班总数</CardDescription>
                         <CardTitle className="text-2xl">{todayRosters.length}</CardTitle>
@@ -372,7 +389,7 @@ export default async function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-card/60 backdrop-blur-sm shadow-sm">
+                <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
                     <CardHeader className="pb-2">
                         <CardDescription>今日已签到</CardDescription>
                         <CardTitle className="text-2xl">{todaySignedCount}</CardTitle>
@@ -380,7 +397,7 @@ export default async function DashboardPage() {
                     <CardContent className="text-xs text-muted-foreground">剩余 {todayPendingCount} 个值班位待签到</CardContent>
                 </Card>
 
-                <Card className="bg-card/60 backdrop-blur-sm shadow-sm">
+                <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
                     <CardHeader className="pb-2">
                         <CardDescription>本周签到完成率</CardDescription>
                         <CardTitle className="text-2xl">{weekRate}%</CardTitle>
@@ -388,7 +405,7 @@ export default async function DashboardPage() {
                     <CardContent className="text-xs text-muted-foreground">{weekPastSigned}/{weekPastExpected} 个已结束班次完成签到</CardContent>
                 </Card>
 
-                <Card className="bg-card/60 backdrop-blur-sm shadow-sm">
+                <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
                     <CardHeader className="pb-2">
                         <CardDescription>待处理提醒</CardDescription>
                         <CardTitle className="text-2xl">{attentionCount}</CardTitle>
@@ -400,7 +417,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className="grid gap-4 lg:grid-cols-3">
-                <Card className="lg:col-span-2 bg-card/60 backdrop-blur-sm shadow-sm">
+                <Card className="lg:col-span-2 flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-lg">
                             <ListChecks className="h-5 w-5 text-primary" />
@@ -408,7 +425,7 @@ export default async function DashboardPage() {
                         </CardTitle>
                         <CardDescription>按节次查看成员签到进度，便于现场快速点名。</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="flex flex-1 flex-col space-y-3">
                         {todayDow < 1 || todayDow > 5 ? (
                             <p className="text-sm text-muted-foreground">今日不在常规值班日（周一至周五）内。</p>
                         ) : todayRosters.length === 0 ? (
@@ -454,15 +471,15 @@ export default async function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                <div className="space-y-4">
-                    <Card className="bg-card/60 backdrop-blur-sm shadow-sm">
+                <div className="h-full space-y-4">
+                    <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
                         <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
                                 <TriangleAlert className="h-4 w-4 text-amber-500" />
                                 今日重点提醒
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
+                        <CardContent className="flex flex-1 flex-col space-y-2 text-sm">
                             <div className="flex items-center justify-between rounded-md border p-2">
                                 <span>待响应代班请求</span>
                                 <Badge variant="outline">{pendingSwapCount || 0}</Badge>
@@ -496,10 +513,4 @@ export default async function DashboardPage() {
         </div>
     )
 }
-
-
-
-
-
-
 

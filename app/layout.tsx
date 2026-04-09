@@ -11,18 +11,22 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const inter = Inter({ subsets: ["latin"] })
 
-// 【面试考点：搜索优化与元信息标签动态管理】
-// 在框架路由体系中，通过导出元信息对象（或动态元信息函数），
-// 可以在服务端渲染阶段动态注入页面头部标签，这是服务端渲染方案在搜索优化上的核心优势之一。
+/**
+ * 【学习注释：根布局元信息】
+ * App Router 允许在布局层直接导出 metadata，让标题和描述在服务端渲染阶段就进入 HTML。
+ * 面试里可以把这类配置归纳为“框架级 SEO 能力”，说明你知道页面结构和元信息应该放在最外层统一管理。
+ */
 export const metadata: Metadata = {
     title: "社团管理平台",
     description: "面向校园社团的全周期管理平台",
 }
 
-// 【面试考点：根级服务端组件与水合】
-// 根布局是应用最外层组件，默认以服务端组件方式运行。
-// 忽略水合警告开关很关键，因为主题库会在客户端动态修改页面根标签的样式属性，
-// 这会导致前后端渲染属性不一致并触发水合不匹配报错。
+/**
+ * 【学习注释：应用壳层与 Server/Client 边界】
+ * RootLayout 默认是 Server Component，适合承载字体、全局样式和稳定的页面骨架。
+ * 真正依赖浏览器能力的主题切换、提示消息、持久化状态恢复和登录态同步，
+ * 通过下方的 client providers 接管，既保住首屏渲染收益，也让架构分层更清晰。
+ */
 export default function RootLayout({
     children,
 }: {
@@ -32,10 +36,11 @@ export default function RootLayout({
         <html lang="zh-CN" suppressHydrationWarning>
             <body className={inter.className}>
                 <WebVitals />
-                {/* 【面试考点：上下文注入与状态隔离】
-                    将主题、通知和鉴权等全局状态作为上下文包裹在根节点。
-                    这种模式在保证全局状态可用的同时，通过按需拆分客户端组件（如 `AuthProvider`）
-                    将其与外层服务端组件边界清晰隔离，最大化服务端渲染收益。 */}
+                {/* 【学习注释：Provider 组合顺序】
+                    ThemeProvider 先处理主题 class 和 hydration 差异；
+                    ToastProvider 提供全局反馈通道；
+                    StoreHydration 在客户端恢复持久化偏好；
+                    AuthProvider 最后接管登录态同步，避免把整棵根布局都变成客户端组件。 */}
                 <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
                     <ToastProvider>
                         <StoreHydration />

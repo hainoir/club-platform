@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation"
 import { areAppUsersEqual, type AppUser } from "@/lib/app-user"
 import { useUserStore } from "@/store/useUserStore"
 
+/**
+ * 【学习注释：客户端路由守卫】
+ * 服务端布局会把首屏解析好的 `initialUser` 传进来，这个组件负责把它同步到 Zustand，
+ * 并在客户端继续兜底未登录跳转。面试时可以把它描述成“服务端预判 + 客户端收口”的双保险。
+ */
 export function AppRouteGuard({
     children,
     initialUser,
@@ -21,6 +26,8 @@ export function AppRouteGuard({
     const effectiveUser = initialUser ?? user
     const hasResolvedAuth = !!initialUser || !!user || isInitialized
 
+    // 【学习注释：先同步服务端用户，再让后续组件读取统一 store】
+    // `useLayoutEffect` 会在浏览器绘制前执行，适合做这种首屏状态对齐，减少一帧错误 UI 闪烁。
     React.useLayoutEffect(() => {
         if (!initialUser) {
             return
@@ -35,6 +42,8 @@ export function AppRouteGuard({
         }
     }, [initialUser, isInitialized, setInitialized, setUser, user])
 
+    // 【学习注释：只有在鉴权结果明确后才做前端跳转】
+    // 如果过早跳转，会把“正在初始化”误判成“未登录”，导致体验抖动。
     React.useEffect(() => {
         if (!hasResolvedAuth || effectiveUser || hasRedirectedRef.current) {
             return

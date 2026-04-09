@@ -4,6 +4,8 @@ import { rehydrateSessionFromServer } from '@/utils/supabase/rehydrate'
 
 const DEFAULT_MIN_VALIDITY_MS = 60_000
 
+// 【学习注释：有效期守卫】
+// 客户端不只关心“有没有 session”，还关心它还能不能撑过接下来的写操作。
 function hasEnoughValidity(session: Session | null, minValidityMs: number): session is Session {
     if (!session) return false
 
@@ -11,6 +13,11 @@ function hasEnoughValidity(session: Session | null, minValidityMs: number): sess
     return expiresAt > Date.now() + minValidityMs
 }
 
+/**
+ * 【学习注释：服务端到客户端的 session 桥接】
+ * 当浏览器内存里的 session 丢失，但服务端 cookie 里仍然存在有效登录态时，
+ * 这里会向后端取回 token 再回填到 Supabase client，避免用户被误判成退出登录。
+ */
 async function bridgeSessionFromServer(
     supabase: SupabaseClient<Database>,
     _minValidityMs: number
@@ -32,6 +39,11 @@ async function bridgeSessionFromServer(
     return session
 }
 
+/**
+ * 【学习注释：客户端写操作前的会话续命】
+ * 这段逻辑会按“读本地 session -> 必要时刷新 -> 仍失败则桥接服务端 session”的顺序兜底。
+ * 对业务层来说，它把复杂的鉴权恢复细节折叠成了一个布尔意义明确的前置步骤。
+ */
 export async function ensureClientSession(
     supabase: SupabaseClient<Database>,
     minValidityMs = DEFAULT_MIN_VALIDITY_MS
@@ -54,6 +66,8 @@ export async function ensureClientSession(
         return currentSession
     }
 
+    // 【学习注释：本地 session 快过期时先尝试刷新】
+
     const {
         data: { session: refreshedSession },
         error: refreshError,
@@ -69,6 +83,8 @@ export async function ensureClientSession(
     }
 
     if (refreshError) {
+        // 【学习注释：确认失效后主动清理前端状态】
+        // 继续保留坏掉的 token 只会让后续请求重复失败，所以这里直接 sign out，把状态拉回一个干净起点。
         await supabase.auth.signOut()
     }
 
