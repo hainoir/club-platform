@@ -5,6 +5,7 @@ import {
     addDaysToDateKey,
     getDutyPeriodByMinutes,
     getDutyWeekMondayDateKey,
+    listCompensationSlotsForDuty,
     resolveDutySignInSlot,
     toDutyDateTimeParts,
 } from '../../lib/duty-time.ts'
@@ -58,6 +59,36 @@ test('slot resolution stays stable when runtime TZ changes', () => {
 test('week monday date key is computed in duty timezone', () => {
     assert.equal(getDutyWeekMondayDateKey('2026-03-29T10:00:00.000Z'), '2026-03-23')
     assert.equal(addDaysToDateKey('2026-03-23', 1), '2026-03-24')
+})
+
+test('compensation slots include the rest of the leave week and all of next week', () => {
+    const slots = listCompensationSlotsForDuty(2, 2, '2026-03-23T01:00:00.000Z')
+
+    assert.equal(slots.length, 34)
+    assert.deepEqual(slots[0], {
+        dateKey: '2026-03-24',
+        dayOfWeek: 2,
+        period: 3,
+        weekOffset: 0,
+    })
+    assert.deepEqual(slots[13], {
+        dateKey: '2026-03-27',
+        dayOfWeek: 5,
+        period: 4,
+        weekOffset: 0,
+    })
+    assert.deepEqual(slots[14], {
+        dateKey: '2026-03-30',
+        dayOfWeek: 1,
+        period: 1,
+        weekOffset: 1,
+    })
+    assert.deepEqual(slots.at(-1), {
+        dateKey: '2026-04-03',
+        dayOfWeek: 5,
+        period: 4,
+        weekOffset: 1,
+    })
 })
 
 

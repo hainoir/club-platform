@@ -284,6 +284,7 @@ export interface Database {
                     id: string
                     leave_id: string
                     member_id: string
+                    compensation_date: string
                     day_of_week: number
                     period: number
                     completed: boolean
@@ -293,6 +294,7 @@ export interface Database {
                     id?: string
                     leave_id: string
                     member_id: string
+                    compensation_date: string
                     day_of_week: number
                     period: number
                     completed?: boolean
@@ -302,6 +304,7 @@ export interface Database {
                     id?: string
                     leave_id?: string
                     member_id?: string
+                    compensation_date?: string
                     day_of_week?: number
                     period?: number
                     completed?: boolean

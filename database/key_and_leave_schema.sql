@@ -21,16 +21,76 @@ CREATE TABLE IF NOT EXISTS public.duty_leaves (
   created_at timestamptz DEFAULT now()
 );
 
--- 3. 补班安排表 (请假时选择的下周补值班节次)
+-- 3. 补班安排表 (请假时选择的本周剩余或下周补值班节次)
 CREATE TABLE IF NOT EXISTS public.duty_compensations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   leave_id uuid NOT NULL REFERENCES public.duty_leaves(id) ON DELETE CASCADE,
   member_id uuid NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
+  compensation_date date NOT NULL,
   day_of_week int2 NOT NULL CHECK (day_of_week BETWEEN 1 AND 5),
   period int2 NOT NULL CHECK (period BETWEEN 1 AND 4),
   completed boolean DEFAULT false,
   created_at timestamptz DEFAULT now()
 );
+
+-- 兼容旧环境：补班记录新增具体日期字段
+ALTER TABLE public.duty_compensations
+ADD COLUMN IF NOT EXISTS compensation_date date;
+
+COMMENT ON COLUMN public.duty_compensations.compensation_date IS '补班对应的具体日期（值班时区）';
+
+-- 历史数据回填：旧版请假流程只允许选择“下周补班”，因此这里按旧规则推导具体日期
+WITH legacy_compensation_dates AS (
+  SELECT
+    c.id,
+    (
+      (
+        CASE
+          WHEN candidate.candidate_leave_date < localized.leave_local_date
+            OR (
+              candidate.candidate_leave_date = localized.leave_local_date
+              AND localized.leave_local_minutes > period_end.leave_period_end_minutes
+            )
+            THEN candidate.candidate_leave_date + 7
+          ELSE candidate.candidate_leave_date
+        END
+      ) - (l.day_of_week - 1) + 7 + (c.day_of_week - 1)
+    )::date AS compensation_date
+  FROM public.duty_compensations c
+  JOIN public.duty_leaves l ON l.id = c.leave_id
+  CROSS JOIN LATERAL (
+    SELECT
+      timezone('Asia/Shanghai', l.created_at)::date AS leave_local_date,
+      (
+        EXTRACT(HOUR FROM timezone('Asia/Shanghai', l.created_at))::int * 60 +
+        EXTRACT(MINUTE FROM timezone('Asia/Shanghai', l.created_at))::int
+      ) AS leave_local_minutes
+  ) localized
+  CROSS JOIN LATERAL (
+    SELECT (
+      localized.leave_local_date
+      - (EXTRACT(ISODOW FROM localized.leave_local_date)::int - 1)
+      + (l.day_of_week - 1)
+    )::date AS candidate_leave_date
+  ) candidate
+  CROSS JOIN LATERAL (
+    SELECT CASE l.period
+      WHEN 1 THEN 9 * 60 + 35
+      WHEN 2 THEN 11 * 60 + 40
+      WHEN 3 THEN 15 * 60 + 5
+      WHEN 4 THEN 17 * 60 + 10
+      ELSE 24 * 60
+    END AS leave_period_end_minutes
+  ) period_end
+  WHERE c.compensation_date IS NULL
+)
+UPDATE public.duty_compensations c
+SET compensation_date = legacy.compensation_date
+FROM legacy_compensation_dates legacy
+WHERE c.id = legacy.id;
+
+ALTER TABLE public.duty_compensations
+ALTER COLUMN compensation_date SET NOT NULL;
 
 -- 4. 钥匙交接记录表
 CREATE TABLE IF NOT EXISTS public.key_transfers (

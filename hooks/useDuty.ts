@@ -583,7 +583,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         period: number,
         reason: string,
         penaltyShifts: number,
-        compensations: { day_of_week: number; period: number }[]
+        compensations: { compensation_date: string; day_of_week: number; period: number }[]
     ) => {
         if (!user) return false;
         if (!(await ensureActiveSession())) return false;
@@ -608,6 +608,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 const compRecords = compensations.map(c => ({
                     leave_id: leaveData.id,
                     member_id: user.id,
+                    compensation_date: c.compensation_date,
                     day_of_week: c.day_of_week,
                     period: c.period,
                 }));
@@ -621,7 +622,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
 
             toast({
                 title: '请假申请已提交',
-                description: `周${DAYS_LABEL[day - 1]}第${period}大节，下周补${penaltyShifts}节。`
+                description: `周${DAYS_LABEL[day - 1]}第${period}大节，已安排${penaltyShifts}节补班。`
             });
             refreshLeaves();
             return true;

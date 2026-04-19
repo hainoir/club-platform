@@ -4,6 +4,7 @@ import {
     addDaysToDateKey,
     getDutyPeriodByMinutes,
     getDutyWeekMondayDateKey,
+    listCompensationSlotsForDuty,
     resolveDutySignInSlot,
     toDutyDateTimeParts,
 } from '../../lib/duty-time.ts'
@@ -51,5 +52,32 @@ assert.equal(fromShanghaiRuntime.slot?.signedAtLabel, '15:38')
 
 assert.equal(getDutyWeekMondayDateKey('2026-03-29T10:00:00.000Z'), '2026-03-23')
 assert.equal(addDaysToDateKey('2026-03-23', 1), '2026-03-24')
+
+const compensationSlots = listCompensationSlotsForDuty(2, 2, '2026-03-23T01:00:00.000Z')
+assert.equal(compensationSlots.length, 34)
+assert.deepEqual(compensationSlots[0], {
+    dateKey: '2026-03-24',
+    dayOfWeek: 2,
+    period: 3,
+    weekOffset: 0,
+})
+assert.deepEqual(compensationSlots[13], {
+    dateKey: '2026-03-27',
+    dayOfWeek: 5,
+    period: 4,
+    weekOffset: 0,
+})
+assert.deepEqual(compensationSlots[14], {
+    dateKey: '2026-03-30',
+    dayOfWeek: 1,
+    period: 1,
+    weekOffset: 1,
+})
+assert.deepEqual(compensationSlots.at(-1), {
+    dateKey: '2026-04-03',
+    dayOfWeek: 5,
+    period: 4,
+    weekOffset: 1,
+})
 
 console.log('duty-time assertions passed')

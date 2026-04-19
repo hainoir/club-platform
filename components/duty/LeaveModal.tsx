@@ -18,17 +18,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import { DutyCompensationSlot, listCompensationSlotsForDuty } from '@/lib/duty-time';
 
 const DAYS = ['一', '二', '三', '四', '五'];
-const PERIODS = [
-    { id: 1, label: '第一大节' },
-    { id: 2, label: '第二大节' },
-    { id: 3, label: '第三大节' },
-    { id: 4, label: '第四大节' },
-];
 
 interface LeaveModalProps {
     dutyManager: ReturnType<typeof useDuty>;
+}
+
+function getCompensationSlotKey(slot: DutyCompensationSlot) {
+    return `${slot.dateKey}-${slot.period}`;
+}
+
+function formatCompensationSlotLabel(slot: DutyCompensationSlot) {
+    const [, month, day] = slot.dateKey.split('-');
+    return `${Number(month)}/${Number(day)} 周${DAYS[slot.dayOfWeek - 1]} 第${slot.period}大节`;
 }
 
 export function LeaveModal({ dutyManager }: LeaveModalProps) {
@@ -40,7 +44,7 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
     // 步骤状态
     const [selectedRosterId, setSelectedRosterId] = useState('');
     const [penaltyShifts, setPenaltyShifts] = useState(1);
-    const [selectedComps, setSelectedComps] = useState<{ day: number; period: number }[]>([]);
+    const [selectedCompKeys, setSelectedCompKeys] = useState<string[]>([]);
     const [reason, setReason] = useState('');
     const [needSubstitute, setNeedSubstitute] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,15 +59,31 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
         [myRosters, selectedRosterId]
     );
 
-    // 选中班次是否持有钥匙
-    const selectedHasKey = selectedRoster?.has_key ?? false;
+    const compensationSlots = useMemo(
+        () => selectedRoster
+            ? listCompensationSlotsForDuty(selectedRoster.day_of_week, selectedRoster.period)
+            : [],
+        [selectedRoster]
+    );
+
+    const selectedCompSlots = useMemo(() => {
+        const slotMap = new Map(compensationSlots.map((slot) => [getCompensationSlotKey(slot), slot]));
+        return selectedCompKeys
+            .map((key) => slotMap.get(key))
+            .filter((slot): slot is DutyCompensationSlot => Boolean(slot));
+    }, [compensationSlots, selectedCompKeys]);
+
+    const groupedCompensationSlots = useMemo(() => ({
+        currentWeek: compensationSlots.filter((slot) => slot.weekOffset === 0),
+        nextWeek: compensationSlots.filter((slot) => slot.weekOffset === 1),
+    }), [compensationSlots]);
 
     // 重置表单
     useEffect(() => {
         if (open) {
             setSelectedRosterId('');
             setPenaltyShifts(1);
-            setSelectedComps([]);
+            setSelectedCompKeys([]);
             setReason('');
             setNeedSubstitute(false);
         }
@@ -72,32 +92,51 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
 
 
     // 切换补班节次选择
-    const toggleComp = (day: number, period: number) => {
-        const exists = selectedComps.find(c => c.day === day && c.period === period);
-        if (exists) {
-            setSelectedComps(selectedComps.filter(c => !(c.day === day && c.period === period)));
-        } else {
-            if (selectedComps.length < penaltyShifts) {
-                setSelectedComps([...selectedComps, { day, period }]);
-            } else {
-                toast({ title: `最多选择 ${penaltyShifts} 个补班节次`, variant: 'destructive' });
+    const toggleComp = (slot: DutyCompensationSlot) => {
+        const slotKey = getCompensationSlotKey(slot);
+        setSelectedCompKeys((prev) => {
+            if (prev.includes(slotKey)) {
+                return prev.filter((key) => key !== slotKey);
             }
-        }
+            if (prev.length >= penaltyShifts) {
+                toast({ title: `最多选择 ${penaltyShifts} 个补班节次`, variant: 'destructive' });
+                return prev;
+            }
+            return [...prev, slotKey];
+        });
     };
 
-    // 补班数量变更时清除多余的选择
+    // 补班数量或可选范围变更时，清除多余或无效的选择
     useEffect(() => {
-        setSelectedComps(prev =>
-            prev.length > penaltyShifts ? prev.slice(0, penaltyShifts) : prev
+        const availableKeys = new Set(compensationSlots.map((slot) => getCompensationSlotKey(slot)));
+        setSelectedCompKeys(prev =>
+            prev.filter((key) => availableKeys.has(key)).slice(0, penaltyShifts)
         );
-    }, [penaltyShifts]);
+    }, [compensationSlots, penaltyShifts]);
+
+    const compensationSections = [
+        {
+            key: 'current-week',
+            title: '本周剩余班次',
+            description: '从该请假班次之后，到本周五结束前可补的班次。',
+            slots: groupedCompensationSlots.currentWeek,
+        },
+        {
+            key: 'next-week',
+            title: '下周所有班次',
+            description: '下周一至周五的全部班次都可作为补班。',
+            slots: groupedCompensationSlots.nextWeek,
+        },
+    ];
+
+    const selectedCompCount = selectedCompKeys.length;
 
     const handleSubmit = async () => {
         if (!selectedRoster) {
             toast({ title: '请选择班次', variant: 'destructive' });
             return;
         }
-        if (selectedComps.length !== penaltyShifts) {
+        if (selectedCompSlots.length !== penaltyShifts) {
             toast({ title: `请选择 ${penaltyShifts} 个补班节次`, variant: 'destructive' });
             return;
         }
@@ -110,7 +149,11 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
             selectedRoster.period,
             reason,
             penaltyShifts,
-            selectedComps.map(c => ({ day_of_week: c.day, period: c.period }))
+            selectedCompSlots.map((slot) => ({
+                compensation_date: slot.dateKey,
+                day_of_week: slot.dayOfWeek,
+                period: slot.period,
+            }))
         );
 
         // 2. 如果需要代班，自动创建代班请求
@@ -129,7 +172,7 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
         }
     };
 
-    const canSubmit = selectedRosterId && selectedComps.length === penaltyShifts;
+    const canSubmit = selectedRosterId && selectedCompSlots.length === penaltyShifts;
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -143,7 +186,7 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
                 <DialogHeader>
                     <DialogTitle>请假申请</DialogTitle>
                     <DialogDescription>
-                        请选择要请假的班次，并安排下周的补班节次。
+                        请选择要请假的班次，并在本周剩余班次或下周所有班次中安排补班。
                     </DialogDescription>
                 </DialogHeader>
 
@@ -212,54 +255,60 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
                     {/* 步骤 3: 选择补班节次 */}
                     <div className="space-y-2">
                         <Label className="text-sm font-medium">
-                            选择下周补班节次
+                            选择可补班节次
                             <span className="text-muted-foreground font-normal ml-1">
-                                ({selectedComps.length}/{penaltyShifts})
+                                ({selectedCompCount}/{penaltyShifts})
                             </span>
                         </Label>
-                        <div className="border rounded-md overflow-hidden">
-                            <table className="w-full text-xs">
-                                <thead>
-                                    <tr>
-                                        <th className="p-2 bg-muted/40 border-b text-muted-foreground"></th>
-                                        {DAYS.map((d, i) => (
-                                            <th key={i} className="p-2 bg-muted/20 border-b border-l text-center font-medium">
-                                                周{d}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {PERIODS.map(p => (
-                                        <tr key={p.id}>
-                                            <td className="p-2 border-b text-center text-muted-foreground whitespace-nowrap">
-                                                {p.label}
-                                            </td>
-                                            {DAYS.map((_, di) => {
-                                                const day = di + 1;
-                                                const isSelected = selectedComps.some(c => c.day === day && c.period === p.id);
-                                                return (
-                                                    <td key={`${day}-${p.id}`} className="border-b border-l p-1 text-center">
+                        {!selectedRoster ? (
+                            <div className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">
+                                请先选择要请假的班次，再安排补班。
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {compensationSections.map((section) => (
+                                    <div key={section.key} className="space-y-2">
+                                        <div className="flex items-baseline justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-medium">{section.title}</p>
+                                                <p className="text-xs text-muted-foreground">{section.description}</p>
+                                            </div>
+                                            <span className="text-xs text-muted-foreground">{section.slots.length} 个可选</span>
+                                        </div>
+
+                                        {section.slots.length === 0 ? (
+                                            <div className="rounded-md border border-dashed px-3 py-4 text-xs text-muted-foreground">
+                                                当前没有可补班次。
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                {section.slots.map((slot) => {
+                                                    const slotKey = getCompensationSlotKey(slot);
+                                                    const isSelected = selectedCompKeys.includes(slotKey);
+
+                                                    return (
                                                         <button
+                                                            key={slotKey}
                                                             type="button"
-                                                            onClick={() => toggleComp(day, p.id)}
+                                                            onClick={() => toggleComp(slot)}
                                                             className={cn(
-                                                                "w-full h-8 rounded transition-all text-xs",
+                                                                "flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors",
                                                                 isSelected
-                                                                    ? "bg-primary text-primary-foreground shadow-sm"
-                                                                    : "hover:bg-muted/50"
+                                                                    ? "border-primary bg-primary/10 text-primary"
+                                                                    : "border-border hover:bg-muted/50"
                                                             )}
                                                         >
-                                                            {isSelected && <Check className="w-3 h-3 mx-auto" />}
+                                                            <span>{formatCompensationSlotLabel(slot)}</span>
+                                                            {isSelected && <Check className="h-4 w-4 shrink-0" />}
                                                         </button>
-                                                    </td>
-                                                );
-                                            })}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* 步骤 4: 请假原因（可选） */}

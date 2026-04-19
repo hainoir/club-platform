@@ -38,6 +38,13 @@ export interface DutySignInSlot {
     signedAtLabel: string
 }
 
+export interface DutyCompensationSlot {
+    dateKey: string
+    dayOfWeek: number
+    period: number
+    weekOffset: 0 | 1
+}
+
 function pad2(value: number): string {
     return String(value).padStart(2, "0")
 }
@@ -159,6 +166,65 @@ export function getDutyPeriodByMinutes(minutes: number): number {
 
 export function getDutyPeriodEndMinutes(period: number): number {
     return PERIOD_END_MINUTES[period] || 24 * 60
+}
+
+export function getNextDutySlotDateKey(
+    dayOfWeek: number,
+    period: number,
+    input: Date | string | number = new Date(),
+    timeZone = DUTY_TIME_ZONE
+): string {
+    const nowParts = toDutyDateTimeParts(input, timeZone)
+    const currentWeekMondayDateKey = getDutyWeekMondayDateKey(input, timeZone)
+    let slotDateKey = addDaysToDateKey(currentWeekMondayDateKey, dayOfWeek - 1)
+
+    if (
+        slotDateKey < nowParts.dateKey ||
+        (slotDateKey === nowParts.dateKey && nowParts.minutes > getDutyPeriodEndMinutes(period))
+    ) {
+        slotDateKey = addDaysToDateKey(slotDateKey, 7)
+    }
+
+    return slotDateKey
+}
+
+export function listCompensationSlotsForDuty(
+    dayOfWeek: number,
+    period: number,
+    input: Date | string | number = new Date(),
+    timeZone = DUTY_TIME_ZONE
+): DutyCompensationSlot[] {
+    const leaveDateKey = getNextDutySlotDateKey(dayOfWeek, period, input, timeZone)
+    const leaveWeekMondayDateKey = addDaysToDateKey(leaveDateKey, 1 - dayOfWeek)
+    const nextWeekMondayDateKey = addDaysToDateKey(leaveWeekMondayDateKey, 7)
+    const slots: DutyCompensationSlot[] = []
+
+    for (let currentDay = dayOfWeek; currentDay <= 5; currentDay += 1) {
+        const dateKey = addDaysToDateKey(leaveWeekMondayDateKey, currentDay - 1)
+        for (let currentPeriod = 1; currentPeriod <= 4; currentPeriod += 1) {
+            if (currentDay === dayOfWeek && currentPeriod <= period) continue
+            slots.push({
+                dateKey,
+                dayOfWeek: currentDay,
+                period: currentPeriod,
+                weekOffset: 0,
+            })
+        }
+    }
+
+    for (let currentDay = 1; currentDay <= 5; currentDay += 1) {
+        const dateKey = addDaysToDateKey(nextWeekMondayDateKey, currentDay - 1)
+        for (let currentPeriod = 1; currentPeriod <= 4; currentPeriod += 1) {
+            slots.push({
+                dateKey,
+                dayOfWeek: currentDay,
+                period: currentPeriod,
+                weekOffset: 1,
+            })
+        }
+    }
+
+    return slots
 }
 
 export function resolveDutySignInSlot(log: DutySignInLogLike, timeZone = DUTY_TIME_ZONE): DutySignInSlot | null {

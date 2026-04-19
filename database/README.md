@@ -53,4 +53,5 @@ GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO public;
 - Function definitions include: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - `event_attendees_event_email_unique` exists to enforce one RSVP per event/email (case-insensitive).
 - `duty_logs_member_sign_in_date_unique` exists to block repeated sign-ins in the same day.
+- `duty_compensations.compensation_date` exists and historical rows are backfilled.
 - `members.department` / `members.grade` and `auth.users.raw_user_meta_data` no longer contain legacy English enum values.
