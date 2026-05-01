@@ -2,33 +2,26 @@
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import {
-    ArrowRight,
     CalendarClock,
     CheckCircle2,
     Clock3,
-    KeyRound,
-    ListChecks,
-    TriangleAlert,
 } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { AbsentMembersCard, StudioMembersCard } from "@/components/duty/AttendancePanels"
-import { WeeklyProgressCard } from "@/components/dashboard/WeeklyProgressCard"
+import { StudioMembersCard } from "@/components/duty/AttendancePanels"
+import { DashboardDutyActions } from "@/components/dashboard/DashboardDutyActions"
 import { DashboardSignInWidget } from "@/components/dashboard/DashboardSignInWidget"
 import { StudioStudyStatsCard } from "@/components/dashboard/StudioStudyStatsCard"
 import {
-    addDaysToDateKey,
     getDutyNow,
-    getDutyPeriodEndMinutes,
-    getDutyWeekMondayDateKey,
     resolveDutySignInSlot,
 } from "@/lib/duty-time"
-import { filterPendingLeavesWithoutSwap, filterRostersForDutyAvailability } from "@/lib/duty-leaves"
-import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from "@/lib/keyTransferFilters"
+import { filterRostersForDutyAvailability } from "@/lib/duty-leaves"
 import { buildStudioStudyLeaderboard } from "@/lib/studio-time"
 import { createClient } from "@/utils/supabase/server"
+import { resolveAppUser } from "@/utils/supabase/resolve-app-user"
 import type { RosterWithMember } from "@/hooks/useDuty"
 
 export const revalidate = 60
@@ -48,8 +41,6 @@ const PERIOD_START_MINUTES: Record<number, number> = {
     3: 13 * 60 + 30,
     4: 15 * 60 + 35,
 }
-
-const ADMIN_ROLE_SET = new Set(["admin", "管理员", "主席", "执行主席", "副主席", "部长"])
 
 // 【学习注释：把“周几第几节”换算成下一次真实时间点】
 // 首页要展示的是用户能理解的日期时间，而不是数据库里的排班维度，所以这里先做一次领域转换。
@@ -81,21 +72,15 @@ export default async function DashboardPage() {
     const now = new Date()
     const dutyNow = getDutyNow()
     const todayDow = dutyNow.dayOfWeek
-    const nowMinutes = dutyNow.minutes
     const todayDateKey = dutyNow.dateKey
-    const mondayDateKey = getDutyWeekMondayDateKey(now)
 
     // 【学习注释：首屏并发取数】
     // 这些卡片彼此独立，适合在服务端并发拉取；这样既减少总等待时间，也避免客户端再发一轮瀑布请求。
     const [
         { data: rostersData },
         { data: approvedLeavesData },
-        { data: pendingLeavesData },
-        { data: weekLogsData },
-        { data: upcomingEventData },
-        { count: pendingSwapCount },
-        { count: acceptedSwapCount },
-        { data: pendingSwapLeaveLinksData },
+        { data: todayLogsData },
+        { data: membersData },
         { data: studioSessionsData },
         {
             data: { user: authUser },
@@ -111,23 +96,15 @@ export default async function DashboardPage() {
             .select("id, member_id, day_of_week, period, status")
             .eq("status", "approved"),
         supabase
-            .from("duty_leaves")
-            .select("id, member_id, day_of_week, period, created_at, status")
-            .eq("status", "pending"),
-        supabase
             .from("duty_logs")
             .select("member_id, sign_in_time, sign_in_date, location_verified")
-            .gte("sign_in_date", mondayDateKey)
+            .eq("sign_in_date", todayDateKey)
             .eq("location_verified", true),
         supabase
-            .from("events")
-            .select("id, title, event_date")
-            .gt("event_date", now.toISOString())
-            .order("event_date", { ascending: true })
-            .limit(1),
-        supabase.from("duty_swaps").select("id", { count: "exact", head: true }).eq("status", "pending").is("target_id", null),
-        supabase.from("duty_swaps").select("id", { count: "exact", head: true }).eq("status", "accepted"),
-        supabase.from("duty_swaps").select("leave_id").in("status", ["pending", "accepted"]),
+            .from("members")
+            .select("id, name, student_id")
+            .eq("status", "active")
+            .order("name"),
         supabase.from("studio_sessions").select("member_id, started_at, ended_at, is_active, member:members(name)"),
         supabase.auth.getUser(),
     ])
@@ -141,20 +118,12 @@ export default async function DashboardPage() {
         status: string | null
     }>
     const activeRosters = filterRostersForDutyAvailability(rosters, approvedLeaves)
-    const pendingLeaves = (pendingLeavesData || []) as Array<{
+    const activeMembers = (membersData || []) as Array<{
         id: string
-        member_id: string
-        day_of_week: number
-        period: number
-        created_at: string
-        status: string | null
+        name: string
+        student_id: string | number | null
     }>
-    const pendingDirectLeaves = filterPendingLeavesWithoutSwap(
-        pendingLeaves,
-        (pendingSwapLeaveLinksData || []) as Array<{ leave_id?: string | null }>
-    )
-    const pendingDirectLeaveCount = pendingDirectLeaves.length
-    const weekLogs = (weekLogsData || []) as Array<{
+    const todayLogs = (todayLogsData || []) as Array<{
         member_id: string
         sign_in_time: string
         sign_in_date: string | null
@@ -171,9 +140,9 @@ export default async function DashboardPage() {
     }>
 
     // 【学习注释：签到记录先压成 slot 索引】
-    // 首页后面会频繁按“成员 + 日期 + 节次”查询是否签到，用 Map 预处理后能把后续统计逻辑写得更直接。
+    // 首页只保留个人工作台语境，用当天签到记录判断“我的今日签到状态”。
     const signedSlotMap = new Map<string, string>()
-    weekLogs.forEach((log) => {
+    todayLogs.forEach((log) => {
         if (!log.location_verified) return
         const slot = resolveDutySignInSlot(log)
         if (!slot) return
@@ -189,80 +158,9 @@ export default async function DashboardPage() {
         .filter((r) => r.day_of_week === todayDow)
         .sort((a, b) => (a.period === b.period ? a.member.name.localeCompare(b.member.name, "zh-CN") : a.period - b.period))
 
-    const todaySignedCount = todayRosters.filter((r) => signedSlotSet.has(`${r.member_id}-${todayDateKey}-${r.period}`)).length
-    const todayPendingCount = Math.max(todayRosters.length - todaySignedCount, 0)
-
-    // 【学习注释：统计口径只计算“理论上已经结束的班次”】
-    // 这样本周完成率不会把未来班次算进分母，更符合仪表盘的业务含义。
-    let weekPastExpected = 0
-    let weekPastSigned = 0
-
-    activeRosters.forEach((r) => {
-        if (r.day_of_week < 1 || r.day_of_week > 5) return
-
-        const isPastDay = r.day_of_week < todayDow
-        const isPastPeriodToday = r.day_of_week === todayDow && nowMinutes >= getDutyPeriodEndMinutes(r.period)
-        if (!isPastDay && !isPastPeriodToday) return
-
-        weekPastExpected += 1
-
-        const slotDateKey = addDaysToDateKey(mondayDateKey, r.day_of_week - 1)
-        const slotKey = `${r.member_id}-${slotDateKey}-${r.period}`
-        if (signedSlotSet.has(slotKey)) {
-            weekPastSigned += 1
-        }
-    })
-
-    const weekRate = weekPastExpected > 0 ? Math.round((weekPastSigned / weekPastExpected) * 100) : 0
-
-    const weekdayStats = DAYS.map((label, idx) => {
-        const day = idx + 1
-        const dayRosters = activeRosters.filter((r) => r.day_of_week === day)
-        const dateKey = addDaysToDateKey(mondayDateKey, idx)
-        const signed = dayRosters.filter((r) => signedSlotSet.has(`${r.member_id}-${dateKey}-${r.period}`)).length
-        const planned = dayRosters.length
-        return {
-            day,
-            label,
-            signed,
-            planned,
-            rate: planned > 0 ? Math.round((signed / planned) * 100) : 0,
-        }
-    })
-
     // 【学习注释：当前用户身份在首页继续下沉成业务成员】
-    // 这里不是重复鉴权，而是为了拿到 members 表中的 role 和 name，驱动页面里的管理员分支与个性化展示。
-    let me: { id: string; role: string; name: string } | null = null
-    if (authUser?.email) {
-        const { data: meRow } = await supabase
-            .from("members")
-            .select("id, role, name")
-            .ilike("email", authUser.email)
-            .single()
-
-        if (meRow) {
-            me = meRow
-        }
-    }
-
-    const normalizedMeRole = (me?.role || "").trim()
-    const isAdmin = !!me && (normalizedMeRole.toLowerCase() === "admin" || ADMIN_ROLE_SET.has(normalizedMeRole))
-
-    let pendingKeyForMe = 0
-
-    if (me?.id) {
-        const { count: keyCount } = await supabase
-            .from("key_transfers")
-            .select("id", { count: "exact", head: true })
-            .eq("to_member_id", me.id)
-            .eq("status", "pending")
-            .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER)
-
-        pendingKeyForMe = keyCount || 0
-    }
-
-    const myPendingLeaveCount = me?.id ? pendingLeaves.filter((leave) => leave.member_id === me.id).length : 0
-    const attentionCount = pendingKeyForMe + (isAdmin ? (acceptedSwapCount || 0) + pendingDirectLeaveCount : myPendingLeaveCount)
+    // 首页只需要成员身份来计算“我的排班”，权限分流继续复用统一的 AppUser 解析链路。
+    const me = await resolveAppUser(supabase, authUser)
 
     const myTodayRosters = me?.id ? todayRosters.filter((r) => r.member_id === me.id) : []
     const myTodayAssignedPeriods = Array.from(new Set(myTodayRosters.map((r) => r.period))).sort((a, b) => a - b)
@@ -287,23 +185,16 @@ export default async function DashboardPage() {
         }
     }
 
-    const upcomingEvent = upcomingEventData?.[0]
     const studioStudyLeaderboard = buildStudioStudyLeaderboard(studioSessions, now)
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-in-out">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">值班执行仪表盘</h2>
-                    <p className="text-sm text-muted-foreground mt-1">首页优先展示签到、待处理事项和今日排班，减少无效信息干扰。</p>
+                    <h2 className="text-3xl font-bold tracking-tight">我的工作台</h2>
+                    <p className="text-sm text-muted-foreground mt-1">首页集中处理签到、请假、代班、钥匙交接和今日排班。</p>
                 </div>
                 <div className="flex w-full sm:w-auto gap-2">
-                    <Button asChild className="gap-2 w-full sm:w-auto">
-                        <Link href="/duty">
-                            打开值班大厅
-                            <ArrowRight className="h-4 w-4" />
-                        </Link>
-                    </Button>
                     <Button asChild variant="outline" className="w-full sm:w-auto">
                         <Link href="/events">查看活动报名</Link>
                     </Button>
@@ -389,8 +280,10 @@ export default async function DashboardPage() {
                 </div>
             </div>
 
+            <DashboardDutyActions initialData={rosters} initialMembers={activeMembers} />
+
             <div className="grid gap-4 lg:grid-cols-3">
-                <StudioMembersCard rosters={activeRosters} />
+                <StudioMembersCard rosters={activeRosters} allowAdminDeleteStudy={false} />
 
                 <div className="h-full lg:col-span-2">
                     <StudioStudyStatsCard
@@ -403,145 +296,6 @@ export default async function DashboardPage() {
                     />
                 </div>
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardDescription>今日排班总数</CardDescription>
-                        <CardTitle className="text-2xl">{todayRosters.length}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-xs text-muted-foreground">
-                        {todayDow >= 1 && todayDow <= 5 ? `周${DAYS[todayDow - 1]}已安排 ${todayRosters.length} 个值班位` : "今日非工作日排班时段"}
-                    </CardContent>
-                </Card>
-
-                <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardDescription>今日已签到</CardDescription>
-                        <CardTitle className="text-2xl">{todaySignedCount}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-xs text-muted-foreground">剩余 {todayPendingCount} 个值班位待签到</CardContent>
-                </Card>
-
-                <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardDescription>本周签到完成率</CardDescription>
-                        <CardTitle className="text-2xl">{weekRate}%</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-xs text-muted-foreground">{weekPastSigned}/{weekPastExpected} 个已结束班次完成签到</CardContent>
-                </Card>
-
-                <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardDescription>待处理提醒</CardDescription>
-                        <CardTitle className="text-2xl">{attentionCount}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-xs text-muted-foreground">
-                        {isAdmin
-                            ? `待审批代班 ${acceptedSwapCount || 0} 个，待审批请假 ${pendingDirectLeaveCount} 个`
-                            : `我的待审批请假 ${myPendingLeaveCount} 个`}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-3">
-                <Card className="lg:col-span-2 flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <ListChecks className="h-5 w-5 text-primary" />
-                            今日值班名单
-                        </CardTitle>
-                        <CardDescription>按节次查看成员签到进度，便于现场快速点名。</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-1 flex-col space-y-3">
-                        {todayDow < 1 || todayDow > 5 ? (
-                            <p className="text-sm text-muted-foreground">今日不在常规值班日（周一至周五）内。</p>
-                        ) : todayRosters.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">今日暂无排班安排。</p>
-                        ) : (
-                            PERIODS.map((period) => {
-                                const rows = todayRosters.filter((r) => r.period === period.id)
-                                if (rows.length === 0) return null
-
-                                return (
-                                    <div key={period.id} className="rounded-lg border border-border/80 p-3">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="text-sm font-medium">{period.label}</p>
-                                            <span className="text-xs text-muted-foreground">
-                                                {period.start}-{period.end}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {rows.map((r) => {
-                                                const slotKey = `${r.member_id}-${todayDateKey}-${r.period}`
-                                                const signedAt = signedSlotMap.get(slotKey)
-                                                return (
-                                                    <div key={r.id} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
-                                                        <span className="font-medium">{r.member.name}</span>
-                                                        {signedAt ? (
-                                                            <Badge variant="outline" className="h-5 border-emerald-300 text-emerald-700 bg-emerald-50">
-                                                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                                {signedAt}
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant="outline" className="h-5 border-amber-300 text-amber-700 bg-amber-50">
-                                                                <Clock3 className="w-3 h-3 mr-1" />待签到
-                                                            </Badge>
-                                                        )}
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                )
-                            })
-                        )}
-                    </CardContent>
-                </Card>
-
-                <div className="h-full space-y-4">
-                    <Card className="flex h-full flex-col bg-card/60 backdrop-blur-sm shadow-sm">
-                        <CardHeader>
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <TriangleAlert className="h-4 w-4 text-amber-500" />
-                                今日重点提醒
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex flex-1 flex-col space-y-2 text-sm">
-                            <div className="flex items-center justify-between rounded-md border p-2">
-                                <span>公共待响应代班</span>
-                                <Badge variant="outline">{pendingSwapCount || 0}</Badge>
-                            </div>
-                            <div className="flex items-center justify-between rounded-md border p-2">
-                                <span>{isAdmin ? "待审批代班请求" : "我相关的待审批代班"}</span>
-                                <Badge variant="outline">{acceptedSwapCount || 0}</Badge>
-                            </div>
-                            <div className="flex items-center justify-between rounded-md border p-2">
-                                <span>{isAdmin ? "待审批请假请求" : "我的待审批请假"}</span>
-                                <Badge variant="outline">{isAdmin ? pendingDirectLeaveCount : myPendingLeaveCount}</Badge>
-                            </div>
-                            <div className="flex items-center justify-between rounded-md border p-2">
-                                <span>待确认钥匙交接</span>
-                                <Badge variant="outline" className="inline-flex items-center gap-1">
-                                    <KeyRound className="h-3 w-3" />
-                                    {pendingKeyForMe}
-                                </Badge>
-                            </div>
-                            {upcomingEvent ? (
-                                <p className="text-xs text-muted-foreground pt-1">
-                                    最近活动：{upcomingEvent.title}（{format(new Date(upcomingEvent.event_date), "M月d日 HH:mm", { locale: zhCN })}）
-                                </p>
-                            ) : (
-                                <p className="text-xs text-muted-foreground pt-1">最近暂无即将开始的活动。</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-
-            <WeeklyProgressCard stats={weekdayStats} />
-
-            <AbsentMembersCard rosters={activeRosters} />
         </div>
     )
 }

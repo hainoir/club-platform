@@ -10,23 +10,23 @@ test.describe('Admin duty smoke', () => {
         await loginWithPassword(page, env.E2E_ADMIN_EMAIL, env.E2E_ADMIN_PASSWORD)
         await gotoProtectedPath(page, '/duty')
 
-        const swapHallButton = page.getByRole('button', { name: /代班大厅/ })
+        const swapHallButton = page.getByRole('button', { name: /代班审批/ })
         await expect(swapHallButton).toBeVisible({ timeout: 45_000 })
         await swapHallButton.click()
-        await expect(page.getByRole('heading', { name: '代班大厅' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: '代班审批' })).toBeVisible()
 
         const approveButton = page.getByRole('button', { name: '批准' }).first()
         test.skip((await approveButton.count()) === 0, 'No accepted swap requests to approve')
 
         await approveButton.click()
-        await expect(page.getByRole('heading', { name: '代班大厅' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: '代班审批' })).toBeVisible()
     })
 
     test('receiver can confirm key transfer', async ({ page }) => {
         const env = requireEnv(['E2E_KEY_RECEIVER_EMAIL', 'E2E_KEY_RECEIVER_PASSWORD'])
 
         await loginWithPassword(page, env.E2E_KEY_RECEIVER_EMAIL, env.E2E_KEY_RECEIVER_PASSWORD)
-        await gotoProtectedPath(page, '/duty')
+        await gotoProtectedPath(page, '/')
 
         await expect(page.getByRole('heading', { level: 3, name: '钥匙交接' })).toBeVisible({ timeout: 45_000 })
 

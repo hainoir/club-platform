@@ -30,6 +30,7 @@ function formatTime(dateStr: string) {
 interface KeyTransferCardProps {
     dutyManager: ReturnType<typeof useDuty>;
     allMembers: SimpleMember[];
+    mode?: 'member';
 }
 
 export function KeyTransferCard({ dutyManager, allMembers }: KeyTransferCardProps) {
@@ -82,7 +83,7 @@ export function KeyTransferCard({ dutyManager, allMembers }: KeyTransferCardProp
     );
 
     return (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex flex-col rounded-xl border border-border bg-card p-6 shadow-sm lg:h-full">
             <h3 className="font-semibold text-lg border-b border-border pb-3 mb-4 flex items-center">
                 <Key className="w-5 h-5 mr-2 text-amber-500" />
                 钥匙交接

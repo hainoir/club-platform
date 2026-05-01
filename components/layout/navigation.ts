@@ -8,9 +8,9 @@ export type AppNavigationItem = {
 }
 
 export const appNavigation: AppNavigationItem[] = [
-    { name: "仪表盘", href: "/", icon: LayoutDashboard },
+    { name: "我的工作台", href: "/", icon: LayoutDashboard },
     { name: "成员管理", href: "/members", icon: Users },
     { name: "活动中心", href: "/events", icon: CalendarDays },
-    { name: "值班大厅", href: "/duty", icon: CalendarClock },
+    { name: "值班管理", href: "/duty", icon: CalendarClock },
     { name: "设置中心", href: "/settings", icon: Settings },
 ]

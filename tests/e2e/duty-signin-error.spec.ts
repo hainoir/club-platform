@@ -4,10 +4,10 @@ const SIGN_IN_BUTTON_REGEX = /立即验证定位并签到|正在雷达探距与�
 const GEO_DENIED_REGEX = /定位权限被拒绝|您拒绝了定位请求/
 const GEO_PAYLOAD_ERROR_REGEX = /定位数据异常|未获取到有效定位信息|Location payload is empty|Sign-in failed/
 const SIGN_IN_ERROR_REGEX = /签到记录失败|打卡存档失败|签到失败|mock duty_logs insert failed|Failed to fetch|fetch failed/i
-async function openDutyWithEnabledSignIn(page: Page) {
+async function openDashboardWithEnabledSignIn(page: Page) {
     const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
     await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
-    await gotoProtectedPath(page, '/duty')
+    await gotoProtectedPath(page, '/')
     const signInButton = page.getByRole('button', { name: SIGN_IN_BUTTON_REGEX }).first()
     test.skip((await signInButton.count()) === 0, 'Sign-in action is not visible for current account')
     test.skip(await signInButton.isDisabled(), 'Current account is not in active duty period')
@@ -37,7 +37,7 @@ test.describe('Duty sign-in error handling', () => {
                 value: mockGeo,
             })
         })
-        const signInButton = await openDutyWithEnabledSignIn(page)
+        const signInButton = await openDashboardWithEnabledSignIn(page)
         await signInButton.click()
         await expect(page.getByText(GEO_DENIED_REGEX)).toBeVisible()
     })
@@ -55,7 +55,7 @@ test.describe('Duty sign-in error handling', () => {
                 value: mockGeo,
             })
         })
-        const signInButton = await openDutyWithEnabledSignIn(page)
+        const signInButton = await openDashboardWithEnabledSignIn(page)
         await signInButton.click()
         await expect(page.getByText(GEO_PAYLOAD_ERROR_REGEX)).toBeVisible()
     })
@@ -95,7 +95,7 @@ test.describe('Duty sign-in error handling', () => {
                 body: JSON.stringify({ message: 'mock duty_logs insert failed' }),
             })
         })
-        const signInButton = await openDutyWithEnabledSignIn(page)
+        const signInButton = await openDashboardWithEnabledSignIn(page)
         await signInButton.click()
         await expect(page.getByText(SIGN_IN_ERROR_REGEX)).toBeVisible()
     })
@@ -131,7 +131,7 @@ test.describe('Duty sign-in error handling', () => {
             }
             await route.abort('failed')
         })
-        const signInButton = await openDutyWithEnabledSignIn(page)
+        const signInButton = await openDashboardWithEnabledSignIn(page)
         await signInButton.click()
         await expect(page.getByText(SIGN_IN_ERROR_REGEX)).toBeVisible()
     })

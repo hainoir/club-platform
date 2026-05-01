@@ -227,7 +227,7 @@ export function useNotifications() {
                     id: `key-transfer-in-${t.id}`,
                     title: "待确认钥匙交接",
                     description: `${t.from_member?.name || "成员"} 向你发起了钥匙交接${t.note ? `：${t.note}` : ""}`,
-                    href: "/duty",
+                    href: "/",
                     createdAt: t.created_at,
                     level: "critical",
                 })
@@ -238,7 +238,7 @@ export function useNotifications() {
                     id: `key-transfer-out-${t.id}`,
                     title: "钥匙交接待对方确认",
                     description: `已移交给 ${t.to_member?.name || "成员"}，等待对方确认。`,
-                    href: "/duty",
+                    href: "/",
                     createdAt: t.created_at,
                     level: "info",
                 })
@@ -298,7 +298,7 @@ export function useNotifications() {
                                         ? `已定向给 ${swap.target?.name || "成员"}`
                                         : "暂时还没有人接单"
                             }`,
-                            href: "/duty",
+                            href: "/",
                             createdAt: swap.created_at,
                             level: waitingApproval ? "warning" : "info",
                         })
@@ -309,7 +309,7 @@ export function useNotifications() {
                         id: `swap-targeted-${swap.id}`,
                         title: waitingApproval ? "你已应答代班，待管理员审批" : "有人定向邀请你代班",
                         description: `${swap.requester?.name || "成员"} 邀请你处理 ${formatDutySlot(swap.original_day, swap.original_period)}。`,
-                        href: "/duty",
+                        href: "/",
                         createdAt: swap.created_at,
                         level: waitingApproval ? "info" : "warning",
                     })
@@ -320,7 +320,7 @@ export function useNotifications() {
                         id: `leave-followup-${leave.id}`,
                         title: "请假待管理员审批",
                         description: `${formatDutySlot(leave.day_of_week, leave.period)} 暂未生效，等待管理员审批。`,
-                        href: "/duty",
+                        href: "/",
                         createdAt: leave.created_at || now.toISOString(),
                         level: "info",
                     })
@@ -346,7 +346,7 @@ export function useNotifications() {
                         id: `duty-upcoming-${upcoming.id}-${upcoming.nextTime.toISOString().slice(0, 10)}`,
                         title: "值班即将开始",
                         description: `${formatDutySlot(upcoming.day_of_week, upcoming.period)} 约在 ${Math.max(1, Math.round(diffHours * 60))} 分钟后开始。`,
-                        href: "/duty",
+                        href: "/",
                         createdAt: upcoming.nextTime.toISOString(),
                         level: "info",
                     })
@@ -375,7 +375,7 @@ export function useNotifications() {
                                 id: `duty-overdue-${roster.id}-${todayStart.toISOString().slice(0, 10)}`,
                                 title: "值班签到已逾期",
                                 description: `${formatDutySlot(roster.day_of_week, roster.period)} 已结束超过 10 分钟，仍未签到。`,
-                                href: "/duty",
+                                href: "/",
                                 createdAt: now.toISOString(),
                                 level: "critical",
                             })

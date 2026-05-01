@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
 
-const DUTY_HALL_TITLE = '值班与考勤大厅'
+const DUTY_HALL_TITLE = '值班管理'
 const CURRENT_IN_STUDIO_TEXT_REGEX = /当前在工作室|目前在工作室/
 const STUDY_MEMBER_NAME = '测试成员'
 const STUDY_CHIP_TEXT_REGEX = new RegExp(`${STUDY_MEMBER_NAME}\\s*自习`)

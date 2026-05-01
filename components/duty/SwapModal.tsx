@@ -19,6 +19,7 @@ const DAYS = ['一', '二', '三', '四', '五'];
 
 interface SwapModalProps {
     dutyManager: ReturnType<typeof useDuty>;
+    mode?: 'member' | 'admin';
 }
 
 function formatSwapStatus(
@@ -35,12 +36,14 @@ function formatSwapStatus(
     return '公共代班';
 }
 
-export function SwapModal({ dutyManager }: SwapModalProps) {
+export function SwapModal({ dutyManager, mode = 'member' }: SwapModalProps) {
     const [open, setOpen] = useState(false);
     const { user } = useUserStore();
     const { swaps, refreshSwaps, respondToSwap, volunteerForSwap, rejectSwap, isSwapping } = dutyManager;
 
     const isAdmin = isAdminRole(user?.role);
+    const isAdminMode = mode === 'admin';
+    const canReview = isAdminMode && isAdmin;
 
     useEffect(() => {
         if (open) {
@@ -57,6 +60,19 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
         });
     }, [swaps]);
 
+    const visibleSwaps = useMemo(() => {
+        if (isAdminMode) {
+            return sortedSwaps.filter((swap) => swap.status === 'accepted');
+        }
+
+        return sortedSwaps.filter((swap) => {
+            const isMine = swap.requester_id === user?.id;
+            const isTarget = swap.target_id === user?.id;
+            const isPublicPending = swap.status === 'pending' && !swap.target_id;
+            return isMine || isTarget || isPublicPending;
+        });
+    }, [isAdminMode, sortedSwaps, user?.id]);
+
     const renderActions = (swap: typeof swaps[number]) => {
         const isMine = swap.requester_id === user?.id;
         const isTarget = swap.target_id === user?.id;
@@ -65,7 +81,7 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
         const isTargeted = Boolean(swap.target_id);
         const isPublicPending = isPending && !isTargeted;
 
-        if (isMine) {
+        if (!isAdminMode && isMine) {
             return (
                 <div className="flex flex-wrap gap-1">
                     {isPending && isTargeted && (
@@ -92,7 +108,7 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
             );
         }
 
-        if (isAdmin && isAccepted) {
+        if (canReview && isAccepted) {
             return (
                 <div className="flex gap-1">
                     <Button
@@ -116,7 +132,7 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
             );
         }
 
-        if (isPending && isTarget) {
+        if (!isAdminMode && isPending && isTarget) {
             return (
                 <div className="flex gap-1">
                     <Button
@@ -140,7 +156,7 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
             );
         }
 
-        if (isPublicPending) {
+        if (!isAdminMode && isPublicPending) {
             return (
                 <Button
                     size="sm"
@@ -177,28 +193,34 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="w-full justify-start text-muted-foreground">
+                <Button
+                    variant="outline"
+                    className="w-full justify-start text-muted-foreground"
+                    disabled={isAdminMode && !isAdmin}
+                >
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    代班大厅...
+                    {isAdminMode ? '代班审批' : '代班大厅...'}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[560px]">
                 <DialogHeader>
-                    <DialogTitle>代班大厅</DialogTitle>
+                    <DialogTitle>{isAdminMode ? '代班审批' : '代班大厅'}</DialogTitle>
                     <DialogDescription>
-                        这里只展示你当前有权限看到的代班请求：公共请求、与你相关的定向请求，以及管理员可审批的请求。
+                        {isAdminMode
+                            ? '这里只处理已经有人应答、等待管理员最终审批的代班请求。'
+                            : '这里只展示你当前有权限看到的代班请求：公共请求、与你相关的定向请求，以及你发起的请求。'}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="h-[360px] overflow-y-auto pt-4">
-                    {sortedSwaps.length === 0 ? (
+                    {visibleSwaps.length === 0 ? (
                         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-muted-foreground">
                             <RefreshCw className="mb-2 h-8 w-8 opacity-20" />
-                            <span className="text-sm">当前没有你可见的代班请求</span>
+                            <span className="text-sm">{isAdminMode ? '当前没有待审批的代班请求' : '当前没有你可见的代班请求'}</span>
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {sortedSwaps.map((swap) => {
+                            {visibleSwaps.map((swap) => {
                                 const isMine = swap.requester_id === user?.id;
                                 const isTargeted = Boolean(swap.target_id);
                                 const isAccepted = swap.status === 'accepted';

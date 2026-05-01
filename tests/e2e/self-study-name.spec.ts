@@ -16,8 +16,7 @@ interface MemberIdentity {
     email: string | null
 }
 
-const DUTY_HALL_TITLE = '值班与考勤大厅'
-const DASHBOARD_TITLE = '值班执行仪表盘'
+const DASHBOARD_TITLE = '我的工作台'
 const SELF_STUDY_BUTTON_TEXT = '我在工作室自习'
 const CURRENT_IN_STUDIO_TEXT_REGEX = /当前在工作室|目前在工作室/
 const STUDY_LABEL = '自习'
@@ -180,8 +179,8 @@ test.describe('Self-study name display', () => {
                 })
             })
 
-            await gotoProtectedPath(page, '/duty')
-            await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible({ timeout: 45_000 })
+            await gotoProtectedPath(page, '/')
+            await expect(page.getByRole('heading', { level: 2, name: DASHBOARD_TITLE })).toBeVisible({ timeout: 45_000 })
 
             const selfStudyButton = page.getByRole('button', { name: SELF_STUDY_BUTTON_TEXT }).first()
             const canClickSelfStudy = await waitForLocatorVisible(selfStudyButton)
@@ -251,8 +250,8 @@ test.describe('Self-study name display', () => {
             })
         })
 
-        await gotoProtectedPath(page, '/duty')
-        await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible({ timeout: 45_000 })
+        await gotoProtectedPath(page, '/')
+        await expect(page.getByRole('heading', { level: 2, name: DASHBOARD_TITLE })).toBeVisible({ timeout: 45_000 })
         await expect(page.getByText(CURRENT_IN_STUDIO_TEXT_REGEX)).toBeVisible()
         const fallbackBadge = page.locator('span').filter({ hasText: FALLBACK_MEMBER_STUDY_REGEX }).first()
         const hasFallbackBadge = await waitForLocatorVisible(fallbackBadge, 30_000)

@@ -27,6 +27,7 @@ const DAYS = ['一', '二', '三', '四', '五'];
 interface LeaveModalProps {
     dutyManager: ReturnType<typeof useDuty>;
     allMembers: SimpleMember[];
+    mode?: 'member' | 'admin';
 }
 
 function getCompensationSlotKey(slot: DutyCompensationSlot) {
@@ -64,7 +65,7 @@ function formatPendingLeaveState(
     return '公共大厅待应答';
 }
 
-export function LeaveModal({ dutyManager, allMembers }: LeaveModalProps) {
+export function LeaveModal({ dutyManager, allMembers, mode = 'member' }: LeaveModalProps) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const { user } = useUserStore();
@@ -82,6 +83,8 @@ export function LeaveModal({ dutyManager, allMembers }: LeaveModalProps) {
     } = dutyManager;
 
     const isAdmin = isAdminRole(user?.role);
+    const isAdminMode = mode === 'admin';
+    const canReview = isAdminMode && isAdmin;
 
     const [selectedRosterId, setSelectedRosterId] = useState('');
     const [penaltyShifts, setPenaltyShifts] = useState(1);
@@ -170,9 +173,9 @@ export function LeaveModal({ dutyManager, allMembers }: LeaveModalProps) {
     }, [swaps]);
 
     const adminPendingDirectLeaves = useMemo(() => {
-        if (!isAdmin) return [];
+        if (!canReview) return [];
         return filterPendingLeavesWithoutSwap(pendingLeaves, swaps);
-    }, [isAdmin, pendingLeaves, swaps]);
+    }, [canReview, pendingLeaves, swaps]);
 
     useEffect(() => {
         if (!open) return;
@@ -249,20 +252,28 @@ export function LeaveModal({ dutyManager, allMembers }: LeaveModalProps) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="w-full justify-start text-muted-foreground">
+                <Button
+                    variant="outline"
+                    className="w-full justify-start text-muted-foreground"
+                    disabled={isAdminMode && !isAdmin}
+                >
                     <CalendarOff className="w-4 h-4 mr-2" />
-                    我要请假...
+                    {isAdminMode ? '请假审批' : '我要请假...'}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[620px]">
                 <DialogHeader>
-                    <DialogTitle>请假申请</DialogTitle>
+                    <DialogTitle>{isAdminMode ? '请假审批' : '请假申请'}</DialogTitle>
                     <DialogDescription>
-                        提交后先进入待审批状态。只有管理员批准后，请假才会正式生效。
+                        {isAdminMode
+                            ? '这里只处理无需代班、等待管理员直接审批的请假请求。'
+                            : '提交后先进入待审批状态。只有管理员批准后，请假才会正式生效。'}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="mt-4 max-h-[70vh] space-y-6 overflow-y-auto pr-1">
+                    {!isAdminMode && (
+                        <>
                     <div className="space-y-5">
                         <div className="space-y-2">
                             <Label className="text-sm font-medium">选择请假班次</Label>
@@ -488,7 +499,10 @@ export function LeaveModal({ dutyManager, allMembers }: LeaveModalProps) {
                         )}
                     </div>
 
-                    {isAdmin && (
+                        </>
+                    )}
+
+                    {canReview && (
                         <div className="space-y-3 border-t pt-5">
                             <div>
                                 <h4 className="text-sm font-semibold">无需代班待审批请假</h4>

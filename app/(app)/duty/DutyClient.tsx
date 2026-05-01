@@ -1,20 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Loader2, RefreshCw, KeyRound } from 'lucide-react';
 
-import { AbsentMembersCard, StudioMembersCard } from '@/components/duty/AttendancePanels';
+import { StudioMembersCard } from '@/components/duty/AttendancePanels';
 import { DutyTable, SimpleMember } from '@/components/duty/DutyTable';
-import { KeyTransferCard } from '@/components/duty/KeyTransferCard';
 import { LeaveModal } from '@/components/duty/LeaveModal';
-import { SignInCard } from '@/components/duty/SignInCard';
 import { SwapModal } from '@/components/duty/SwapModal';
 import { Button } from '@/components/ui/button';
 import { useDuty, RosterWithMember } from '@/hooks/useDuty';
-import { resolveCurrentDutyAvailability } from '@/lib/duty-sign-in';
 import { filterRostersForDutyAvailability } from '@/lib/duty-leaves';
 import { isAdminRole, useUserStore } from '@/store/useUserStore';
-import { createClient } from '@/utils/supabase/client';
 
 interface DutyClientProps {
     initialData: RosterWithMember[];
@@ -28,10 +24,8 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
         approvedLeaves,
         approvedSwaps,
         isPending,
-        isSigningIn,
         toggleDutySlot,
         toggleKey,
-        performSignIn,
         refreshRosters,
         refreshApprovedLeaves,
         refreshPendingLeaves,
@@ -39,49 +33,12 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
     } = dutyManager;
 
     const { user } = useUserStore();
-    const supabase = React.useMemo(() => createClient(), []);
-    const [hasSignedInToday, setHasSignedInToday] = useState(false);
-    const [checkingSignIn, setCheckingSignIn] = useState(true);
-
     const isAdmin = isAdminRole(user?.role);
 
     const activeRosters = React.useMemo(
         () => filterRostersForDutyAvailability(rosters, approvedLeaves),
         [rosters, approvedLeaves]
     );
-
-    useEffect(() => {
-        async function checkTodaySignIn() {
-            setCheckingSignIn(true);
-
-            if (!user) {
-                setHasSignedInToday(false);
-                setCheckingSignIn(false);
-                return;
-            }
-
-            try {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-
-                const { data, error } = await supabase
-                    .from('duty_logs')
-                    .select('id')
-                    .eq('member_id', user.id)
-                    .gte('sign_in_time', today.toISOString())
-                    .limit(1);
-
-                setHasSignedInToday(!error && !!data && data.length > 0);
-            } catch (e) {
-                console.error('Failed to check sign-in status:', e);
-                setHasSignedInToday(false);
-            } finally {
-                setCheckingSignIn(false);
-            }
-        }
-
-        checkTodaySignIn();
-    }, [user, isSigningIn, supabase]);
 
     useEffect(() => {
         refreshApprovedLeaves();
@@ -93,16 +50,11 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
         <div className="flex flex-col space-y-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">值班与考勤大厅</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">值班管理</h2>
                     <p className="mt-2 text-muted-foreground">
-                        {isAdmin ? (
-                            <>
-                                管理员模式：点击排班单元格下方的 <span className="text-primary font-medium">“指派成员”</span> 按钮来安排值班，
-                                点击成员标签旁的 <span className="text-destructive font-medium">✕</span> 移除排班。
-                            </>
-                        ) : (
-                            '查看当前排班安排，并在指定时间内完成地理位置签到。'
-                        )}
+                        {isAdmin
+                            ? '管理员可在这里维护排班、标记钥匙持有人，并处理请假与代班审批。'
+                            : '普通成员可查看排班；排班、钥匙和审批操作仅管理员可用。'}
                     </p>
                 </div>
 
@@ -114,37 +66,19 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
 
             <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-4">
                 <div className="space-y-6 lg:col-span-1">
-                    {(() => {
-                        const now = new Date();
-                        const todayDow = now.getDay();
-                        const todayAssignedPeriods = user
-                            ? Array.from(new Set(activeRosters.filter((r) => r.member_id === user.id && r.day_of_week === todayDow).map((r) => r.period)))
-                            : [];
-                        const availability = resolveCurrentDutyAvailability(todayAssignedPeriods, now);
-
-                        return (
-                            <SignInCard
-                                onSignIn={performSignIn}
-                                isSigningIn={isSigningIn}
-                                hasSignedInToday={hasSignedInToday}
-                                isInDutyPeriod={availability.canSignInNow}
-                                disabledReason={availability.disabledReason}
-                            />
-                        );
-                    })()}
-
                     <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                        <h3 className="mb-4 border-b border-border pb-3 text-lg font-semibold">换班与代理大厅</h3>
+                        <h3 className="mb-4 border-b border-border pb-3 text-lg font-semibold">审批处理</h3>
                         <p className="mb-4 text-sm text-balance text-muted-foreground">
-                            有临时会议或请假时，可以在这里向指定成员发起换班请求，或者投放到公共代班池。
+                            请假和代班审批集中在这里处理；成员侧发起与响应入口已放到首页。
                         </p>
                         <div className="space-y-2">
-                            <SwapModal dutyManager={dutyManager} />
-                            <LeaveModal dutyManager={dutyManager} allMembers={initialMembers} />
+                            <SwapModal dutyManager={dutyManager} mode="admin" />
+                            <LeaveModal dutyManager={dutyManager} allMembers={initialMembers} mode="admin" />
                         </div>
                     </div>
 
-                    <KeyTransferCard dutyManager={dutyManager} allMembers={initialMembers} />
+                    <KeyHoldersSummary rosters={rosters} />
+                    <StudioMembersCard rosters={activeRosters} allowSelfStudy={false} />
                 </div>
 
                 <div className="min-w-0 space-y-4 overflow-hidden lg:col-span-3">
@@ -160,10 +94,6 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                         onToggleKey={toggleKey}
                         isPending={isPending}
                     />
-
-                    <KeyHoldersSummary rosters={rosters} />
-                    <AbsentMembersCard rosters={activeRosters} />
-                    <StudioMembersCard rosters={activeRosters} />
                 </div>
             </div>
         </div>

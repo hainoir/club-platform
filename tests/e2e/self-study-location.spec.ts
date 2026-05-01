@@ -17,7 +17,7 @@ interface MemberIdentity {
     email: string | null
 }
 
-const DUTY_HALL_TITLE = '值班与考勤大厅'
+const DASHBOARD_TITLE = '我的工作台'
 const SELF_STUDY_BUTTON_TEXT = '我在工作室自习'
 const LOCATION_DENIED_REGEX = /定位权限被拒绝|无法完成位置验证/
 const LOCATION_ACCURACY_REGEX = /当前定位精度约\s*200\s*米/
@@ -144,11 +144,11 @@ async function resolveEligibleSelfStudyMember() {
     }
 }
 
-async function openDutyWithSelfStudyReady(page: import('@playwright/test').Page) {
+async function openDashboardWithSelfStudyReady(page: import('@playwright/test').Page) {
     const setup = await resolveEligibleSelfStudyMember()
     await loginWithPassword(page, setup.account.email, setup.account.password)
-    await gotoProtectedPath(page, '/duty')
-    await expect(page.getByRole('heading', { level: 2, name: DUTY_HALL_TITLE })).toBeVisible({ timeout: 45_000 })
+    await gotoProtectedPath(page, '/')
+    await expect(page.getByRole('heading', { level: 2, name: DASHBOARD_TITLE })).toBeVisible({ timeout: 45_000 })
 
     const selfStudyButton = page.getByRole('button', { name: SELF_STUDY_BUTTON_TEXT }).first()
     const canClickSelfStudy = await waitForLocatorVisible(selfStudyButton)
@@ -247,7 +247,7 @@ test.describe('Self-study location gating', () => {
                 await route.continue()
             })
 
-            const setup = await openDutyWithSelfStudyReady(page)
+            const setup = await openDashboardWithSelfStudyReady(page)
             client = setup.client
             expectedName = setup.expectedName
             memberId = setup.member.id
@@ -324,7 +324,7 @@ test.describe('Self-study location gating', () => {
                 await route.continue()
             })
 
-            const setup = await openDutyWithSelfStudyReady(page)
+            const setup = await openDashboardWithSelfStudyReady(page)
             client = setup.client
 
             await setup.selfStudyButton.click()
@@ -403,7 +403,7 @@ test.describe('Self-study location gating', () => {
                 await route.continue()
             })
 
-            const setup = await openDutyWithSelfStudyReady(page)
+            const setup = await openDashboardWithSelfStudyReady(page)
             client = setup.client
 
             await setup.selfStudyButton.click()

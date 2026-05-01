@@ -191,6 +191,8 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
 
 interface StudioMembersCardProps {
     rosters: RosterWithMember[];
+    allowSelfStudy?: boolean;
+    allowAdminDeleteStudy?: boolean;
 }
 
 interface StudioMember {
@@ -211,7 +213,11 @@ interface StudioSessionWithMember {
     } | null;
 }
 
-export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
+export function StudioMembersCard({
+    rosters,
+    allowSelfStudy = true,
+    allowAdminDeleteStudy = true,
+}: StudioMembersCardProps) {
     const supabase = useMemo(() => createClient(), []);
     const { user } = useUserStore();
     const { toast } = useToast();
@@ -223,6 +229,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const lastStartStudyAttemptAtRef = useRef(0);
     const isAdmin = isAdminRole(user?.role);
+    const canAdminDeleteStudy = allowAdminDeleteStudy && isAdmin;
 
     const fetchStudioMembers = useCallback(async () => {
         try {
@@ -417,7 +424,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
     };
 
     const handleAdminDeleteStudy = async (member: StudioMember) => {
-        if (!isAdmin || member.type !== 'study') return;
+        if (!canAdminDeleteStudy || member.type !== 'study') return;
 
         setDeletingSessionId(member.sessionId);
         try {
@@ -482,7 +489,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                         >
                             <span>{member.name}</span>
                             <span className="text-[9px] opacity-70">{member.type === 'study' ? '自习' : '值班'}</span>
-                            {isAdmin && member.type === 'study' ? (
+                            {canAdminDeleteStudy && member.type === 'study' ? (
                                 <button
                                     type="button"
                                     className="inline-flex h-4 w-4 items-center justify-center rounded-full opacity-70 transition hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -499,7 +506,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                 </div>
             )}
 
-            {!loading && !errorMsg && !isAlreadyInStudio ? (
+            {allowSelfStudy && !loading && !errorMsg && !isAlreadyInStudio ? (
                 <Button
                     variant="outline"
                     size="sm"
@@ -510,7 +517,7 @@ export function StudioMembersCard({ rosters }: StudioMembersCardProps) {
                     {isStartingStudy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <BookOpen className="mr-1 h-3 w-3" />}
                     {isStartingStudy ? '正在验证定位...' : '我在工作室自习'}
                 </Button>
-            ) : !loading && !errorMsg && isSelfStudying ? (
+            ) : allowSelfStudy && !loading && !errorMsg && isSelfStudying ? (
                 <Button
                     variant="outline"
                     size="sm"

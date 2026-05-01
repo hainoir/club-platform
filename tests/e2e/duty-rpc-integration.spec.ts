@@ -203,8 +203,8 @@ async function createPendingKeyTransferFixtureForReceiver(
     }
 }
 
-const SWAP_HALL_REGEX = new RegExp('代班大厅')
-const SWAP_HALL_TITLE = '代班大厅'
+const SWAP_HALL_REGEX = new RegExp('代班审批')
+const SWAP_HALL_TITLE = '代班审批'
 const APPROVE_BUTTON = '批准'
 const KEY_TRANSFER_TITLE = '钥匙交接'
 const KEY_CONFIRM_BUTTON = '确认接收'
@@ -287,7 +287,7 @@ test.describe('Duty RPC integration', () => {
             })
 
             await loginWithPassword(page, env.E2E_KEY_RECEIVER_EMAIL, env.E2E_KEY_RECEIVER_PASSWORD)
-            await gotoProtectedPath(page, '/duty')
+            await gotoProtectedPath(page, '/')
             await expect(page.getByRole('heading', { level: 3, name: KEY_TRANSFER_TITLE })).toBeVisible({ timeout: 45_000 })
 
             const fixtureRow = page

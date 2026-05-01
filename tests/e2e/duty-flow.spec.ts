@@ -9,28 +9,19 @@ test.describe('Duty flow', () => {
         await expect(page).toHaveURL(/\/login(?:\?.*)?$/)
     })
 
-    test('sign-in button state matches current schedule/time', async ({ page }) => {
+    test('member can open duty page while admin actions stay unavailable', async ({ page }) => {
         const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
 
         await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
         await gotoProtectedPath(page, '/duty')
 
-        await expect(page.getByRole('heading', { level: 2, name: '值班与考勤大厅' })).toBeVisible({ timeout: 45_000 })
-        await expect(page.getByRole('heading', { level: 3, name: '值班考勤打卡' })).toBeVisible()
-
-        const signInButton = page
-            .getByRole('button', {
-                name: /立即验证定位并签到|您未被安排在当前班次|当前不在班次时间内|正在雷达探距与验证/,
-            })
-            .first()
-
-        await expect(signInButton).toBeVisible()
-        const currentLabel = (await signInButton.textContent()) || ''
-
-        if (currentLabel.includes('立即验证定位并签到')) {
-            await expect(signInButton).toBeEnabled()
-        } else {
-            await expect(signInButton).toBeDisabled()
-        }
+        await expect(page.getByRole('heading', { level: 2, name: '值班管理' })).toBeVisible({ timeout: 45_000 })
+        await expect(page.getByText('今日排班总数')).toBeVisible()
+        await expect(page.getByRole('heading', { name: '今日值班名单' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: '今日重点提醒' })).toBeVisible()
+        await expect(page.getByText('普通成员可查看排班；排班、钥匙和审批操作仅管理员可用。')).toBeVisible()
+        await expect(page.getByRole('button', { name: '代班审批' })).toBeDisabled()
+        await expect(page.getByRole('button', { name: '请假审批' })).toBeDisabled()
+        await expect(page.getByRole('button', { name: /指派成员/ })).toHaveCount(0)
     })
 })
