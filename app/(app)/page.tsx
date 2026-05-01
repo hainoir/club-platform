@@ -25,6 +25,7 @@ import {
     getDutyWeekMondayDateKey,
     resolveDutySignInSlot,
 } from "@/lib/duty-time"
+import { filterPendingLeavesWithoutSwap, filterRostersForDutyAvailability } from "@/lib/duty-leaves"
 import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from "@/lib/keyTransferFilters"
 import { buildStudioStudyLeaderboard } from "@/lib/studio-time"
 import { createClient } from "@/utils/supabase/server"
@@ -88,10 +89,13 @@ export default async function DashboardPage() {
     // 这些卡片彼此独立，适合在服务端并发拉取；这样既减少总等待时间，也避免客户端再发一轮瀑布请求。
     const [
         { data: rostersData },
+        { data: approvedLeavesData },
+        { data: pendingLeavesData },
         { data: weekLogsData },
         { data: upcomingEventData },
         { count: pendingSwapCount },
         { count: acceptedSwapCount },
+        { data: pendingSwapLeaveLinksData },
         { data: studioSessionsData },
         {
             data: { user: authUser },
@@ -103,6 +107,14 @@ export default async function DashboardPage() {
             .order("day_of_week", { ascending: true })
             .order("period", { ascending: true }),
         supabase
+            .from("duty_leaves")
+            .select("id, member_id, day_of_week, period, status")
+            .eq("status", "approved"),
+        supabase
+            .from("duty_leaves")
+            .select("id, member_id, day_of_week, period, created_at, status")
+            .eq("status", "pending"),
+        supabase
             .from("duty_logs")
             .select("member_id, sign_in_time, sign_in_date, location_verified")
             .gte("sign_in_date", mondayDateKey)
@@ -113,13 +125,35 @@ export default async function DashboardPage() {
             .gt("event_date", now.toISOString())
             .order("event_date", { ascending: true })
             .limit(1),
-        supabase.from("duty_swaps").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("duty_swaps").select("id", { count: "exact", head: true }).eq("status", "pending").is("target_id", null),
         supabase.from("duty_swaps").select("id", { count: "exact", head: true }).eq("status", "accepted"),
+        supabase.from("duty_swaps").select("leave_id").in("status", ["pending", "accepted"]),
         supabase.from("studio_sessions").select("member_id, started_at, ended_at, is_active, member:members(name)"),
         supabase.auth.getUser(),
     ])
 
     const rosters = (rostersData || []) as unknown as RosterWithMember[]
+    const approvedLeaves = (approvedLeavesData || []) as Array<{
+        id: string
+        member_id: string
+        day_of_week: number
+        period: number
+        status: string | null
+    }>
+    const activeRosters = filterRostersForDutyAvailability(rosters, approvedLeaves)
+    const pendingLeaves = (pendingLeavesData || []) as Array<{
+        id: string
+        member_id: string
+        day_of_week: number
+        period: number
+        created_at: string
+        status: string | null
+    }>
+    const pendingDirectLeaves = filterPendingLeavesWithoutSwap(
+        pendingLeaves,
+        (pendingSwapLeaveLinksData || []) as Array<{ leave_id?: string | null }>
+    )
+    const pendingDirectLeaveCount = pendingDirectLeaves.length
     const weekLogs = (weekLogsData || []) as Array<{
         member_id: string
         sign_in_time: string
@@ -151,7 +185,7 @@ export default async function DashboardPage() {
 
     const signedSlotSet = new Set(signedSlotMap.keys())
 
-    const todayRosters = rosters
+    const todayRosters = activeRosters
         .filter((r) => r.day_of_week === todayDow)
         .sort((a, b) => (a.period === b.period ? a.member.name.localeCompare(b.member.name, "zh-CN") : a.period - b.period))
 
@@ -163,7 +197,7 @@ export default async function DashboardPage() {
     let weekPastExpected = 0
     let weekPastSigned = 0
 
-    rosters.forEach((r) => {
+    activeRosters.forEach((r) => {
         if (r.day_of_week < 1 || r.day_of_week > 5) return
 
         const isPastDay = r.day_of_week < todayDow
@@ -183,7 +217,7 @@ export default async function DashboardPage() {
 
     const weekdayStats = DAYS.map((label, idx) => {
         const day = idx + 1
-        const dayRosters = rosters.filter((r) => r.day_of_week === day)
+        const dayRosters = activeRosters.filter((r) => r.day_of_week === day)
         const dateKey = addDaysToDateKey(mondayDateKey, idx)
         const signed = dayRosters.filter((r) => signedSlotSet.has(`${r.member_id}-${dateKey}-${r.period}`)).length
         const planned = dayRosters.length
@@ -215,28 +249,20 @@ export default async function DashboardPage() {
     const isAdmin = !!me && (normalizedMeRole.toLowerCase() === "admin" || ADMIN_ROLE_SET.has(normalizedMeRole))
 
     let pendingKeyForMe = 0
-    let myPendingSwapCount = 0
 
     if (me?.id) {
-        const [{ count: keyCount }, { count: mySwapCount }] = await Promise.all([
-            supabase
-                .from("key_transfers")
-                .select("id", { count: "exact", head: true })
-                .eq("to_member_id", me.id)
-                .eq("status", "pending")
-                .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER),
-            supabase
-                .from("duty_swaps")
-                .select("id", { count: "exact", head: true })
-                .eq("requester_id", me.id)
-                .eq("status", "pending"),
-        ])
+        const { count: keyCount } = await supabase
+            .from("key_transfers")
+            .select("id", { count: "exact", head: true })
+            .eq("to_member_id", me.id)
+            .eq("status", "pending")
+            .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER)
 
         pendingKeyForMe = keyCount || 0
-        myPendingSwapCount = mySwapCount || 0
     }
 
-    const attentionCount = pendingKeyForMe + (isAdmin ? acceptedSwapCount || 0 : myPendingSwapCount)
+    const myPendingLeaveCount = me?.id ? pendingLeaves.filter((leave) => leave.member_id === me.id).length : 0
+    const attentionCount = pendingKeyForMe + (isAdmin ? (acceptedSwapCount || 0) + pendingDirectLeaveCount : myPendingLeaveCount)
 
     const myTodayRosters = me?.id ? todayRosters.filter((r) => r.member_id === me.id) : []
     const myTodayAssignedPeriods = Array.from(new Set(myTodayRosters.map((r) => r.period))).sort((a, b) => a - b)
@@ -252,7 +278,7 @@ export default async function DashboardPage() {
         | null = null
 
     if (me?.id) {
-        const myRosters = rosters.filter((r) => r.member_id === me.id)
+        const myRosters = activeRosters.filter((r) => r.member_id === me.id)
         if (myRosters.length > 0) {
             const sorted = myRosters
                 .map((roster) => ({ roster, time: resolveNextDutyTime(roster.day_of_week, roster.period, now) }))
@@ -364,7 +390,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className="grid gap-4 lg:grid-cols-3">
-                <StudioMembersCard rosters={rosters} />
+                <StudioMembersCard rosters={activeRosters} />
 
                 <div className="h-full lg:col-span-2">
                     <StudioStudyStatsCard
@@ -411,7 +437,9 @@ export default async function DashboardPage() {
                         <CardTitle className="text-2xl">{attentionCount}</CardTitle>
                     </CardHeader>
                     <CardContent className="text-xs text-muted-foreground">
-                        {isAdmin ? `待审批代班 ${(acceptedSwapCount || 0)} 个` : `我发起的待处理代班 ${myPendingSwapCount} 个`}
+                        {isAdmin
+                            ? `待审批代班 ${acceptedSwapCount || 0} 个，待审批请假 ${pendingDirectLeaveCount} 个`
+                            : `我的待审批请假 ${myPendingLeaveCount} 个`}
                     </CardContent>
                 </Card>
             </div>
@@ -481,12 +509,16 @@ export default async function DashboardPage() {
                         </CardHeader>
                         <CardContent className="flex flex-1 flex-col space-y-2 text-sm">
                             <div className="flex items-center justify-between rounded-md border p-2">
-                                <span>待响应代班请求</span>
+                                <span>公共待响应代班</span>
                                 <Badge variant="outline">{pendingSwapCount || 0}</Badge>
                             </div>
                             <div className="flex items-center justify-between rounded-md border p-2">
-                                <span>待审批代班请求</span>
+                                <span>{isAdmin ? "待审批代班请求" : "我相关的待审批代班"}</span>
                                 <Badge variant="outline">{acceptedSwapCount || 0}</Badge>
+                            </div>
+                            <div className="flex items-center justify-between rounded-md border p-2">
+                                <span>{isAdmin ? "待审批请假请求" : "我的待审批请假"}</span>
+                                <Badge variant="outline">{isAdmin ? pendingDirectLeaveCount : myPendingLeaveCount}</Badge>
                             </div>
                             <div className="flex items-center justify-between rounded-md border p-2">
                                 <span>待确认钥匙交接</span>
@@ -509,7 +541,7 @@ export default async function DashboardPage() {
 
             <WeeklyProgressCard stats={weekdayStats} />
 
-            <AbsentMembersCard rosters={rosters} />
+            <AbsentMembersCard rosters={activeRosters} />
         </div>
     )
 }

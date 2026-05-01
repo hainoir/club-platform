@@ -12,6 +12,7 @@ import { SwapModal } from '@/components/duty/SwapModal';
 import { Button } from '@/components/ui/button';
 import { useDuty, RosterWithMember } from '@/hooks/useDuty';
 import { resolveCurrentDutyAvailability } from '@/lib/duty-sign-in';
+import { filterRostersForDutyAvailability } from '@/lib/duty-leaves';
 import { isAdminRole, useUserStore } from '@/store/useUserStore';
 import { createClient } from '@/utils/supabase/client';
 
@@ -24,7 +25,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
     const dutyManager = useDuty(initialData);
     const {
         rosters,
-        leaves,
+        approvedLeaves,
         approvedSwaps,
         isPending,
         isSigningIn,
@@ -32,7 +33,8 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
         toggleKey,
         performSignIn,
         refreshRosters,
-        refreshLeaves,
+        refreshApprovedLeaves,
+        refreshPendingLeaves,
         refreshApprovedSwaps,
     } = dutyManager;
 
@@ -42,6 +44,11 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
     const [checkingSignIn, setCheckingSignIn] = useState(true);
 
     const isAdmin = isAdminRole(user?.role);
+
+    const activeRosters = React.useMemo(
+        () => filterRostersForDutyAvailability(rosters, approvedLeaves),
+        [rosters, approvedLeaves]
+    );
 
     useEffect(() => {
         async function checkTodaySignIn() {
@@ -77,9 +84,10 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
     }, [user, isSigningIn, supabase]);
 
     useEffect(() => {
-        refreshLeaves();
+        refreshApprovedLeaves();
+        refreshPendingLeaves();
         refreshApprovedSwaps();
-    }, [refreshLeaves, refreshApprovedSwaps]);
+    }, [refreshApprovedLeaves, refreshPendingLeaves, refreshApprovedSwaps]);
 
     return (
         <div className="flex flex-col space-y-8">
@@ -110,7 +118,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                         const now = new Date();
                         const todayDow = now.getDay();
                         const todayAssignedPeriods = user
-                            ? Array.from(new Set(rosters.filter((r) => r.member_id === user.id && r.day_of_week === todayDow).map((r) => r.period)))
+                            ? Array.from(new Set(activeRosters.filter((r) => r.member_id === user.id && r.day_of_week === todayDow).map((r) => r.period)))
                             : [];
                         const availability = resolveCurrentDutyAvailability(todayAssignedPeriods, now);
 
@@ -132,7 +140,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                         </p>
                         <div className="space-y-2">
                             <SwapModal dutyManager={dutyManager} />
-                            <LeaveModal dutyManager={dutyManager} />
+                            <LeaveModal dutyManager={dutyManager} allMembers={initialMembers} />
                         </div>
                     </div>
 
@@ -145,7 +153,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                         currentUserId={user?.id}
                         isAdmin={isAdmin}
                         allMembers={initialMembers}
-                        leaves={leaves}
+                        approvedLeaves={approvedLeaves}
                         approvedSwaps={approvedSwaps}
                         onAssignMember={toggleDutySlot}
                         onRemoveMember={toggleDutySlot}
@@ -154,8 +162,8 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                     />
 
                     <KeyHoldersSummary rosters={rosters} />
-                    <AbsentMembersCard rosters={rosters} />
-                    <StudioMembersCard rosters={rosters} />
+                    <AbsentMembersCard rosters={activeRosters} />
+                    <StudioMembersCard rosters={activeRosters} />
                 </div>
             </div>
         </div>

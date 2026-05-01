@@ -214,3 +214,44 @@ USING (
       AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
   )
 );
+
+-- ==========================================================
+-- 4. 换班/代班流程的可见性重写规则
+-- ==========================================================
+
+DROP POLICY IF EXISTS duty_swaps_select_visible_v2 ON public.duty_swaps;
+DROP POLICY IF EXISTS "允许认证用户查看换班请求" ON public.duty_swaps;
+CREATE POLICY duty_swaps_select_visible_v2
+ON public.duty_swaps FOR SELECT
+TO authenticated
+USING (
+  status = 'approved'
+  OR (status = 'pending' AND target_id IS NULL)
+  OR EXISTS (
+    SELECT 1
+    FROM public.members m
+    WHERE m.id IN (requester_id, target_id)
+      AND (
+        m.id = auth.uid()
+        OR lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
+      )
+  )
+  OR EXISTS (
+    SELECT 1
+    FROM public.members admin
+    WHERE (
+      admin.id = auth.uid()
+      OR lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    )
+      AND (
+        lower(trim(admin.role)) = 'admin'
+        OR trim(admin.role) IN (
+          U&'\7BA1\7406\5458',
+          U&'\4E3B\5E2D',
+          U&'\6267\884C\4E3B\5E2D',
+          U&'\526F\4E3B\5E2D',
+          U&'\90E8\957F'
+        )
+      )
+  )
+);

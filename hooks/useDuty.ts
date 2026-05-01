@@ -11,6 +11,7 @@ type DutyRoster = Database['public']['Tables']['duty_rosters']['Row'];
 type Member = Database['public']['Tables']['members']['Row'];
 
 type DutySwap = Database['public']['Tables']['duty_swaps']['Row'];
+type DutyLeave = Database['public']['Tables']['duty_leaves']['Row'];
 
 // 【学习注释：前端展示类型整形】
 // 数据库原表结构偏向存储，而页面渲染需要直接拿到成员信息，所以这里先把联表后的展示类型定义清楚。
@@ -21,6 +22,10 @@ export interface RosterWithMember extends DutyRoster {
 export interface SwapWithMember extends DutySwap {
     requester: Pick<Member, 'id' | 'name'>;
     target?: Pick<Member, 'id' | 'name'> | null;
+}
+
+export interface LeaveWithMember extends DutyLeave {
+    member: Pick<Member, 'id' | 'name'> | null;
 }
 
 // 【学习注释：定位签到的可配置阈值】
@@ -83,6 +88,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     const [rosters, setRosters] = useState<RosterWithMember[]>(initialRosters);
     const [swaps, setSwaps] = useState<SwapWithMember[]>([]);
     const [approvedSwaps, setApprovedSwaps] = useState<SwapWithMember[]>([]);
+    const [approvedLeaves, setApprovedLeaves] = useState<LeaveWithMember[]>([]);
+    const [pendingLeaves, setPendingLeaves] = useState<LeaveWithMember[]>([]);
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const { user, setUser } = useUserStore();
@@ -122,20 +129,35 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     }, [supabase]);
 
     const refreshSwaps = useCallback(async () => {
-        const { data, error } = await supabase
+        if (!user) {
+            setSwaps([]);
+            return;
+        }
+
+        let query = supabase
             .from('duty_swaps')
             .select('*, requester:members!duty_swaps_requester_id_fkey(id, name), target:members!duty_swaps_target_id_fkey(id, name)')
-            .in('status', ['pending', 'accepted'])
-            .order('created_at', { ascending: false });
+            .in('status', ['pending', 'accepted']);
+
+        if (!isAdminRole(user.role)) {
+            query = query.or(`requester_id.eq.${user.id},target_id.eq.${user.id},and(status.eq.pending,target_id.is.null)`);
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
 
         if (!error && data) {
             setSwaps(data as unknown as SwapWithMember[]);
         }
-    }, [supabase]);
+    }, [supabase, user]);
 
     // 【学习注释：已批准代班单独拉取】
     // 值班表上的“代班”标签只关心最终生效的记录，因此和待处理请求分开维护更清晰。
     const refreshApprovedSwaps = useCallback(async () => {
+        if (!user) {
+            setApprovedSwaps([]);
+            return;
+        }
+
         const { data, error } = await supabase
             .from('duty_swaps')
             .select('*, requester:members!duty_swaps_requester_id_fkey(id, name), target:members!duty_swaps_target_id_fkey(id, name)')
@@ -145,7 +167,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         if (!error && data) {
             setApprovedSwaps(data as unknown as SwapWithMember[]);
         }
-    }, [supabase]);
+    }, [supabase, user]);
 
     // 【学习注释：排班操作与 optimistic update】
     // 管理员点击后先更新本地界面，再回写数据库；失败时再刷新真实数据回滚，兼顾速度感和正确性。
@@ -437,28 +459,29 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         if (!(await ensureActiveSession())) return;
         setIsSwapping(true);
         try {
+            const swapRecord = swaps.find(s => s.id === swapId);
+
             if (!accept) {
-                // 请求被拒绝或撤销时，直接从数据层移除。
-                const { error } = await supabase.from('duty_swaps').delete().eq('id', swapId);
+                const deleteQuery = swapRecord?.leave_id
+                    ? supabase.from('duty_leaves').delete().eq('id', swapRecord.leave_id).eq('status', 'pending')
+                    : supabase.from('duty_swaps').delete().eq('id', swapId);
+
+                const { error } = await deleteQuery;
                 if (error) throw error;
-                toast({ title: '已移除请求', description: '该换班请求已被撤销或拒绝。' });
+                toast({ title: '已撤回请求', description: '关联的待生效请假与补班安排已清理。' });
             } else {
-                // 【学习注释：审批动作交给数据库 RPC】
-                // 排班转让涉及多张记录一致性，交给远程过程函数做原子更新，比前端手工串多次写入更安全。
                 if (!isAdminRole(user.role)) {
-                    toast({ title: '权限不足', description: '仅管理员可以审批换班请求。', variant: 'destructive' });
+                    toast({ title: '权限不足', description: '仅管理员可以审批代班请求。', variant: 'destructive' });
                     setIsSwapping(false);
                     return;
                 }
 
-                const swapRecord = swaps.find(s => s.id === swapId);
                 if (!swapRecord) {
                     toast({ title: '请求不存在', description: '该换班请求可能已被撤销。', variant: 'destructive' });
                     setIsSwapping(false);
                     return;
                 }
 
-                // 前面的“应答”阶段已经写入目标成员，这里只需要把审批动作提交给 RPC 完成最终转让。
                 const { error: rpcError } = await supabase.rpc('accept_duty_swap', {
                     p_swap_id: swapId,
                     p_acceptor_id: swapRecord.target?.id || '',
@@ -472,8 +495,12 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 });
 
                 refreshRosters();
+                refreshApprovedSwaps();
+                refreshApprovedLeaves();
             }
+
             refreshSwaps();
+            refreshPendingLeaves();
         } catch (err: any) {
             toast({ title: '操作失败', description: err.message, variant: 'destructive' });
         } finally {
@@ -487,17 +514,18 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         if (!(await ensureActiveSession())) return;
         setIsSwapping(true);
         try {
-            const { error } = await supabase
-                .from('duty_swaps')
-                .update({ target_id: user.id, status: 'accepted' })
-                .eq('id', swapId);
+            const { error } = await supabase.rpc('volunteer_for_duty_swap', {
+                p_swap_id: swapId,
+            });
 
             if (error) throw error;
 
             const swapRecord = swaps.find(s => s.id === swapId);
             toast({
                 title: '已应答代班',
-                description: `您已应答 ${swapRecord?.requester.name || ''} 的代班请求，等待管理员审批。`
+                description: swapRecord?.target_id === user.id
+                    ? `您已接受定向代班邀请，等待管理员审批。`
+                    : `您已应答 ${swapRecord?.requester.name || ''} 的代班请求，等待管理员审批。`
             });
             refreshSwaps();
         } catch (err: any) {
@@ -513,13 +541,12 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         if (!(await ensureActiveSession())) return;
         setIsSwapping(true);
         try {
-            const { error } = await supabase
-                .from('duty_swaps')
-                .update({ target_id: null, status: 'pending' })
-                .eq('id', swapId);
+            const { error } = await supabase.rpc('return_duty_swap_to_hall', {
+                p_swap_id: swapId,
+            });
 
             if (error) throw error;
-            toast({ title: '已驳回', description: '该代班请求已退回大厅，等待他人重新应答。' });
+            toast({ title: '已退回大厅', description: '该代班请求已转为公共待应答状态。' });
             refreshSwaps();
         } catch (err: any) {
             toast({ title: '操作失败', description: err.message, variant: 'destructive' });
@@ -561,52 +588,84 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         }
     };
 
-    // 【学习注释：请假与补班联动】
-    // 请假并不是只写一条 leave 记录，还可能连带生成补班安排，所以这里统一在一个动作里编排。
-    const [leaves, setLeaves] = useState<any[]>([]);
+    // 【学习注释：请假读模型拆分】
+    // approvedLeaves 只服务“已经生效的请假”，pendingLeaves 只服务审批/撤销界面，避免把待审批数据误用到值班表和签到逻辑。
+    const refreshApprovedLeaves = useCallback(async () => {
+        if (!user) {
+            setApprovedLeaves([]);
+            return;
+        }
 
-    const refreshLeaves = useCallback(async () => {
-        if (!user) return;
         const { data, error } = await supabase
             .from('duty_leaves')
             .select('*, member:members!duty_leaves_member_id_fkey(id, name)')
+            .eq('status', 'approved')
             .order('created_at', { ascending: false });
 
         if (!error && data) {
-            setLeaves(data);
+            setApprovedLeaves(data as unknown as LeaveWithMember[]);
+        }
+    }, [supabase, user]);
+
+    const refreshPendingLeaves = useCallback(async () => {
+        if (!user) {
+            setPendingLeaves([]);
+            return;
+        }
+
+        let query = supabase
+            .from('duty_leaves')
+            .select('*, member:members!duty_leaves_member_id_fkey(id, name)')
+            .eq('status', 'pending');
+
+        if (!isAdminRole(user.role)) {
+            query = query.eq('member_id', user.id);
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
+
+        if (!error && data) {
+            setPendingLeaves(data as unknown as LeaveWithMember[]);
         }
     }, [supabase, user]);
 
     // 【学习注释：请假提交流程】
+    // 现在提交动作只会先创建“待审批”的 leave；是否需要代班决定是否额外创建一条关联 swap。
     const submitLeave = async (
         day: number,
         period: number,
         reason: string,
         penaltyShifts: number,
-        compensations: { compensation_date: string; day_of_week: number; period: number }[]
+        compensations: { compensation_date: string; day_of_week: number; period: number }[],
+        needSubstitute: boolean,
+        targetMemberId?: string | null
     ) => {
         if (!user) return false;
         if (!(await ensureActiveSession())) return false;
+
+        let leaveId: string | null = null;
+
         try {
-            // 第一步先拿到 leave id，后续补班记录要依赖这个主键。
             const { data: leaveData, error: leaveError } = await supabase
                 .from('duty_leaves')
                 .insert({
                     member_id: user.id,
                     day_of_week: day,
-                    period: period,
+                    period,
                     reason: reason || null,
                     penalty_shifts: penaltyShifts,
+                    status: 'pending',
                 })
                 .select('id')
                 .single();
 
-            if (leaveError) throw leaveError;
+            if (leaveError || !leaveData) throw leaveError || new Error('Leave request was not created');
+            const createdLeaveId = leaveData.id;
+            leaveId = createdLeaveId;
 
-            // 第二步再批量写入补班时段，保持“请假 + 补班”是同一条交互链路。
-            if (compensations.length > 0 && leaveData) {
-                const compRecords = compensations.map(c => ({
-                    leave_id: leaveData.id,
+            if (compensations.length > 0) {
+                const compRecords = compensations.map((c) => ({
+                    leave_id: createdLeaveId,
                     member_id: user.id,
                     compensation_date: c.compensation_date,
                     day_of_week: c.day_of_week,
@@ -620,15 +679,84 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                 if (compError) throw compError;
             }
 
+            if (needSubstitute) {
+                const { error: swapError } = await supabase
+                    .from('duty_swaps')
+                    .insert({
+                        requester_id: user.id,
+                        leave_id: createdLeaveId,
+                        original_day: day,
+                        original_period: period,
+                        target_id: targetMemberId || null,
+                    });
+
+                if (swapError) throw swapError;
+            }
+
             toast({
                 title: '请假申请已提交',
-                description: `周${DAYS_LABEL[day - 1]}第${period}大节，已安排${penaltyShifts}节补班。`
+                description: needSubstitute
+                    ? targetMemberId
+                        ? `周${DAYS_LABEL[day - 1]}第${period}大节，已提交待审批请假，并定向邀请代班成员。`
+                        : `周${DAYS_LABEL[day - 1]}第${period}大节，已提交待审批请假，并发布到公共代班大厅。`
+                    : `周${DAYS_LABEL[day - 1]}第${period}大节，已提交待审批请假，等待管理员审批。`
             });
-            refreshLeaves();
+
+            refreshPendingLeaves();
+            if (needSubstitute) {
+                refreshSwaps();
+            }
             return true;
         } catch (err: any) {
+            if (leaveId) {
+                await supabase.from('duty_leaves').delete().eq('id', leaveId).eq('status', 'pending');
+            }
             toast({ title: '请假失败', description: err.message, variant: 'destructive' });
             return false;
+        }
+    };
+
+    const approvePendingLeave = async (leaveId: string) => {
+        if (!user) return;
+        if (!(await ensureActiveSession())) return;
+        try {
+            const { error } = await supabase.rpc('approve_duty_leave', {
+                p_leave_id: leaveId,
+            });
+
+            if (error) throw error;
+
+            toast({ title: '已批准请假', description: '该请假现在正式生效。' });
+            refreshApprovedLeaves();
+            refreshPendingLeaves();
+        } catch (err: any) {
+            toast({ title: '审批失败', description: err.message, variant: 'destructive' });
+        }
+    };
+
+    const deletePendingLeave = async (
+        leaveId: string,
+        options?: { title?: string; description?: string }
+    ) => {
+        if (!user) return;
+        if (!(await ensureActiveSession())) return;
+        try {
+            const { error } = await supabase
+                .from('duty_leaves')
+                .delete()
+                .eq('id', leaveId)
+                .eq('status', 'pending');
+
+            if (error) throw error;
+
+            toast({
+                title: options?.title || '已撤回请假',
+                description: options?.description || '待生效的请假与补班安排已清理。'
+            });
+            refreshPendingLeaves();
+            refreshSwaps();
+        } catch (err: any) {
+            toast({ title: '操作失败', description: err.message, variant: 'destructive' });
         }
     };
 
@@ -696,7 +824,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             void refreshRosters();
             void refreshSwaps();
             void refreshApprovedSwaps();
-            void refreshLeaves();
+            void refreshApprovedLeaves();
+            void refreshPendingLeaves();
             void refreshKeyTransfers();
         };
 
@@ -714,13 +843,14 @@ export function useDuty(initialRosters: RosterWithMember[]) {
             window.removeEventListener('focus', syncDutyData);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [refreshRosters, refreshSwaps, refreshApprovedSwaps, refreshLeaves, refreshKeyTransfers]);
+    }, [refreshRosters, refreshSwaps, refreshApprovedSwaps, refreshApprovedLeaves, refreshPendingLeaves, refreshKeyTransfers]);
 
     return {
         rosters,
         swaps,
         approvedSwaps,
-        leaves,
+        approvedLeaves,
+        pendingLeaves,
         keyTransfers,
         isPending,
         isSigningIn,
@@ -731,13 +861,16 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         refreshRosters,
         refreshSwaps,
         refreshApprovedSwaps,
-        refreshLeaves,
+        refreshApprovedLeaves,
+        refreshPendingLeaves,
         refreshKeyTransfers,
         submitSwapRequest,
         respondToSwap,
         volunteerForSwap,
         rejectSwap,
         submitLeave,
+        approvePendingLeave,
+        deletePendingLeave,
         submitKeyTransfer,
         confirmKeyTransfer
     };

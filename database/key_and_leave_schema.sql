@@ -21,6 +21,30 @@ CREATE TABLE IF NOT EXISTS public.duty_leaves (
   created_at timestamptz DEFAULT now()
 );
 
+-- 历史兼容：旧版请假默认提交即生效，这里统一回填为 approved
+UPDATE public.duty_leaves
+SET status = 'approved'
+WHERE status = 'pending';
+
+-- 请假与代班请求关联，便于审批通过时同步生效
+ALTER TABLE public.duty_swaps
+ADD COLUMN IF NOT EXISTS leave_id uuid;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'duty_swaps_leave_id_fkey'
+      AND conrelid = 'public.duty_swaps'::regclass
+  ) THEN
+    ALTER TABLE public.duty_swaps
+    ADD CONSTRAINT duty_swaps_leave_id_fkey
+    FOREIGN KEY (leave_id) REFERENCES public.duty_leaves(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
+
 -- 3. 补班安排表 (请假时选择的本周剩余或下周补值班节次)
 CREATE TABLE IF NOT EXISTS public.duty_compensations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -245,3 +269,147 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION public.confirm_key_transfer(uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO authenticated;
+
+-- ==========================================================
+-- 7. 请假可见性规则及审批远程过程函数
+-- ==========================================================
+
+DROP POLICY IF EXISTS duty_leaves_select_visible_v2 ON public.duty_leaves;
+DROP POLICY IF EXISTS "允许认证用户查看请假" ON public.duty_leaves;
+CREATE POLICY duty_leaves_select_visible_v2
+ON public.duty_leaves FOR SELECT TO authenticated
+USING (
+  status = 'approved'
+  OR EXISTS (
+    SELECT 1
+    FROM public.members m
+    WHERE m.id = member_id
+      AND (
+        m.id = auth.uid()
+        OR lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
+      )
+  )
+  OR EXISTS (
+    SELECT 1
+    FROM public.members admin
+    WHERE (
+      admin.id = auth.uid()
+      OR lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    )
+      AND (
+        lower(trim(admin.role)) = 'admin'
+        OR trim(admin.role) IN (
+          U&'\7BA1\7406\5458',
+          U&'\4E3B\5E2D',
+          U&'\6267\884C\4E3B\5E2D',
+          U&'\526F\4E3B\5E2D',
+          U&'\90E8\957F'
+        )
+      )
+  )
+);
+
+DROP POLICY IF EXISTS duty_compensations_select_visible_v2 ON public.duty_compensations;
+DROP POLICY IF EXISTS "允许认证用户查看补班" ON public.duty_compensations;
+CREATE POLICY duty_compensations_select_visible_v2
+ON public.duty_compensations FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.duty_leaves l
+    WHERE l.id = leave_id
+      AND (
+        l.status = 'approved'
+        OR EXISTS (
+          SELECT 1
+          FROM public.members m
+          WHERE m.id = l.member_id
+            AND (
+              m.id = auth.uid()
+              OR lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
+            )
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM public.members admin
+          WHERE (
+            admin.id = auth.uid()
+            OR lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+          )
+            AND (
+              lower(trim(admin.role)) = 'admin'
+              OR trim(admin.role) IN (
+                U&'\7BA1\7406\5458',
+                U&'\4E3B\5E2D',
+                U&'\6267\884C\4E3B\5E2D',
+                U&'\526F\4E3B\5E2D',
+                U&'\90E8\957F'
+              )
+            )
+        )
+      )
+  )
+);
+
+CREATE OR REPLACE FUNCTION public.approve_duty_leave(
+  p_leave_id uuid
+)
+RETURNS void AS $$
+DECLARE
+  v_leave public.duty_leaves%ROWTYPE;
+  v_actor_id uuid := auth.uid();
+BEGIN
+  IF v_actor_id IS NULL THEN
+    RAISE EXCEPTION 'Unauthorized: login required';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.members admin
+    WHERE (
+      admin.id = v_actor_id
+      OR lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+    )
+      AND (
+        lower(trim(admin.role)) = 'admin'
+        OR trim(admin.role) IN (
+          U&'\7BA1\7406\5458',
+          U&'\4E3B\5E2D',
+          U&'\6267\884C\4E3B\5E2D',
+          U&'\526F\4E3B\5E2D',
+          U&'\90E8\957F'
+        )
+      )
+  ) THEN
+    RAISE EXCEPTION 'Forbidden: only admins can approve leave requests';
+  END IF;
+
+  SELECT *
+  INTO v_leave
+  FROM public.duty_leaves
+  WHERE id = p_leave_id
+    AND status = 'pending'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Leave request not found or already approved';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.duty_swaps
+    WHERE leave_id = v_leave.id
+  ) THEN
+    RAISE EXCEPTION 'Leave request must be approved through the linked swap workflow';
+  END IF;
+
+  UPDATE public.duty_leaves
+  SET status = 'approved'
+  WHERE id = v_leave.id;
+
+  RAISE LOG 'approve_duty_leave approved by % for leave %', v_actor_id, p_leave_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION public.approve_duty_leave(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.approve_duty_leave(uuid) TO authenticated;

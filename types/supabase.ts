@@ -200,6 +200,7 @@ export interface Database {
                     id: string
                     requester_id: string
                     target_id: string | null
+                    leave_id: string | null
                     original_day: number
                     original_period: number
                     target_day: number | null
@@ -211,6 +212,7 @@ export interface Database {
                     id?: string
                     requester_id: string
                     target_id?: string | null
+                    leave_id?: string | null
                     original_day: number
                     original_period: number
                     target_day?: number | null
@@ -222,6 +224,7 @@ export interface Database {
                     id?: string
                     requester_id?: string
                     target_id?: string | null
+                    leave_id?: string | null
                     original_day?: number
                     original_period?: number
                     target_day?: number | null
@@ -230,6 +233,13 @@ export interface Database {
                     created_at?: string
                 }
                 Relationships: [
+                    {
+                        foreignKeyName: "duty_swaps_leave_id_fkey"
+                        columns: ["leave_id"]
+                        isOneToOne: false
+                        referencedRelation: "duty_leaves"
+                        referencedColumns: ["id"]
+                    },
                     {
                         foreignKeyName: "duty_swaps_requester_id_fkey"
                         columns: ["requester_id"]
@@ -386,10 +396,28 @@ export interface Database {
                 }
                 Returns: undefined
             }
+            approve_duty_leave: {
+                Args: {
+                    p_leave_id: string
+                }
+                Returns: undefined
+            }
             confirm_key_transfer: {
                 Args: {
                     p_transfer_id: string
                     p_confirmer_id: string
+                }
+                Returns: undefined
+            }
+            return_duty_swap_to_hall: {
+                Args: {
+                    p_swap_id: string
+                }
+                Returns: undefined
+            }
+            volunteer_for_duty_swap: {
+                Args: {
+                    p_swap_id: string
                 }
                 Returns: undefined
             }

@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
+
 import { createClient } from "@/utils/supabase/client"
+import { filterPendingLeavesWithoutSwap, filterRostersForDutyAvailability } from "@/lib/duty-leaves"
 import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from "@/lib/keyTransferFilters"
 import { isAdminRole, useUserStore } from "@/store/useUserStore"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
@@ -129,8 +131,11 @@ export function useNotifications() {
                 outgoingKeyTransfersResult,
                 swapResult,
                 myRostersResult,
+                myApprovedLeavesResult,
                 todaySignInsResult,
                 enrolledEventsResult,
+                pendingLeavesResult,
+                pendingSwapLeaveLinksResult,
             ] = await Promise.all([
                 keyTransferReminder
                     ? supabase
@@ -162,14 +167,21 @@ export function useNotifications() {
                               .limit(6)
                         : supabase
                               .from("duty_swaps")
-                              .select("id, status, original_day, original_period, created_at, target:members!duty_swaps_target_id_fkey(name)")
-                              .eq("requester_id", user.id)
+                              .select("id, requester_id, target_id, status, original_day, original_period, created_at, requester:members!duty_swaps_requester_id_fkey(name), target:members!duty_swaps_target_id_fkey(name)")
                               .in("status", ["pending", "accepted"])
+                              .or(`requester_id.eq.${user.id},target_id.eq.${user.id}`)
                               .order("created_at", { ascending: false })
                               .limit(6)
                     : Promise.resolve({ data: [] as any[] }),
                 dutyReminder
-                    ? supabase.from("duty_rosters").select("id, day_of_week, period").eq("member_id", user.id)
+                    ? supabase.from("duty_rosters").select("id, member_id, day_of_week, period").eq("member_id", user.id)
+                    : Promise.resolve({ data: [] as any[] }),
+                dutyReminder
+                    ? supabase
+                          .from("duty_leaves")
+                          .select("id, member_id, day_of_week, period, status")
+                          .eq("member_id", user.id)
+                          .eq("status", "approved")
                     : Promise.resolve({ data: [] as any[] }),
                 dutyReminder
                     ? supabase
@@ -184,6 +196,27 @@ export function useNotifications() {
                           .from("event_attendees")
                           .select("id, event:events!event_attendees_event_id_fkey(id, title, event_date)")
                           .eq("user_email", user.email)
+                    : Promise.resolve({ data: [] as any[] }),
+                dutyReminder
+                    ? isAdmin
+                        ? supabase
+                              .from("duty_leaves")
+                              .select("id, member_id, day_of_week, period, created_at, member:members!duty_leaves_member_id_fkey(name)")
+                              .eq("status", "pending")
+                              .order("created_at", { ascending: false })
+                              .limit(12)
+                        : supabase
+                              .from("duty_leaves")
+                              .select("id, member_id, day_of_week, period, created_at")
+                              .eq("status", "pending")
+                              .eq("member_id", user.id)
+                              .order("created_at", { ascending: false })
+                              .limit(12)
+                    : Promise.resolve({ data: [] as any[] }),
+                dutyReminder
+                    ? isAdmin
+                        ? supabase.from("duty_swaps").select("leave_id").in("status", ["pending", "accepted"])
+                        : supabase.from("duty_swaps").select("leave_id").in("status", ["pending", "accepted"]).eq("requester_id", user.id)
                     : Promise.resolve({ data: [] as any[] }),
             ])
 
@@ -211,39 +244,98 @@ export function useNotifications() {
                 })
             })
 
+            const pendingDirectLeaves = filterPendingLeavesWithoutSwap(
+                (pendingLeavesResult.data || []) as Array<{
+                    id?: string
+                    member_id: string
+                    day_of_week: number
+                    period: number
+                    created_at?: string
+                    member?: { name?: string | null } | null
+                }>,
+                (pendingSwapLeaveLinksResult.data || []) as Array<{ leave_id?: string | null }>
+            )
+
             if (isAdmin) {
-                ;(swapResult.data || []).forEach((s: any) => {
+                ;(swapResult.data || []).forEach((swap: any) => {
                     items.push({
-                        id: `swap-review-${s.id}`,
+                        id: `swap-review-${swap.id}`,
                         title: "代班请求待审批",
-                        description: `${s.requester?.name || "成员"} 的 ${formatDutySlot(s.original_day, s.original_period)} 代班请求待你审批。`,
+                        description: `${swap.requester?.name || "成员"} 的 ${formatDutySlot(swap.original_day, swap.original_period)} 代班请求等待审批。`,
                         href: "/duty",
-                        createdAt: s.created_at,
+                        createdAt: swap.created_at,
+                        level: "warning",
+                    })
+                })
+
+                pendingDirectLeaves.slice(0, 6).forEach((leave: any) => {
+                    items.push({
+                        id: `leave-review-${leave.id}`,
+                        title: "请假请求待审批",
+                        description: `${leave.member?.name || "成员"} 的 ${formatDutySlot(leave.day_of_week, leave.period)} 请假等待审批。`,
+                        href: "/duty",
+                        createdAt: leave.created_at || now.toISOString(),
                         level: "warning",
                     })
                 })
             } else {
-                ;(swapResult.data || []).forEach((s: any) => {
-                    const waitingApproval = s.status === "accepted"
+                ;(swapResult.data || []).forEach((swap: any) => {
+                    const isRequester = swap.requester_id === user.id
+                    const waitingApproval = swap.status === "accepted"
+
+                    if (isRequester) {
+                        items.push({
+                            id: `swap-followup-${swap.id}`,
+                            title: waitingApproval
+                                ? "代班已应答，待管理员审批"
+                                : swap.target_id
+                                    ? "定向代班待应答"
+                                    : "公共代班请求待响应",
+                            description: `${formatDutySlot(swap.original_day, swap.original_period)} ${
+                                waitingApproval
+                                    ? `已由 ${swap.target?.name || "成员"} 应答`
+                                    : swap.target_id
+                                        ? `已定向给 ${swap.target?.name || "成员"}`
+                                        : "暂时还没有人接单"
+                            }`,
+                            href: "/duty",
+                            createdAt: swap.created_at,
+                            level: waitingApproval ? "warning" : "info",
+                        })
+                        return
+                    }
+
                     items.push({
-                        id: `swap-followup-${s.id}`,
-                        title: waitingApproval ? "代班已应答，待管理员审批" : "代班请求待志愿者响应",
-                        description: `${formatDutySlot(s.original_day, s.original_period)} ${
-                            waitingApproval ? `已由 ${s.target?.name || "成员"} 应答` : "暂时还没有人接单"
-                        }`,
+                        id: `swap-targeted-${swap.id}`,
+                        title: waitingApproval ? "你已应答代班，待管理员审批" : "有人定向邀请你代班",
+                        description: `${swap.requester?.name || "成员"} 邀请你处理 ${formatDutySlot(swap.original_day, swap.original_period)}。`,
                         href: "/duty",
-                        createdAt: s.created_at,
-                        level: waitingApproval ? "warning" : "info",
+                        createdAt: swap.created_at,
+                        level: waitingApproval ? "info" : "warning",
+                    })
+                })
+
+                pendingDirectLeaves.slice(0, 6).forEach((leave: any) => {
+                    items.push({
+                        id: `leave-followup-${leave.id}`,
+                        title: "请假待管理员审批",
+                        description: `${formatDutySlot(leave.day_of_week, leave.period)} 暂未生效，等待管理员审批。`,
+                        href: "/duty",
+                        createdAt: leave.created_at || now.toISOString(),
+                        level: "info",
                     })
                 })
             }
 
-            const myRosters = (myRostersResult.data || []) as Array<{ id: string; day_of_week: number; period: number }>
+            const myRosters = filterRostersForDutyAvailability(
+                (myRostersResult.data || []) as Array<{ id: string; member_id: string; day_of_week: number; period: number }>,
+                (myApprovedLeavesResult.data || []) as Array<{ member_id: string; day_of_week: number; period: number; status?: string | null }>
+            )
             const todaySignIns = (todaySignInsResult.data || []) as Array<{ sign_in_time: string }>
 
             if (myRosters.length > 0) {
                 const upcoming = myRosters
-                    .map((r) => ({ ...r, nextTime: resolveNextSlotTime(r.day_of_week, r.period, now) }))
+                    .map((roster) => ({ ...roster, nextTime: resolveNextSlotTime(roster.day_of_week, roster.period, now) }))
                     .sort((a, b) => a.nextTime.getTime() - b.nextTime.getTime())[0]
 
                 const diffMs = upcoming.nextTime.getTime() - now.getTime()
@@ -272,17 +364,17 @@ export function useNotifications() {
                     )
 
                     myRosters
-                        .filter((r) => r.day_of_week === todayDow)
-                        .forEach((r) => {
-                            const [endHour, endMinute] = PERIOD_END_TIMES[r.period] || [23, 59]
+                        .filter((roster) => roster.day_of_week === todayDow)
+                        .forEach((roster) => {
+                            const [endHour, endMinute] = PERIOD_END_TIMES[roster.period] || [23, 59]
                             const overDueAtMinutes = endHour * 60 + endMinute + 10
                             if (nowMinutes <= overDueAtMinutes) return
-                            if (signedPeriodsToday.has(r.period)) return
+                            if (signedPeriodsToday.has(roster.period)) return
 
                             items.push({
-                                id: `duty-overdue-${r.id}-${todayStart.toISOString().slice(0, 10)}`,
+                                id: `duty-overdue-${roster.id}-${todayStart.toISOString().slice(0, 10)}`,
                                 title: "值班签到已逾期",
-                                description: `${formatDutySlot(r.day_of_week, r.period)} 已结束超过 10 分钟，仍未签到。`,
+                                description: `${formatDutySlot(roster.day_of_week, roster.period)} 已结束超过 10 分钟，仍未签到。`,
                                 href: "/duty",
                                 createdAt: now.toISOString(),
                                 level: "critical",

@@ -4,7 +4,9 @@ This project uses SQL-first migrations. Run files in a strict order to avoid dri
 
 ## Canonical Sources
 
-- `database/update_swap_status.sql` is the only source of truth for `public.accept_duty_swap`.
+- `database/update_swap_status.sql` is the source of truth for duty-swap RPC behavior:
+  `public.accept_duty_swap`, `public.volunteer_for_duty_swap`, and `public.return_duty_swap_to_hall`.
+- `database/fix_duty_hall_permissions.sql` intentionally mirrors those RPC definitions for role/email compatibility hardening and must stay in sync.
 - `database/accept_swap_rpc.sql` is deprecated and intentionally does not define RPC behavior.
 
 ## Fresh Environment Order
@@ -20,10 +22,10 @@ This project uses SQL-first migrations. Run files in a strict order to avoid dri
 
 ## Incremental Upgrade Order (Existing Environments)
 
-1. `database/fix_duty_hall_permissions.sql` (recommended first when duty hall writes are rejected by RLS)
-2. `database/normalize_profile_fields_to_zh.sql` (one-time backfill for legacy English `department`/`grade` in `public.members` and `auth.users.raw_user_meta_data`)
-3. `database/update_swap_status.sql`
-4. `database/key_and_leave_schema.sql` (to refresh secure `confirm_key_transfer` and grants)
+1. `database/normalize_profile_fields_to_zh.sql` (one-time backfill for legacy English `department`/`grade` in `public.members` and `auth.users.raw_user_meta_data`)
+2. `database/key_and_leave_schema.sql` (adds `duty_swaps.leave_id`, leave approval RPC, and approved-only leave visibility)
+3. `database/update_swap_status.sql` (refreshes swap approval / volunteer / return-to-hall RPCs)
+4. `database/fix_duty_hall_permissions.sql` (role/email compatibility hardening for duty hall policies and RPCs)
 5. Re-apply `database/rls_policies.sql` only if you changed member/event policies.
 
 ## Rollback (Security Hardening)
@@ -49,9 +51,14 @@ GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO public;
 
 - `duty_swaps.status` accepts: `pending`, `accepted`, `approved`, `rejected`.
 - `accept_duty_swap` rejects non-admin callers.
+- `volunteer_for_duty_swap` only accepts public or self-targeted pending swaps.
+- `return_duty_swap_to_hall` clears `target_id` and returns targeted/accepted swaps to public pending.
+- `approve_duty_leave` approves pending leave requests that do not have a linked swap.
 - `confirm_key_transfer` rejects callers that are not the receiver.
 - Function definitions include: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - `event_attendees_event_email_unique` exists to enforce one RSVP per event/email (case-insensitive).
 - `duty_logs_member_sign_in_date_unique` exists to block repeated sign-ins in the same day.
+- `duty_swaps.leave_id` exists and historical `duty_leaves.status='pending'` rows are backfilled to `approved`.
+- `duty_leaves` only expose `pending` rows to the owner/admin; approved rows stay visible to everyone.
 - `duty_compensations.compensation_date` exists and historical rows are backfilled.
 - `members.department` / `members.grade` and `auth.users.raw_user_meta_data` no longer contain legacy English enum values.

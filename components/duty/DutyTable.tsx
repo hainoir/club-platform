@@ -45,7 +45,7 @@ interface DutyTableProps {
     currentUserId?: string;
     isAdmin: boolean;
     allMembers: SimpleMember[];
-    leaves?: any[];
+    approvedLeaves?: any[];
     approvedSwaps?: SwapWithMember[];
     onAssignMember: (day: number, period: number, memberId: string, memberName: string) => void;
     onRemoveMember: (day: number, period: number, memberId: string, memberName: string) => void;
@@ -143,7 +143,7 @@ export function DutyTable({
     currentUserId,
     isAdmin,
     allMembers,
-    leaves = [],
+    approvedLeaves = [],
     approvedSwaps = [],
     onAssignMember,
     onRemoveMember,
@@ -182,7 +182,7 @@ export function DutyTable({
             if (isPeriodOver(day, period)) return null;
 
             // 检查请假
-            const hasLeave = leaves.some(
+            const hasLeave = approvedLeaves.some(
                 l => l.member_id === memberId && l.day_of_week === day && l.period === period
             );
             if (hasLeave) return 'leave';
@@ -195,7 +195,7 @@ export function DutyTable({
 
             return null;
         };
-    }, [leaves, approvedSwaps]);
+    }, [approvedLeaves, approvedSwaps]);
 
     return (
         <div className="w-full overflow-x-auto rounded-xl border border-border bg-card shadow-sm">

@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -8,15 +10,29 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, UserCircle2, ArrowRight, Clock, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, UserCircle2, ArrowRight, Clock, CheckCircle2, Target } from 'lucide-react';
 import { useDuty } from '@/hooks/useDuty';
 import { useUserStore, isAdminRole } from '@/store/useUserStore';
-import { Badge } from "@/components/ui/badge";
+import { Badge } from '@/components/ui/badge';
 
 const DAYS = ['一', '二', '三', '四', '五'];
 
 interface SwapModalProps {
     dutyManager: ReturnType<typeof useDuty>;
+}
+
+function formatSwapStatus(
+    swap: ReturnType<typeof useDuty>['swaps'][number]
+) {
+    if (swap.status === 'accepted') {
+        return `${swap.target?.name || '成员'} 已应答`;
+    }
+
+    if (swap.target_id) {
+        return `定向给 ${swap.target?.name || '成员'}`;
+    }
+
+    return '公共代班';
 }
 
 export function SwapModal({ dutyManager }: SwapModalProps) {
@@ -32,35 +48,57 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
         }
     }, [open, refreshSwaps]);
 
-    // 渲染每条请求的操作按钮
-    const renderActions = (req: typeof swaps[number]) => {
-        const isMine = req.requester_id === user?.id;
-        const isPending = req.status === 'pending';
-        const isAccepted = req.status === 'accepted';
+    const sortedSwaps = useMemo(() => {
+        return [...swaps].sort((left, right) => {
+            const leftPriority = left.status === 'accepted' ? 0 : left.target_id ? 1 : 2;
+            const rightPriority = right.status === 'accepted' ? 0 : right.target_id ? 1 : 2;
+            if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+            return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+        });
+    }, [swaps]);
 
-        // 请求人自己：可以撤回
+    const renderActions = (swap: typeof swaps[number]) => {
+        const isMine = swap.requester_id === user?.id;
+        const isTarget = swap.target_id === user?.id;
+        const isPending = swap.status === 'pending';
+        const isAccepted = swap.status === 'accepted';
+        const isTargeted = Boolean(swap.target_id);
+        const isPublicPending = isPending && !isTargeted;
+
         if (isMine) {
             return (
-                <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive h-8"
-                    onClick={() => respondToSwap(req.id, false)}
-                    disabled={isSwapping}
-                >
-                    撤回
-                </Button>
+                <div className="flex flex-wrap gap-1">
+                    {isPending && isTargeted && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8"
+                            onClick={() => rejectSwap(swap.id)}
+                            disabled={isSwapping}
+                        >
+                            退回大厅
+                        </Button>
+                    )}
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-destructive"
+                        onClick={() => respondToSwap(swap.id, false)}
+                        disabled={isSwapping}
+                    >
+                        撤回
+                    </Button>
+                </div>
             );
         }
 
-        // 管理员看到“已应答”状态：批准或驳回
         if (isAdmin && isAccepted) {
             return (
                 <div className="flex gap-1">
                     <Button
                         size="sm"
                         className="h-8"
-                        onClick={() => respondToSwap(req.id, true)}
+                        onClick={() => respondToSwap(swap.id, true)}
                         disabled={isSwapping}
                     >
                         批准
@@ -68,8 +106,8 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
                     <Button
                         size="sm"
                         variant="ghost"
-                        className="text-destructive h-8"
-                        onClick={() => rejectSwap(req.id)}
+                        className="h-8 text-destructive"
+                        onClick={() => rejectSwap(swap.id)}
                         disabled={isSwapping}
                     >
                         驳回
@@ -78,13 +116,36 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
             );
         }
 
-        // 状态为“待处理”且不是自己的请求：可以应答
-        if (isPending) {
+        if (isPending && isTarget) {
+            return (
+                <div className="flex gap-1">
+                    <Button
+                        size="sm"
+                        className="h-8"
+                        onClick={() => volunteerForSwap(swap.id)}
+                        disabled={isSwapping}
+                    >
+                        接受代班
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8"
+                        onClick={() => rejectSwap(swap.id)}
+                        disabled={isSwapping}
+                    >
+                        拒绝并退回大厅
+                    </Button>
+                </div>
+            );
+        }
+
+        if (isPublicPending) {
             return (
                 <Button
                     size="sm"
                     className="h-8"
-                    onClick={() => volunteerForSwap(req.id)}
+                    onClick={() => volunteerForSwap(swap.id)}
                     disabled={isSwapping}
                 >
                     帮他代班
@@ -92,12 +153,20 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
             );
         }
 
-        // 状态为“已应答”且非管理员：显示等待审批
         if (isAccepted) {
             return (
-                <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:bg-amber-950/30">
-                    <Clock className="w-3 h-3 mr-1" />
-                    等待审批
+                <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                    <Clock className="mr-1 h-3 w-3" />
+                    等待管理员审批
+                </Badge>
+            );
+        }
+
+        if (isPending && isTargeted) {
+            return (
+                <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/30 dark:text-sky-400">
+                    <Target className="mr-1 h-3 w-3" />
+                    定向邀请中
                 </Badge>
             );
         }
@@ -113,48 +182,62 @@ export function SwapModal({ dutyManager }: SwapModalProps) {
                     代班大厅...
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[560px]">
                 <DialogHeader>
                     <DialogTitle>代班大厅</DialogTitle>
                     <DialogDescription>
-                        查看并接受大厅中的代班请求，帮助其他成员代替值班。
+                        这里只展示你当前有权限看到的代班请求：公共请求、与你相关的定向请求，以及管理员可审批的请求。
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="pt-4 h-[300px] overflow-y-auto">
-                    {swaps.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-8 text-muted-foreground border border-dashed rounded-lg">
-                            <RefreshCw className="w-8 h-8 opacity-20 mb-2" />
-                            <span className="text-sm">目前大厅里没有任何代班请求</span>
+                <div className="h-[360px] overflow-y-auto pt-4">
+                    {sortedSwaps.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-muted-foreground">
+                            <RefreshCw className="mb-2 h-8 w-8 opacity-20" />
+                            <span className="text-sm">当前没有你可见的代班请求</span>
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {swaps.map(req => {
-                                const isMine = req.requester_id === user?.id;
-                                const isAccepted = req.status === 'accepted';
+                            {sortedSwaps.map((swap) => {
+                                const isMine = swap.requester_id === user?.id;
+                                const isTargeted = Boolean(swap.target_id);
+                                const isAccepted = swap.status === 'accepted';
+
                                 return (
-                                    <div key={req.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
-                                        <div className="flex flex-col">
-                                            <span className="font-medium flex items-center">
-                                                <UserCircle2 className="w-4 h-4 mr-1 text-primary" />
-                                                {req.requester.name} {isMine && '(我)'} 发布的请求
-                                            </span>
-                                            <span className="text-muted-foreground mt-1 flex items-center">
-                                                周{DAYS[req.original_day - 1]} 第{req.original_period}大节
-                                                <ArrowRight className="w-3 h-3 mx-1" />
-                                                {isAccepted
-                                                    ? <span className="text-amber-600 dark:text-amber-400 flex items-center">
-                                                        <CheckCircle2 className="w-3 h-3 mr-0.5" />
-                                                        {req.target?.name} 已应答
-                                                    </span>
-                                                    : `公共代班寻人`}
-                                            </span>
-                                        </div>
-                                        <div>
-                                            {renderActions(req)}
+                                    <div key={swap.id} className="rounded-md border p-3 text-sm">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                            <div className="space-y-1">
+                                                <span className="flex items-center font-medium">
+                                                    <UserCircle2 className="mr-1 h-4 w-4 text-primary" />
+                                                    {swap.requester.name}
+                                                    {isMine && '（我）'}
+                                                </span>
+                                                <span className="mt-1 flex items-center text-muted-foreground">
+                                                    周{DAYS[swap.original_day - 1]} 第{swap.original_period}大节
+                                                    <ArrowRight className="mx-1 h-3 w-3" />
+                                                    {formatSwapStatus(swap)}
+                                                </span>
+                                                <div className="flex flex-wrap gap-1 pt-1">
+                                                    {isAccepted ? (
+                                                        <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                                                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                                                            已应答待审批
+                                                        </Badge>
+                                                    ) : isTargeted ? (
+                                                        <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/30 dark:text-sky-400">
+                                                            <Target className="mr-1 h-3 w-3" />
+                                                            定向请求
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="outline">公共请求</Badge>
+                                                    )}
+                                                    {swap.leave_id && <Badge variant="outline">关联请假</Badge>}
+                                                </div>
+                                            </div>
+                                            <div>{renderActions(swap)}</div>
                                         </div>
                                     </div>
-                                )
+                                );
                             })}
                         </div>
                     )}
