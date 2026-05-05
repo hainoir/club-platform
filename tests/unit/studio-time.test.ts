@@ -6,7 +6,7 @@ import {
     formatDurationMinutes,
     getSemesterStartDateKey,
     summarizeStudioStudySessions,
-} from "../../lib/studio-time.ts"
+} from "../../lib/studio/studio-time.ts"
 
 test("counts a finished session that stays entirely within today", () => {
     const summary = summarizeStudioStudySessions(

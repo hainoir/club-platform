@@ -4,9 +4,9 @@ import {
     DUTY_SIGN_IN_ACTION_COOLDOWN_MS,
     getDutySignInErrorMessage,
     submitDutySignIn,
-} from '@/lib/duty-sign-in';
-import { getDutyNow } from '@/lib/duty-time';
-import { isChinaPublicHoliday } from '@/lib/china-public-holidays';
+} from '@/lib/duty/duty-sign-in';
+import { getDutyNow } from '@/lib/duty/duty-time';
+import { isChinaPublicHoliday } from '@/lib/duty/china-public-holidays';
 
 import type { DutyHookContext } from './types';
 

@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation"
 import { PostgrestError } from "@supabase/supabase-js"
 
-import { useDebounce } from "@/hooks/useDebounce"
+import { useDebounce } from "@/hooks/shared/useDebounce"
 import { useToast } from "@/components/ui/toast-simple"
 import { createClient } from "@/utils/supabase/client"
 import { ensureClientSession } from "@/utils/supabase/ensure-client-session"

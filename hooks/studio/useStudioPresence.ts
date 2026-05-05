@@ -1,21 +1,21 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useToast } from '@/components/ui/toast-simple';
-import { useVisibilitySync } from '@/hooks/useVisibilitySync';
-import { extractErrorMessage, runWithTimeout } from '@/lib/client-request';
-import { isDutyRequiredDate } from '@/lib/china-public-holidays';
-import { resolveCurrentDutyAvailability } from '@/lib/duty-sign-in';
+import { useVisibilitySync } from '@/hooks/shared/useVisibilitySync';
+import { extractErrorMessage, runWithTimeout } from '@/lib/shared/client-request';
+import { isDutyRequiredDate } from '@/lib/duty/china-public-holidays';
+import { resolveCurrentDutyAvailability } from '@/lib/duty/duty-sign-in';
 import {
     getDutyNow,
     getDutyPeriodByMinutes,
     toDutyDateTimeParts,
-} from '@/lib/duty-time';
+} from '@/lib/duty/duty-time';
 import {
     getStudioLocationErrorMessage,
     isStudioLocationValidationFailure,
     STUDIO_LOCATION_ACTION_COOLDOWN_MS,
     validateStudioLocation,
-} from '@/lib/studio-location';
+} from '@/lib/studio/studio-location';
 import { isAdminRole, useUserStore } from '@/store/useUserStore';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { createClient } from '@/utils/supabase/client';

@@ -3,8 +3,8 @@ import { BookOpen, Crown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { StudioStudyLeaderboardEntry } from "@/lib/studio-time"
-import { formatDurationMinutes } from "@/lib/studio-time"
+import type { StudioStudyLeaderboardEntry } from "@/lib/studio/studio-time"
+import { formatDurationMinutes } from "@/lib/studio/studio-time"
 
 interface StudioStudyStatsCardProps {
     todayRanking: StudioStudyLeaderboardEntry[]

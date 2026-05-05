@@ -1,7 +1,7 @@
-import { DutyManagementOverview } from '@/components/duty/DutyManagementOverview';
+import { DutyManagementOverview } from '@/components/duty/overview/DutyManagementOverview';
 import { RosterWithMember } from '@/hooks/useDuty';
-import { getDutyWeekMondayDateKey } from '@/lib/duty-time';
-import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from '@/lib/keyTransferFilters';
+import { getDutyWeekMondayDateKey } from '@/lib/duty/duty-time';
+import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from '@/lib/duty/keyTransferFilters';
 import { createClient } from '@/utils/supabase/server';
 import { resolveAppUser } from '@/utils/supabase/resolve-app-user';
 

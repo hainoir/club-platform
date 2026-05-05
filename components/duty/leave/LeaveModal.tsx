@@ -12,10 +12,10 @@ import { Button } from '@/components/ui/button';
 import { CalendarOff } from 'lucide-react';
 import { useState } from 'react';
 
-import { LeaveAdminReview } from '@/components/duty/LeaveAdminReview';
-import { LeaveApplyForm } from '@/components/duty/LeaveApplyForm';
-import { MyPendingLeavesPanel } from '@/components/duty/MyPendingLeavesPanel';
-import type { SimpleMember } from '@/components/duty/DutyTable';
+import { LeaveAdminReview } from './LeaveAdminReview';
+import { LeaveApplyForm } from './LeaveApplyForm';
+import { MyPendingLeavesPanel } from './MyPendingLeavesPanel';
+import type { SimpleMember } from '@/components/duty/roster/DutyTable';
 import { useDuty } from '@/hooks/useDuty';
 import { isAdminRole, useUserStore } from '@/store/useUserStore';
 

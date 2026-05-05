@@ -5,9 +5,9 @@ import { useMemo } from 'react';
 import { UserCircle2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { formatDutySlot } from '@/components/duty/leave-modal-utils';
+import { formatDutySlot } from './leave-modal-utils';
 import { useDuty } from '@/hooks/useDuty';
-import { filterPendingLeavesWithoutSwap } from '@/lib/duty-leaves';
+import { filterPendingLeavesWithoutSwap } from '@/lib/duty/duty-leaves';
 
 interface LeaveAdminReviewProps {
     dutyManager: ReturnType<typeof useDuty>;

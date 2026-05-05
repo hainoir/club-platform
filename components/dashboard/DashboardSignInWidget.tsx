@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { SignInCard } from "@/components/duty/SignInCard"
+import { SignInCard } from "@/components/duty/attendance/SignInCard"
 import { useToast } from "@/components/ui/toast-simple"
 import {
     DUTY_SIGN_IN_ACTION_COOLDOWN_MS,
@@ -11,7 +11,7 @@ import {
     resolveCurrentDutyAvailability,
     submitDutySignIn,
     type DutyAvailabilityReason,
-} from "@/lib/duty-sign-in"
+} from "@/lib/duty/duty-sign-in"
 import { createClient } from "@/utils/supabase/client"
 import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 

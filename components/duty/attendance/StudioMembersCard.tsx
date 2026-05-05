@@ -3,7 +3,7 @@
 import { BookOpen, Loader2, MapPin, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { useStudioPresence } from '@/hooks/useStudioPresence';
+import { useStudioPresence } from '@/hooks/studio/useStudioPresence';
 import { cn } from '@/lib/utils';
 
 import type { RosterWithMember } from '@/hooks/useDuty';

@@ -9,15 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/toast-simple';
-import type { SimpleMember } from '@/components/duty/DutyTable';
+import type { SimpleMember } from '@/components/duty/roster/DutyTable';
 import {
     formatCompensationSlotLabel,
     formatDutySlot,
     getCompensationSlotKey,
     getDutySlotKey,
-} from '@/components/duty/leave-modal-utils';
+} from './leave-modal-utils';
 import { useDuty } from '@/hooks/useDuty';
-import { listCompensationSlotsForDuty, type DutyCompensationSlot } from '@/lib/duty-time';
+import { listCompensationSlotsForDuty, type DutyCompensationSlot } from '@/lib/duty/duty-time';
 import { cn } from '@/lib/utils';
 
 interface LeaveApplyFormProps {

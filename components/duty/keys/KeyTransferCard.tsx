@@ -4,11 +4,11 @@ import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Key, ArrowRight, Check, Send, ChevronDown, Search, Clock } from 'lucide-react';
 import { useDuty } from '@/hooks/useDuty';
-import { useVisibilitySync } from '@/hooks/useVisibilitySync';
+import { useVisibilitySync } from '@/hooks/shared/useVisibilitySync';
 import { useUserStore } from '@/store/useUserStore';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { SimpleMember } from '@/components/duty/DutyTable';
+import { SimpleMember } from '@/components/duty/roster/DutyTable';
 import {
     Popover,
     PopoverContent,

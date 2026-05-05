@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import {
     formatDutySlot,
     formatPendingLeaveState,
-} from '@/components/duty/leave-modal-utils';
+} from './leave-modal-utils';
 import { useDuty } from '@/hooks/useDuty';
 
 interface MyPendingLeavesPanelProps {

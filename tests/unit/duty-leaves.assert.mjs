@@ -5,7 +5,7 @@ import {
     filterPendingLeavesWithoutSwap,
     filterRostersForDutyAvailability,
     getDutyLeaveSlotKey,
-} from '../../lib/duty-leaves.ts'
+} from '../../lib/duty/duty-leaves.ts'
 
 assert.equal(getDutyLeaveSlotKey('member-1', 2, 3), 'member-1-2-3')
 

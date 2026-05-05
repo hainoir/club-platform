@@ -16,7 +16,7 @@ import {
     Trash2,
 } from "lucide-react"
 
-import { useMembers, type MemberSortConfig, type MemberSortKey } from "@/hooks/useMembers"
+import { useMembers, type MemberSortConfig, type MemberSortKey } from "@/hooks/members/useMembers"
 import { cn } from "@/lib/utils"
 import { isAdminRole, useUserStore } from "@/store/useUserStore"
 import { MemberModal } from "@/components/members/MemberModal"

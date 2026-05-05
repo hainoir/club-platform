@@ -3,13 +3,13 @@
 import React, { useEffect } from 'react';
 import { Loader2, RefreshCw, KeyRound } from 'lucide-react';
 
-import { StudioMembersCard } from '@/components/duty/AttendancePanels';
-import { DutyTable, SimpleMember } from '@/components/duty/DutyTable';
-import { LeaveModal } from '@/components/duty/LeaveModal';
-import { SwapModal } from '@/components/duty/SwapModal';
+import { StudioMembersCard } from '@/components/duty/attendance/AttendancePanels';
+import { DutyTable, SimpleMember } from '@/components/duty/roster/DutyTable';
+import { LeaveModal } from '@/components/duty/leave/LeaveModal';
+import { SwapModal } from '@/components/duty/swaps/SwapModal';
 import { Button } from '@/components/ui/button';
 import { useDuty, RosterWithMember } from '@/hooks/useDuty';
-import { filterRostersForDutyAvailability } from '@/lib/duty-leaves';
+import { filterRostersForDutyAvailability } from '@/lib/duty/duty-leaves';
 import { isAdminRole, useUserStore } from '@/store/useUserStore';
 
 interface DutyClientProps {

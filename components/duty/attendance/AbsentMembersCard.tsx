@@ -4,17 +4,17 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { AlertTriangle } from 'lucide-react';
 
-import { useVisibilitySync } from '@/hooks/useVisibilitySync';
-import { extractErrorMessage, runWithTimeout } from '@/lib/client-request';
+import { useVisibilitySync } from '@/hooks/shared/useVisibilitySync';
+import { extractErrorMessage, runWithTimeout } from '@/lib/shared/client-request';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { createClient } from '@/utils/supabase/client';
-import { isDutyRequiredDate } from '@/lib/china-public-holidays';
+import { isDutyRequiredDate } from '@/lib/duty/china-public-holidays';
 import {
     addDaysToDateKey,
     getDutyNow,
     getDutyWeekMondayDateKey,
     resolveDutySignInSlot,
-} from '@/lib/duty-time';
+} from '@/lib/duty/duty-time';
 
 import type { RosterWithMember } from '@/hooks/useDuty';
 

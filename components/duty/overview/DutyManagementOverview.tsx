@@ -3,19 +3,19 @@ import { zhCN } from "date-fns/locale"
 import { CheckCircle2, Clock3, KeyRound, ListChecks, TriangleAlert } from "lucide-react"
 
 import { WeeklyProgressCard } from "@/components/dashboard/WeeklyProgressCard"
-import { AbsentMembersCard } from "@/components/duty/AttendancePanels"
+import { AbsentMembersCard } from "@/components/duty/attendance/AttendancePanels"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { RosterWithMember } from "@/hooks/useDuty"
-import { filterRostersForDutyAvailability } from "@/lib/duty-leaves"
-import { isDutyRequiredDate } from "@/lib/china-public-holidays"
+import { filterRostersForDutyAvailability } from "@/lib/duty/duty-leaves"
+import { isDutyRequiredDate } from "@/lib/duty/china-public-holidays"
 import {
     addDaysToDateKey,
     getDutyNow,
     getDutyPeriodEndMinutes,
     getDutyWeekMondayDateKey,
     resolveDutySignInSlot,
-} from "@/lib/duty-time"
+} from "@/lib/duty/duty-time"
 
 const PERIODS: ReadonlyArray<{ id: number; label: string; start: string; end: string }> = [
     { id: 1, label: "第一节", start: "08:00", end: "09:35" },

@@ -10,7 +10,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { StudioMembersCard } from "@/components/duty/AttendancePanels"
+import { StudioMembersCard } from "@/components/duty/attendance/AttendancePanels"
 import { DashboardDutyActions } from "@/components/dashboard/DashboardDutyActions"
 import { DashboardSignInWidget } from "@/components/dashboard/DashboardSignInWidget"
 import { StudioStudyStatsCard } from "@/components/dashboard/StudioStudyStatsCard"
@@ -18,10 +18,10 @@ import {
     getDutyNow,
     getNextDutySlotDateKey,
     resolveDutySignInSlot,
-} from "@/lib/duty-time"
-import { filterRostersForDutyAvailability } from "@/lib/duty-leaves"
-import { isDutyRequiredDate } from "@/lib/china-public-holidays"
-import { buildStudioStudyLeaderboard } from "@/lib/studio-time"
+} from "@/lib/duty/duty-time"
+import { filterRostersForDutyAvailability } from "@/lib/duty/duty-leaves"
+import { isDutyRequiredDate } from "@/lib/duty/china-public-holidays"
+import { buildStudioStudyLeaderboard } from "@/lib/studio/studio-time"
 import { createClient } from "@/utils/supabase/server"
 import { resolveAppUser } from "@/utils/supabase/resolve-app-user"
 import type { RosterWithMember } from "@/hooks/useDuty"

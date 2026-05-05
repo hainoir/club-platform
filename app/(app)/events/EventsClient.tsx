@@ -5,7 +5,7 @@ import { useUserStore, isAdminRole } from "@/store/useUserStore"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
-import { useEvents } from "@/hooks/useEvents"
+import { useEvents } from "@/hooks/events/useEvents"
 import { EventCard } from "@/components/events/EventCard"
 import { EventModal } from "@/components/events/EventModal"
 import { AttendeesModal } from "@/components/events/AttendeesModal"

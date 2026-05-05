@@ -1,4 +1,4 @@
-﻿import { DUTY_TIME_ZONE, getDutyWeekMondayDateKey } from "./duty-time.ts"
+import { DUTY_TIME_ZONE, getDutyWeekMondayDateKey } from "../duty/duty-time.ts"
 
 export interface StudioSessionLike {
     member_id: string

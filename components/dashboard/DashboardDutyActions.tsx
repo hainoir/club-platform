@@ -3,10 +3,10 @@
 import * as React from "react"
 import { ClipboardList } from "lucide-react"
 
-import { KeyTransferCard } from "@/components/duty/KeyTransferCard"
-import { LeaveModal } from "@/components/duty/LeaveModal"
-import { SimpleMember } from "@/components/duty/DutyTable"
-import { SwapModal } from "@/components/duty/SwapModal"
+import { KeyTransferCard } from "@/components/duty/keys/KeyTransferCard"
+import { LeaveModal } from "@/components/duty/leave/LeaveModal"
+import { SimpleMember } from "@/components/duty/roster/DutyTable"
+import { SwapModal } from "@/components/duty/swaps/SwapModal"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RosterWithMember, useDuty } from "@/hooks/useDuty"
 

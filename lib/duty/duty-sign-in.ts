@@ -4,7 +4,7 @@ import {
     getStudioLocationErrorMessage,
     isStudioLocationValidationFailure,
     validateStudioLocation,
-} from "./studio-location.ts"
+} from "../studio/studio-location.ts"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 

@@ -6,7 +6,7 @@ import { useDutyLeaves } from '@/hooks/duty/useDutyLeaves';
 import { useDutyRosters } from '@/hooks/duty/useDutyRosters';
 import { useDutySignIn } from '@/hooks/duty/useDutySignIn';
 import { useDutySwaps } from '@/hooks/duty/useDutySwaps';
-import { useVisibilitySync } from '@/hooks/useVisibilitySync';
+import { useVisibilitySync } from '@/hooks/shared/useVisibilitySync';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { createClient } from '@/utils/supabase/client';
 import { useUserStore } from '@/store/useUserStore';

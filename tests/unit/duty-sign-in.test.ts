@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { resolveCurrentDutyAvailability } from "../../lib/duty-sign-in.ts"
+import { resolveCurrentDutyAvailability } from "../../lib/duty/duty-sign-in.ts"
 
 function withTimeZone<T>(tz: string, fn: () => T): T {
     const previous = process.env.TZ

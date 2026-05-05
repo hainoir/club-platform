@@ -9,8 +9,8 @@ import {
     listCompensationSlotsForDuty,
     resolveDutySignInSlot,
     toDutyDateTimeParts,
-} from '../../lib/duty-time.ts'
-import { isDutyRequiredDate } from '../../lib/china-public-holidays.ts'
+} from '../../lib/duty/duty-time.ts'
+import { isDutyRequiredDate } from '../../lib/duty/china-public-holidays.ts'
 
 const FIXED_SIGN_IN_UTC = '2026-03-24T07:38:00.000Z'
 

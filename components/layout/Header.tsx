@@ -20,7 +20,7 @@ import { appNavigation } from "@/components/layout/navigation"
 import { cn } from "@/lib/utils"
 import { useUserStore } from "@/store/useUserStore"
 import { createClient } from "@/utils/supabase/client"
-import { NotificationLevel, useNotifications } from "@/hooks/useNotifications"
+import { NotificationLevel, useNotifications } from "@/hooks/notifications/useNotifications"
 
 function getLevelClass(level: NotificationLevel): string {
     if (level === "critical") return "bg-destructive"

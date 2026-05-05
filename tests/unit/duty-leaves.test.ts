@@ -6,7 +6,7 @@ import {
     filterPendingLeavesWithoutSwap,
     filterRostersForDutyAvailability,
     getDutyLeaveSlotKey,
-} from '../../lib/duty-leaves.ts'
+} from '../../lib/duty/duty-leaves.ts'
 
 test('approved leave slots are keyed by member, day, and period', () => {
     assert.equal(getDutyLeaveSlotKey('member-1', 2, 3), 'member-1-2-3')

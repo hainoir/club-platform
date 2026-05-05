@@ -1,4 +1,4 @@
-import type { DutyCompensationSlot } from '@/lib/duty-time';
+import type { DutyCompensationSlot } from '@/lib/duty/duty-time';
 
 const DAYS = ['一', '二', '三', '四', '五'];
 

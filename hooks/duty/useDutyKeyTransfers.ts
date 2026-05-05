@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from '@/lib/keyTransferFilters';
+import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from '@/lib/duty/keyTransferFilters';
 
 import {
     type DutyHookContext,
