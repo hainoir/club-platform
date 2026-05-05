@@ -22,7 +22,7 @@ test('dashboard sign-in entry is visible', async ({ page }) => {
     }
 
     const signInButton = page.getByRole('button', {
-        name: /立即验证定位并签到|当前不在班次时间内|您未被安排在当前班次|正在雷达探距与验证/
+        name: /立即验证定位并签到|当前不在班次时间内|您未被安排在当前班次|公共假日无需值班|正在雷达探距与验证/
     }).first()
 
     await expect(signInButton).toBeVisible()

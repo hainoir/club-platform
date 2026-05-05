@@ -5,65 +5,21 @@ import * as React from "react"
 import { SignInCard } from "@/components/duty/SignInCard"
 import { useToast } from "@/components/ui/toast-simple"
 import {
+    DUTY_SIGN_IN_ACTION_COOLDOWN_MS,
     DUTY_SIGN_IN_PERIOD_RANGES,
+    getDutySignInErrorMessage,
     resolveCurrentDutyAvailability,
+    submitDutySignIn,
     type DutyAvailabilityReason,
 } from "@/lib/duty-sign-in"
-import { getCurrentPositionWithFallback, getLocationErrorReason } from "@/lib/geolocation"
 import { createClient } from "@/utils/supabase/client"
+import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 
 /**
  * 【学习注释：仪表盘签到入口的客户端职责】
  * 这个组件同时依赖当前时间、今日排班、浏览器定位和数据库写入，天然属于 Client Component。
  * 把它从首页服务端组件里拆出来后，数据聚合和强交互逻辑的边界会更清晰。
  */
-const DEFAULT_STUDIO_COORDS = {
-    lat: 39.181074,
-    lng: 117.12138,
-}
-
-const DEFAULT_MAX_VALID_RADIUS_METERS = 50
-const DEFAULT_MAX_GEO_ACCURACY_METERS = 100
-const SIGN_IN_ATTEMPT_COOLDOWN_MS = 5000
-
-// 【学习注释：签到阈值允许被环境变量覆盖】
-// 这样切换校区、测试环境或容忍范围时，不需要改组件逻辑本身。
-function parseClientNumber(value: string | undefined, fallback: number): number {
-    if (!value) return fallback
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : fallback
-}
-
-const STUDIO_COORDS = {
-    lat: parseClientNumber(process.env.NEXT_PUBLIC_STUDIO_LAT, DEFAULT_STUDIO_COORDS.lat),
-    lng: parseClientNumber(process.env.NEXT_PUBLIC_STUDIO_LNG, DEFAULT_STUDIO_COORDS.lng),
-}
-
-const MAX_VALID_RADIUS_METERS = parseClientNumber(
-    process.env.NEXT_PUBLIC_STUDIO_RADIUS_METERS,
-    DEFAULT_MAX_VALID_RADIUS_METERS
-)
-const MAX_GEO_ACCURACY_METERS = parseClientNumber(
-    process.env.NEXT_PUBLIC_STUDIO_MAX_GEO_ACCURACY_METERS,
-    DEFAULT_MAX_GEO_ACCURACY_METERS
-)
-
-// 【学习注释：哈弗辛公式算距】
-// 浏览器定位拿到的是经纬度，是否允许签到要靠真实地表距离，而不是简单比较经纬度差值。
-function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number) {
-    const R = 6371e3
-    const p1 = (lat1 * Math.PI) / 180
-    const p2 = (lat2 * Math.PI) / 180
-    const deltaP = p2 - p1
-    const deltaLon = lon2 - lon1
-    const deltaLambda = (deltaLon * Math.PI) / 180
-    const a =
-        Math.sin(deltaP / 2) * Math.sin(deltaP / 2) +
-        Math.cos(p1) * Math.cos(p2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c
-}
-
 type DisabledReason = DutyAvailabilityReason
 
 interface DashboardSignInWidgetProps {
@@ -107,13 +63,13 @@ export function DashboardSignInWidget({
     // 【学习注释：签到写入前的三层防线】
     // 先做点击节流，再查当天是否已签到，最后才进入定位与写库流程。
     // 这种顺序能把最便宜的失败尽量前置，减少无意义的定位请求和数据库压力。
-    const onSignIn = React.useCallback(() => {
+    const onSignIn = React.useCallback(async () => {
         if (isSigningIn) return
 
         const nowTs = Date.now()
         const elapsed = nowTs - lastSignInAttemptAtRef.current
-        if (elapsed < SIGN_IN_ATTEMPT_COOLDOWN_MS) {
-            const waitSeconds = Math.max(1, Math.ceil((SIGN_IN_ATTEMPT_COOLDOWN_MS - elapsed) / 1000))
+        if (elapsed < DUTY_SIGN_IN_ACTION_COOLDOWN_MS) {
+            const waitSeconds = Math.max(1, Math.ceil((DUTY_SIGN_IN_ACTION_COOLDOWN_MS - elapsed) / 1000))
             toast({
                 title: "请求过于频繁",
                 description: `请等待 ${waitSeconds} 秒后再尝试签到。`,
@@ -133,140 +89,50 @@ export function DashboardSignInWidget({
             return
         }
 
-        if (!navigator.geolocation) {
-            toast({ title: "当前设备不支持定位", description: "请使用支持定位的浏览器后重试。", variant: "destructive" })
-            return
-        }
-
         setIsSigningIn(true)
-
-        let completed = false
-        const finishSignIn = () => {
-            if (completed) return false
-            completed = true
-            setIsSigningIn(false)
-            return true
-        }
-
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-
-        const preCheckAndSignIn = async () => {
+        try {
             // 【学习注释：写操作前先确认 session 还有足够寿命】
             // 否则定位成功后才发现 token 过期，会把用户体验变成“看起来能点，提交时失败”。
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session) {
-                const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-                if (expiresAt < Date.now() + 60000) {
-                    await supabase.auth.refreshSession();
-                }
-            }
-
+            let activeSession = false
             try {
-                const { data: existingLogs, error: existingError } = await supabase
-                    .from("duty_logs")
-                    .select("id")
-                    .eq("member_id", memberId)
-                    .gte("sign_in_time", today.toISOString())
-                    .limit(1)
-
-                if (!existingError && !!existingLogs && existingLogs.length > 0) {
-                    setHasSignedInToday(true)
-                    toast({ title: "今日已签到", description: "您今天已有签到记录，无需重复签到。" })
-                    finishSignIn()
-                    return
-                }
-            } catch (error) {
-                console.warn("Failed to pre-check duty logs:", error)
+                activeSession = !!(await ensureClientSession(supabase))
+            } catch (sessionError) {
+                console.warn("Failed to recover auth session before dashboard duty sign-in:", sessionError)
             }
 
-            let position: GeolocationPosition
-            try {
-                position = await getCurrentPositionWithFallback()
-            } catch (geoError) {
-                if (completed) return
-
-                let description = "定位失败，请检查权限后重试。"
-                const reason = getLocationErrorReason(geoError)
-
-                if (reason === "permission_denied") description = "定位权限被拒绝，无法进行签到。"
-                if (reason === "position_unavailable") description = "无法获取定位信息，请检查设备定位服务。"
-                if (reason === "timeout") description = "定位请求超时，请稍后重试。"
-                if (reason === "not_supported") description = "当前设备或浏览器不支持定位。"
-                if (reason === "insecure_context") description = "请使用 HTTPS 或 localhost 访问后再试。"
-
-                toast({ title: "签到失败", description, variant: "destructive" })
-                finishSignIn()
-                return
-            }
-
-            if (!position || !position.coords) {
+            if (!activeSession) {
                 toast({
-                    title: "定位数据异常",
-                    description: "未获取到有效定位信息，请检查设备定位服务后重试。",
+                    title: "登录状态已失效",
+                    description: "请重新登录后再进行值班签到。",
                     variant: "destructive",
                 })
-                finishSignIn()
                 return
             }
 
-            const latitude = Number(position.coords.latitude)
-            const longitude = Number(position.coords.longitude)
+            const result = await submitDutySignIn({
+                supabase,
+                memberId,
+                deviceInfo: window.navigator.userAgent,
+            })
 
-            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-                toast({
-                    title: "签到失败",
-                    description: "定位坐标无效，请稍后重试。",
-                    variant: "destructive",
-                })
-                finishSignIn()
-                return
-            }
-
-            const distance = getDistanceFromLatLonInM(latitude, longitude, STUDIO_COORDS.lat, STUDIO_COORDS.lng)
-
-            // 【学习注释：定位防作弊】
-            // 只有坐标合法且落在允许半径内才允许写入签到记录，避免把远程打开页面也记成到场。
-            if (distance > MAX_VALID_RADIUS_METERS) {
-                toast({
-                    title: "签到失败",
-                    description: `当前位置距离工作室约 ${Math.round(distance)} 米，超出允许范围。`,
-                    variant: "destructive",
-                })
-                finishSignIn()
-                return
-            }
-
-            try {
-                const { error } = await supabase.from("duty_logs").insert({
-                    member_id: memberId,
-                    location_verified: true,
-                    device_info: window.navigator.userAgent,
-                })
-
-                if (error) throw error
-
+            if (result === "already_signed_in") {
                 setHasSignedInToday(true)
-                refreshSignInState()
-                toast({ title: "签到成功", description: "已完成位置验证并记录到值班考勤。" })
-            } catch (error: unknown) {
-                const typedError = error as { code?: string; message?: string }
-                if (typedError?.code === "23505") {
-                    setHasSignedInToday(true)
-                    toast({ title: "今日已签到", description: "检测到重复签到请求，系统已自动拦截。" })
-                } else {
-                    toast({
-                        title: "签到失败",
-                        description: typedError?.message || "无法写入签到记录，请稍后重试。",
-                        variant: "destructive",
-                    })
-                }
-            } finally {
-                finishSignIn()
+                toast({ title: "今日已签到", description: "您今天已有签到记录，无需重复签到。" })
+                return
             }
-        }
 
-        void preCheckAndSignIn()
+            setHasSignedInToday(true)
+            refreshSignInState()
+            toast({ title: "签到成功", description: "已完成位置验证并记录到值班考勤。" })
+        } catch (error) {
+            toast({
+                title: "签到失败",
+                description: getDutySignInErrorMessage(error),
+                variant: "destructive",
+            })
+        } finally {
+            setIsSigningIn(false)
+        }
     }, [hasSignedInToday, isSigningIn, memberId, refreshSignInState, supabase, toast])
 
     return (

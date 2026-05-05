@@ -2,7 +2,7 @@ import {
     getCurrentPositionWithFallback,
     getLocationErrorReason,
     type LocationErrorReason,
-} from "@/lib/geolocation"
+} from "./geolocation.ts"
 
 const DEFAULT_STUDIO_COORDS = {
     lat: 39.181074,
