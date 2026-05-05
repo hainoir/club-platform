@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation"
 import { PostgrestError } from "@supabase/supabase-js"
 
 import { useToast } from "@/components/ui/toast-simple"
-import { createClient } from "@/utils/supabase/client"
+import { useSupabase } from "@/hooks/shared/useSupabase"
 import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 import type { Member } from "@/app/members/MembersClient"
 
@@ -11,7 +11,7 @@ type OptimisticAction = { action: "delete"; payload: string } | { action: "add" 
 
 export function useMemberCrud(initialMembers: Member[]) {
     const router = useRouter()
-    const supabase = createClient()
+    const supabase = useSupabase()
     const { toast } = useToast()
 
     const [members, setMembers] = React.useState<Member[]>(initialMembers)

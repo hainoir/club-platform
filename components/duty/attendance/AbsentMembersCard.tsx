@@ -4,10 +4,10 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { AlertTriangle } from 'lucide-react';
 
+import { useSupabase, type SupabaseBrowserClient } from '@/hooks/shared/useSupabase';
 import { useVisibilitySync } from '@/hooks/shared/useVisibilitySync';
 import { extractErrorMessage, runWithTimeout } from '@/lib/shared/client-request';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
-import { createClient } from '@/utils/supabase/client';
 import { isDutyRequiredDate } from '@/lib/duty/china-public-holidays';
 import {
     addDaysToDateKey,
@@ -38,7 +38,7 @@ function isPeriodPast(dateKey: string, period: number): boolean {
     return now.minutes >= endH * 60 + endM;
 }
 
-async function ensureSession(supabase: ReturnType<typeof createClient>): Promise<boolean> {
+async function ensureSession(supabase: SupabaseBrowserClient): Promise<boolean> {
     return !!(await ensureClientSession(supabase));
 }
 
@@ -47,7 +47,7 @@ interface AbsentMembersCardProps {
 }
 
 export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
-    const supabase = useMemo(() => createClient(), []);
+    const supabase = useSupabase();
     const [signedSlotKeys, setSignedSlotKeys] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);

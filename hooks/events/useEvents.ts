@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/utils/supabase/client"
+import { useSupabase } from "@/hooks/shared/useSupabase"
 import { useUserStore } from "@/store/useUserStore"
 import { format } from "date-fns"
 import { PostgrestError } from "@supabase/supabase-js"
@@ -10,7 +10,7 @@ import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 
 export function useEvents(initialEvents: Event[]) {
     const router = useRouter()
-    const supabase = createClient()
+    const supabase = useSupabase()
     const { user } = useUserStore()
     const { toast } = useToast()
 

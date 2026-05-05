@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useToast } from '@/components/ui/toast-simple';
+import { useSupabase, type SupabaseBrowserClient } from '@/hooks/shared/useSupabase';
 import { useVisibilitySync } from '@/hooks/shared/useVisibilitySync';
 import { extractErrorMessage, runWithTimeout } from '@/lib/shared/client-request';
 import { isDutyRequiredDate } from '@/lib/duty/china-public-holidays';
@@ -18,7 +19,6 @@ import {
 } from '@/lib/studio/studio-location';
 import { isAdminRole, useUserStore } from '@/store/useUserStore';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
-import { createClient } from '@/utils/supabase/client';
 
 import type { RosterWithMember } from '@/hooks/useDuty';
 
@@ -38,7 +38,7 @@ function getMatchedPeriod(minutes: number): number {
     return getDutyPeriodByMinutes(minutes);
 }
 
-async function ensureSession(supabase: ReturnType<typeof createClient>): Promise<boolean> {
+async function ensureSession(supabase: SupabaseBrowserClient): Promise<boolean> {
     return !!(await ensureClientSession(supabase));
 }
 
@@ -69,7 +69,7 @@ export function useStudioPresence({
     rosters,
     allowAdminDeleteStudy = true,
 }: UseStudioPresenceOptions) {
-    const supabase = useMemo(() => createClient(), []);
+    const supabase = useSupabase();
     const { user } = useUserStore();
     const { toast } = useToast();
     const [studioMembers, setStudioMembers] = useState<StudioMember[]>([]);

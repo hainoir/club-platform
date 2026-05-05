@@ -4,10 +4,10 @@ import * as React from "react"
 import { useTheme } from "next-themes"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useSupabase } from "@/hooks/shared/useSupabase"
 import { useToast } from "@/components/ui/toast-simple"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
 import { useUserStore } from "@/store/useUserStore"
-import { createClient } from "@/utils/supabase/client"
 
 import { AppearanceTab } from "./AppearanceTab"
 import { NotificationTab } from "./NotificationTab"
@@ -19,7 +19,7 @@ export type { SettingsProfile } from "./settings-types"
 
 export default function SettingsClient({ profile }: { profile: SettingsProfile | null }) {
     const { theme, setTheme } = useTheme()
-    const supabase = React.useMemo(() => createClient(), [])
+    const supabase = useSupabase()
     const { toast } = useToast()
     const currentUser = useUserStore((s) => s.user)
     const setUser = useUserStore((s) => s.setUser)

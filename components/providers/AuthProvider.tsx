@@ -1,9 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { useSupabase } from "@/hooks/shared/useSupabase"
 import { areAppUsersEqual } from "@/lib/app-user"
 import { useUserStore } from "@/store/useUserStore"
-import { createClient } from "@/utils/supabase/client"
 import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 import { resolveAppUser } from "@/utils/supabase/resolve-app-user"
 
@@ -42,7 +42,7 @@ async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label: string
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const setUser = useUserStore((state) => state.setUser)
     const setInitialized = useUserStore((state) => state.setInitialized)
-    const supabase = React.useMemo(() => createClient(), [])
+    const supabase = useSupabase()
     const initAuthPromiseRef = React.useRef<Promise<void> | null>(null)
 
     const initAuth = React.useCallback(() => {

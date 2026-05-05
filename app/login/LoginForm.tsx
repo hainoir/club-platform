@@ -3,7 +3,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
-import { createClient } from "@/utils/supabase/client"
+import { useSupabase } from "@/hooks/shared/useSupabase"
 import { DEPARTMENT_OPTIONS, GRADE_OPTIONS, normalizeDepartmentValue, normalizeGradeValue } from "@/utils/profile-fields"
 import { DEFAULT_MEMBER_ROLE, isAdminRole, normalizeUserRole, useUserStore } from "@/store/useUserStore"
 import { useToast } from "@/components/ui/toast-simple"
@@ -30,7 +30,7 @@ function getPostLoginHref(role: string | null | undefined): "/" | "/duty" {
  */
 export default function LoginForm() {
     const router = useRouter()
-    const supabase = React.useMemo(() => createClient(), [])
+    const supabase = useSupabase()
     const { toast } = useToast()
     const { setUser } = useUserStore()
 

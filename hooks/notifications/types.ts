@@ -1,5 +1,5 @@
 import type { AppUser } from "@/lib/app-user"
-import type { createClient } from "@/utils/supabase/client"
+import type { SupabaseBrowserClient } from "@/hooks/shared/useSupabase"
 
 export type NotificationLevel = "info" | "warning" | "critical"
 
@@ -13,7 +13,7 @@ export interface AppNotification {
 }
 
 export interface NotificationSourceContext {
-    supabase: ReturnType<typeof createClient>
+    supabase: SupabaseBrowserClient
     user: AppUser
     isAdmin: boolean
     now: Date

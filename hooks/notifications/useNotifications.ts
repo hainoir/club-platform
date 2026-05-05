@@ -4,7 +4,7 @@ import * as React from "react"
 
 import { isAdminRole, useUserStore } from "@/store/useUserStore"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
-import { createClient } from "@/utils/supabase/client"
+import { useSupabase } from "@/hooks/shared/useSupabase"
 
 import { parseStoredIds, sortNotifications } from "./notification-utils"
 import { getDutyScheduleNotifications } from "./sources/dutySchedule"
@@ -26,7 +26,7 @@ const NOTIFICATION_SOURCES: NotificationSource[] = [
 ]
 
 export function useNotifications() {
-    const supabase = React.useMemo(() => createClient(), [])
+    const supabase = useSupabase()
     const { user } = useUserStore()
 
     const { dutyReminder, eventReminder, keyTransferReminder, markReadOnOpen } = usePreferencesStore((s) => s.notifications)

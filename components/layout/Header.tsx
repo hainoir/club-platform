@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { appNavigation } from "@/components/layout/navigation"
+import { useSupabase } from "@/hooks/shared/useSupabase"
 import { cn } from "@/lib/utils"
 import { useUserStore } from "@/store/useUserStore"
-import { createClient } from "@/utils/supabase/client"
 import { NotificationLevel, useNotifications } from "@/hooks/notifications/useNotifications"
 
 function getLevelClass(level: NotificationLevel): string {
@@ -44,7 +44,7 @@ export function Header({ className }: { className?: string }) {
     const { setTheme, theme } = useTheme()
     const pathname = usePathname()
     const router = useRouter()
-    const supabase = React.useMemo(() => createClient(), [])
+    const supabase = useSupabase()
     const { user, logout } = useUserStore()
 
     const {

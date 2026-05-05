@@ -12,7 +12,7 @@ import {
     submitDutySignIn,
     type DutyAvailabilityReason,
 } from "@/lib/duty/duty-sign-in"
-import { createClient } from "@/utils/supabase/client"
+import { useSupabase } from "@/hooks/shared/useSupabase"
 import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 
 /**
@@ -33,7 +33,7 @@ export function DashboardSignInWidget({
     todayAssignedPeriods,
     initialHasSignedInToday,
 }: DashboardSignInWidgetProps) {
-    const supabase = React.useMemo(() => createClient(), [])
+    const supabase = useSupabase()
     const { toast } = useToast()
     const [isSigningIn, setIsSigningIn] = React.useState(false)
     const [hasSignedInToday, setHasSignedInToday] = React.useState(initialHasSignedInToday)

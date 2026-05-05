@@ -1,4 +1,4 @@
-import type { createClient } from "@/utils/supabase/client"
+import type { SupabaseBrowserClient } from "@/hooks/shared/useSupabase"
 
 export interface SettingsProfile {
     id: string
@@ -14,4 +14,4 @@ export const TAB_VALUES = ["notifications", "interface", "account", "security"] 
 
 export type TabValue = (typeof TAB_VALUES)[number]
 
-export type SettingsSupabaseClient = ReturnType<typeof createClient>
+export type SettingsSupabaseClient = SupabaseBrowserClient

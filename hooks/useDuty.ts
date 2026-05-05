@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useToast } from '@/components/ui/toast-simple';
 import { useDutyKeyTransfers } from '@/hooks/duty/useDutyKeyTransfers';
@@ -6,9 +6,9 @@ import { useDutyLeaves } from '@/hooks/duty/useDutyLeaves';
 import { useDutyRosters } from '@/hooks/duty/useDutyRosters';
 import { useDutySignIn } from '@/hooks/duty/useDutySignIn';
 import { useDutySwaps } from '@/hooks/duty/useDutySwaps';
+import { useSupabase } from '@/hooks/shared/useSupabase';
 import { useVisibilitySync } from '@/hooks/shared/useVisibilitySync';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
-import { createClient } from '@/utils/supabase/client';
 import { useUserStore } from '@/store/useUserStore';
 
 import type { RefreshCallback, RosterWithMember } from '@/hooks/duty/types';
@@ -28,7 +28,7 @@ export type {
 export function useDuty(initialRosters: RosterWithMember[]) {
     const { toast } = useToast();
     const { user, setUser } = useUserStore();
-    const supabase = useMemo(() => createClient(), []);
+    const supabase = useSupabase();
 
     // swaps/leaves 之间需要互相触发刷新，ref 可以避免子 Hook 直接形成循环依赖。
     const refreshSwapsRef = useRef<RefreshCallback>(() => undefined);

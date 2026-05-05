@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
-import { createClient } from "@/utils/supabase/client"
+import { useSupabase } from "@/hooks/shared/useSupabase"
 import { useToast } from "@/components/ui/toast-simple"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -41,7 +41,7 @@ function clearRecoveryParamsFromUrl() {
 
 export default function ResetPasswordForm() {
     const router = useRouter()
-    const supabase = React.useMemo(() => createClient(), [])
+    const supabase = useSupabase()
     const { toast } = useToast()
 
     const [newPassword, setNewPassword] = React.useState("")
