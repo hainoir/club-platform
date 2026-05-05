@@ -4,6 +4,8 @@ import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { Database } from '@/types/supabase';
 import { useToast } from '@/components/ui/toast-simple';
 import { getCurrentPositionWithFallback, getLocationErrorReason } from '@/lib/geolocation';
+import { isChinaPublicHoliday } from '@/lib/china-public-holidays';
+import { getDutyNow } from '@/lib/duty-time';
 import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from '@/lib/keyTransferFilters';
 import { useUserStore, isAdminRole } from '@/store/useUserStore';
 
@@ -260,6 +262,15 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     const performSignIn = useCallback(async () => {
         if (!user) return;
         if (isSigningIn) return;
+
+        const dutyNow = getDutyNow();
+        if (isChinaPublicHoliday(dutyNow.dateKey)) {
+            toast({
+                title: '公共假日无需值班',
+                description: '今日为中国公共假日，系统不会记录值班签到。',
+            });
+            return;
+        }
 
         const nowTs = Date.now();
         const elapsed = nowTs - lastSignInAttemptAtRef.current;

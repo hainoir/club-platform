@@ -1,3 +1,5 @@
+import { isDutyRequiredDate } from "./china-public-holidays.ts"
+
 export const DUTY_TIME_ZONE = "Asia/Shanghai"
 
 const TIME_PARTS_FORMATTER_LOCALE = "en-US"
@@ -174,11 +176,16 @@ export function getNextDutySlotDateKey(
     input: Date | string | number = new Date(),
     timeZone = DUTY_TIME_ZONE
 ): string {
+    if (dayOfWeek < 1 || dayOfWeek > 5) {
+        throw new Error(`Invalid duty day: ${dayOfWeek}`)
+    }
+
     const nowParts = toDutyDateTimeParts(input, timeZone)
     const currentWeekMondayDateKey = getDutyWeekMondayDateKey(input, timeZone)
     let slotDateKey = addDaysToDateKey(currentWeekMondayDateKey, dayOfWeek - 1)
 
-    if (
+    while (
+        !isDutyRequiredDate(slotDateKey) ||
         slotDateKey < nowParts.dateKey ||
         (slotDateKey === nowParts.dateKey && nowParts.minutes > getDutyPeriodEndMinutes(period))
     ) {
@@ -201,6 +208,8 @@ export function listCompensationSlotsForDuty(
 
     for (let currentDay = dayOfWeek; currentDay <= 5; currentDay += 1) {
         const dateKey = addDaysToDateKey(leaveWeekMondayDateKey, currentDay - 1)
+        if (!isDutyRequiredDate(dateKey)) continue
+
         for (let currentPeriod = 1; currentPeriod <= 4; currentPeriod += 1) {
             if (currentDay === dayOfWeek && currentPeriod <= period) continue
             slots.push({
@@ -214,6 +223,8 @@ export function listCompensationSlotsForDuty(
 
     for (let currentDay = 1; currentDay <= 5; currentDay += 1) {
         const dateKey = addDaysToDateKey(nextWeekMondayDateKey, currentDay - 1)
+        if (!isDutyRequiredDate(dateKey)) continue
+
         for (let currentPeriod = 1; currentPeriod <= 4; currentPeriod += 1) {
             slots.push({
                 dateKey,
@@ -234,7 +245,7 @@ export function resolveDutySignInSlot(log: DutySignInLogLike, timeZone = DUTY_TI
         const dateKey = safeDateKey(log.sign_in_date) || signInParts.dateKey
         const dayOfWeek = getDayOfWeekFromDateKey(dateKey)
 
-        if (period === 0 || dayOfWeek < 1 || dayOfWeek > 5) {
+        if (period === 0 || !isDutyRequiredDate(dateKey)) {
             return null
         }
 

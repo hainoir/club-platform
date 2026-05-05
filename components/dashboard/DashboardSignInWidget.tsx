@@ -4,6 +4,11 @@ import * as React from "react"
 
 import { SignInCard } from "@/components/duty/SignInCard"
 import { useToast } from "@/components/ui/toast-simple"
+import {
+    DUTY_SIGN_IN_PERIOD_RANGES,
+    resolveCurrentDutyAvailability,
+    type DutyAvailabilityReason,
+} from "@/lib/duty-sign-in"
 import { getCurrentPositionWithFallback, getLocationErrorReason } from "@/lib/geolocation"
 import { createClient } from "@/utils/supabase/client"
 
@@ -12,13 +17,6 @@ import { createClient } from "@/utils/supabase/client"
  * 这个组件同时依赖当前时间、今日排班、浏览器定位和数据库写入，天然属于 Client Component。
  * 把它从首页服务端组件里拆出来后，数据聚合和强交互逻辑的边界会更清晰。
  */
-const PERIOD_RANGES: Record<number, [number, number]> = {
-    1: [8 * 60, 9 * 60 + 35],
-    2: [10 * 60 + 5, 11 * 60 + 40],
-    3: [13 * 60 + 30, 15 * 60 + 5],
-    4: [15 * 60 + 35, 17 * 60 + 10],
-}
-
 const DEFAULT_STUDIO_COORDS = {
     lat: 39.181074,
     lng: 117.12138,
@@ -66,7 +64,7 @@ function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2
     return R * c
 }
 
-type DisabledReason = "not_in_period" | "not_assigned" | null
+type DisabledReason = DutyAvailabilityReason
 
 interface DashboardSignInWidgetProps {
     memberId: string | null
@@ -88,36 +86,16 @@ export function DashboardSignInWidget({
     const lastSignInAttemptAtRef = React.useRef(0)
 
     const assignedPeriods = React.useMemo(
-        () => Array.from(new Set(todayAssignedPeriods.filter((period) => PERIOD_RANGES[period]))),
+        () => Array.from(new Set(todayAssignedPeriods.filter((period) => DUTY_SIGN_IN_PERIOD_RANGES[period]))),
         [todayAssignedPeriods]
     )
 
     // 【学习注释：按钮是否可点，先由“当前是否轮到我值班”决定】
     // 这一步只做前端交互层的快速反馈，真正写库前仍会继续做重复签到和定位校验。
     const refreshSignInState = React.useCallback(() => {
-        const now = new Date()
-        const todayDow = now.getDay()
-        const nowMinutes = now.getHours() * 60 + now.getMinutes()
-
-        if (todayDow < 1 || todayDow > 5) {
-            setIsInDutyPeriod(false)
-            setDisabledReason("not_in_period")
-            return
-        }
-
-        const activePeriods = Object.entries(PERIOD_RANGES)
-            .filter(([, [start, end]]) => nowMinutes >= start && nowMinutes <= end)
-            .map(([period]) => Number(period))
-
-        if (activePeriods.length === 0) {
-            setIsInDutyPeriod(false)
-            setDisabledReason("not_in_period")
-            return
-        }
-
-        const isAssignedNow = activePeriods.some((period) => assignedPeriods.includes(period))
-        setIsInDutyPeriod(isAssignedNow)
-        setDisabledReason(isAssignedNow ? null : "not_assigned")
+        const availability = resolveCurrentDutyAvailability(assignedPeriods)
+        setIsInDutyPeriod(availability.canSignInNow)
+        setDisabledReason(availability.disabledReason)
     }, [assignedPeriods])
 
     React.useEffect(() => {

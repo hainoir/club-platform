@@ -49,3 +49,14 @@ test("all members stay disabled outside sign-in periods", () => {
         disabledReason: "not_in_period",
     })
 })
+
+test("assigned members stay disabled on public holidays", () => {
+    const availability = withTimeZone("Asia/Shanghai", () =>
+        resolveCurrentDutyAvailability([1], new Date(2026, 4, 1, 8, 10, 0))
+    )
+
+    assert.deepEqual(availability, {
+        canSignInNow: false,
+        disabledReason: "holiday",
+    })
+})

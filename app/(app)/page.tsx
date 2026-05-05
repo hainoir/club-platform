@@ -16,9 +16,11 @@ import { DashboardSignInWidget } from "@/components/dashboard/DashboardSignInWid
 import { StudioStudyStatsCard } from "@/components/dashboard/StudioStudyStatsCard"
 import {
     getDutyNow,
+    getNextDutySlotDateKey,
     resolveDutySignInSlot,
 } from "@/lib/duty-time"
 import { filterRostersForDutyAvailability } from "@/lib/duty-leaves"
+import { isDutyRequiredDate } from "@/lib/china-public-holidays"
 import { buildStudioStudyLeaderboard } from "@/lib/studio-time"
 import { createClient } from "@/utils/supabase/server"
 import { resolveAppUser } from "@/utils/supabase/resolve-app-user"
@@ -45,18 +47,12 @@ const PERIOD_START_MINUTES: Record<number, number> = {
 // 【学习注释：把“周几第几节”换算成下一次真实时间点】
 // 首页要展示的是用户能理解的日期时间，而不是数据库里的排班维度，所以这里先做一次领域转换。
 function resolveNextDutyTime(day: number, period: number, now: Date): Date {
-    const candidate = new Date(now)
-    const currentDow = now.getDay()
-    const delta = day - currentDow
-    const nextOffset = delta >= 0 ? delta : delta + 7
-    candidate.setDate(now.getDate() + nextOffset)
+    const slotDateKey = getNextDutySlotDateKey(day, period, now)
+    const [year, month, date] = slotDateKey.split("-").map(Number)
+    const candidate = new Date(year, month - 1, date)
 
     const startMinutes = PERIOD_START_MINUTES[period] || 8 * 60
     candidate.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0)
-
-    if (candidate.getTime() < now.getTime()) {
-        candidate.setDate(candidate.getDate() + 7)
-    }
 
     return candidate
 }
@@ -73,6 +69,7 @@ export default async function DashboardPage() {
     const dutyNow = getDutyNow()
     const todayDow = dutyNow.dayOfWeek
     const todayDateKey = dutyNow.dateKey
+    const isTodayDutyRequired = isDutyRequiredDate(todayDateKey)
 
     // 【学习注释：首屏并发取数】
     // 这些卡片彼此独立，适合在服务端并发拉取；这样既减少总等待时间，也避免客户端再发一轮瀑布请求。
@@ -154,9 +151,11 @@ export default async function DashboardPage() {
 
     const signedSlotSet = new Set(signedSlotMap.keys())
 
-    const todayRosters = activeRosters
-        .filter((r) => r.day_of_week === todayDow)
-        .sort((a, b) => (a.period === b.period ? a.member.name.localeCompare(b.member.name, "zh-CN") : a.period - b.period))
+    const todayRosters = isTodayDutyRequired
+        ? activeRosters
+              .filter((r) => r.day_of_week === todayDow)
+              .sort((a, b) => (a.period === b.period ? a.member.name.localeCompare(b.member.name, "zh-CN") : a.period - b.period))
+        : []
 
     // 【学习注释：当前用户身份在首页继续下沉成业务成员】
     // 首页只需要成员身份来计算“我的排班”，权限分流继续复用统一的 AppUser 解析链路。

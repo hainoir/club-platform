@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { RosterWithMember } from "@/hooks/useDuty"
 import { filterRostersForDutyAvailability } from "@/lib/duty-leaves"
+import { isDutyRequiredDate } from "@/lib/china-public-holidays"
 import {
     addDaysToDateKey,
     getDutyNow,
@@ -73,6 +74,7 @@ export function DutyManagementOverview({
     const todayDow = dutyNow.dayOfWeek
     const nowMinutes = dutyNow.minutes
     const todayDateKey = dutyNow.dateKey
+    const isTodayDutyRequired = isDutyRequiredDate(todayDateKey)
     const mondayDateKey = getDutyWeekMondayDateKey(now)
     const activeRosters = filterRostersForDutyAvailability(rosters, approvedLeaves)
 
@@ -88,9 +90,11 @@ export function DutyManagementOverview({
     })
 
     const signedSlotSet = new Set(signedSlotMap.keys())
-    const todayRosters = activeRosters
-        .filter((r) => r.day_of_week === todayDow)
-        .sort((a, b) => (a.period === b.period ? a.member.name.localeCompare(b.member.name, "zh-CN") : a.period - b.period))
+    const todayRosters = isTodayDutyRequired
+        ? activeRosters
+              .filter((r) => r.day_of_week === todayDow)
+              .sort((a, b) => (a.period === b.period ? a.member.name.localeCompare(b.member.name, "zh-CN") : a.period - b.period))
+        : []
     const todaySignedCount = todayRosters.filter((r) => signedSlotSet.has(`${r.member_id}-${todayDateKey}-${r.period}`)).length
     const todayPendingCount = Math.max(todayRosters.length - todaySignedCount, 0)
 
@@ -100,13 +104,15 @@ export function DutyManagementOverview({
     activeRosters.forEach((r) => {
         if (r.day_of_week < 1 || r.day_of_week > 5) return
 
+        const slotDateKey = addDaysToDateKey(mondayDateKey, r.day_of_week - 1)
+        if (!isDutyRequiredDate(slotDateKey)) return
+
         const isPastDay = r.day_of_week < todayDow
         const isPastPeriodToday = r.day_of_week === todayDow && nowMinutes >= getDutyPeriodEndMinutes(r.period)
         if (!isPastDay && !isPastPeriodToday) return
 
         weekPastExpected += 1
 
-        const slotDateKey = addDaysToDateKey(mondayDateKey, r.day_of_week - 1)
         const slotKey = `${r.member_id}-${slotDateKey}-${r.period}`
         if (signedSlotSet.has(slotKey)) {
             weekPastSigned += 1
@@ -116,8 +122,8 @@ export function DutyManagementOverview({
     const weekRate = weekPastExpected > 0 ? Math.round((weekPastSigned / weekPastExpected) * 100) : 0
     const weekdayStats = DAYS.map((label, idx) => {
         const day = idx + 1
-        const dayRosters = activeRosters.filter((r) => r.day_of_week === day)
         const dateKey = addDaysToDateKey(mondayDateKey, idx)
+        const dayRosters = isDutyRequiredDate(dateKey) ? activeRosters.filter((r) => r.day_of_week === day) : []
         const signed = dayRosters.filter((r) => signedSlotSet.has(`${r.member_id}-${dateKey}-${r.period}`)).length
         const planned = dayRosters.length
         return {

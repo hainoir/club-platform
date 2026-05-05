@@ -2,12 +2,14 @@
 
 import {
     addDaysToDateKey,
+    getNextDutySlotDateKey,
     getDutyPeriodByMinutes,
     getDutyWeekMondayDateKey,
     listCompensationSlotsForDuty,
     resolveDutySignInSlot,
     toDutyDateTimeParts,
 } from '../../lib/duty-time.ts'
+import { isDutyRequiredDate } from '../../lib/china-public-holidays.ts'
 
 const FIXED_SIGN_IN_UTC = '2026-03-24T07:38:00.000Z'
 
@@ -77,6 +79,27 @@ assert.deepEqual(compensationSlots.at(-1), {
     dateKey: '2026-04-03',
     dayOfWeek: 5,
     period: 4,
+    weekOffset: 1,
+})
+
+assert.equal(isDutyRequiredDate('2026-05-01'), false)
+assert.equal(isDutyRequiredDate('2026-10-01'), false)
+assert.equal(isDutyRequiredDate('2026-05-09'), false)
+assert.equal(isDutyRequiredDate('2026-05-08'), true)
+
+assert.equal(getNextDutySlotDateKey(5, 1, '2026-04-30T01:00:00.000Z'), '2026-05-08')
+assert.equal(getNextDutySlotDateKey(4, 1, '2026-09-30T01:00:00.000Z'), '2026-10-08')
+
+const holidayAwareCompensationSlots = listCompensationSlotsForDuty(4, 4, '2026-04-30T01:00:00.000Z')
+const holidayAwareCompensationDateKeys = new Set(holidayAwareCompensationSlots.map((slot) => slot.dateKey))
+assert.equal(holidayAwareCompensationDateKeys.has('2026-05-01'), false)
+assert.equal(holidayAwareCompensationDateKeys.has('2026-05-04'), false)
+assert.equal(holidayAwareCompensationDateKeys.has('2026-05-05'), false)
+assert.equal(holidayAwareCompensationSlots.length, 12)
+assert.deepEqual(holidayAwareCompensationSlots[0], {
+    dateKey: '2026-05-06',
+    dayOfWeek: 3,
+    period: 1,
     weekOffset: 1,
 })
 

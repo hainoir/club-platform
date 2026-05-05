@@ -9,6 +9,7 @@ import { AlertTriangle, MapPin, BookOpen, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast-simple';
 import { resolveCurrentDutyAvailability } from '@/lib/duty-sign-in';
+import { isDutyRequiredDate } from '@/lib/china-public-holidays';
 import {
     getStudioLocationErrorMessage,
     isStudioLocationValidationFailure,
@@ -44,10 +45,13 @@ function getMatchedPeriod(minutes: number): number {
     return getDutyPeriodByMinutes(minutes);
 }
 
-function isPeriodPast(day: number, period: number): boolean {
+function isPeriodPast(dateKey: string, period: number): boolean {
+    if (!isDutyRequiredDate(dateKey)) return false;
+
     const now = getDutyNow();
-    if (now.dayOfWeek > day && now.dayOfWeek <= 5) return true;
-    if (now.dayOfWeek !== day) return false;
+    if (dateKey < now.dateKey) return true;
+    if (dateKey > now.dateKey) return false;
+
     const [endH, endM] = PERIOD_RANGES[period]?.end || [23, 59];
     return now.minutes >= endH * 60 + endM;
 }
@@ -144,9 +148,9 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
         const mondayDateKey = getDutyWeekMondayDateKey(new Date());
 
         rosters.forEach((r) => {
-            if (!isPeriodPast(r.day_of_week, r.period)) return;
-
             const slotDateKey = addDaysToDateKey(mondayDateKey, r.day_of_week - 1);
+            if (!isPeriodPast(slotDateKey, r.period)) return;
+
             const slotKey = `${r.member_id}-${slotDateKey}-${r.period}`;
             if (signedSlotKeys.has(slotKey)) return;
 
@@ -254,7 +258,8 @@ export function StudioMembersCard({
 
             if (dutyError) throw dutyError;
 
-            (dutyLogs || []).forEach((log: { id: string; member_id: string; sign_in_time: string; sign_in_date: string | null; device_info: string | null }) => {
+            if (isDutyRequiredDate(todayDateKey)) {
+                (dutyLogs || []).forEach((log: { id: string; member_id: string; sign_in_time: string; sign_in_date: string | null; device_info: string | null }) => {
                 if (seenIds.has(log.member_id)) return;
                 if (log.device_info?.includes('self-study')) return;
 
@@ -276,6 +281,7 @@ export function StudioMembersCard({
                 });
                 seenIds.add(log.member_id);
             });
+            }
 
             const { data: sessions, error: sessionError } = await runWithTimeout<any>(async (signal) =>
                 await supabase

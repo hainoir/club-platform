@@ -3,12 +3,14 @@ import test from 'node:test'
 
 import {
     addDaysToDateKey,
+    getNextDutySlotDateKey,
     getDutyPeriodByMinutes,
     getDutyWeekMondayDateKey,
     listCompensationSlotsForDuty,
     resolveDutySignInSlot,
     toDutyDateTimeParts,
 } from '../../lib/duty-time.ts'
+import { isDutyRequiredDate } from '../../lib/china-public-holidays.ts'
 
 const FIXED_SIGN_IN_UTC = '2026-03-24T07:38:00.000Z'
 
@@ -87,6 +89,34 @@ test('compensation slots include the rest of the leave week and all of next week
         dateKey: '2026-04-03',
         dayOfWeek: 5,
         period: 4,
+        weekOffset: 1,
+    })
+})
+
+test('public holidays are skipped while makeup weekends stay non-duty days', () => {
+    assert.equal(isDutyRequiredDate('2026-05-01'), false)
+    assert.equal(isDutyRequiredDate('2026-10-01'), false)
+    assert.equal(isDutyRequiredDate('2026-05-09'), false)
+    assert.equal(isDutyRequiredDate('2026-05-08'), true)
+})
+
+test('next duty slot skips public holidays', () => {
+    assert.equal(getNextDutySlotDateKey(5, 1, '2026-04-30T01:00:00.000Z'), '2026-05-08')
+    assert.equal(getNextDutySlotDateKey(4, 1, '2026-09-30T01:00:00.000Z'), '2026-10-08')
+})
+
+test('compensation slots never include public holidays', () => {
+    const slots = listCompensationSlotsForDuty(4, 4, '2026-04-30T01:00:00.000Z')
+    const dateKeys = new Set(slots.map((slot) => slot.dateKey))
+
+    assert.equal(dateKeys.has('2026-05-01'), false)
+    assert.equal(dateKeys.has('2026-05-04'), false)
+    assert.equal(dateKeys.has('2026-05-05'), false)
+    assert.equal(slots.length, 12)
+    assert.deepEqual(slots[0], {
+        dateKey: '2026-05-06',
+        dayOfWeek: 3,
+        period: 1,
         weekOffset: 1,
     })
 })

@@ -4,6 +4,13 @@ import * as React from "react"
 
 import { createClient } from "@/utils/supabase/client"
 import { filterPendingLeavesWithoutSwap, filterRostersForDutyAvailability } from "@/lib/duty-leaves"
+import { isDutyRequiredDate } from "@/lib/china-public-holidays"
+import {
+    getDutyNow,
+    getDutyPeriodByMinutes,
+    getNextDutySlotDateKey,
+    toDutyDateTimeParts,
+} from "@/lib/duty-time"
 import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from "@/lib/keyTransferFilters"
 import { isAdminRole, useUserStore } from "@/store/useUserStore"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
@@ -55,26 +62,16 @@ function parseStoredIds(raw: string | null): string[] {
 
 function resolveNextSlotTime(day: number, period: number, now: Date): Date {
     const [hour, minute] = PERIOD_START_TIMES[period] || [8, 0]
-    const candidate = new Date(now)
-    const currentDow = now.getDay()
-    const delta = day - currentDow
-
-    candidate.setDate(now.getDate() + (delta >= 0 ? delta : delta + 7))
+    const slotDateKey = getNextDutySlotDateKey(day, period, now)
+    const [year, month, date] = slotDateKey.split("-").map(Number)
+    const candidate = new Date(year, month - 1, date)
     candidate.setHours(hour, minute, 0, 0)
-
-    if (candidate.getTime() < now.getTime()) {
-        candidate.setDate(candidate.getDate() + 7)
-    }
 
     return candidate
 }
 
 function getMatchedPeriod(minutes: number): number {
-    if (minutes >= 7 * 60 + 30 && minutes <= 9 * 60 + 35) return 1
-    if (minutes >= 9 * 60 + 35 && minutes <= 11 * 60 + 40) return 2
-    if (minutes >= 13 * 60 && minutes <= 15 * 60 + 5) return 3
-    if (minutes >= 15 * 60 + 5 && minutes <= 17 * 60 + 10) return 4
-    return 0
+    return getDutyPeriodByMinutes(minutes)
 }
 
 export function useNotifications() {
@@ -121,8 +118,10 @@ export function useNotifications() {
         try {
             const isAdmin = isAdminRole(user.role)
             const now = new Date()
-            const nowMinutes = now.getHours() * 60 + now.getMinutes()
-            const todayDow = now.getDay()
+            const dutyNow = getDutyNow()
+            const nowMinutes = dutyNow.minutes
+            const todayDow = dutyNow.dayOfWeek
+            const todayDateKey = dutyNow.dateKey
             const todayStart = new Date(now)
             todayStart.setHours(0, 0, 0, 0)
 
@@ -352,13 +351,12 @@ export function useNotifications() {
                     })
                 }
 
-                if (todayDow >= 1 && todayDow <= 5) {
+                if (isDutyRequiredDate(todayDateKey)) {
                     const signedPeriodsToday = new Set(
                         todaySignIns
                             .map((log) => {
-                                const signTime = new Date(log.sign_in_time)
-                                const minutes = signTime.getHours() * 60 + signTime.getMinutes()
-                                return getMatchedPeriod(minutes)
+                                const signTimeParts = toDutyDateTimeParts(log.sign_in_time)
+                                return getMatchedPeriod(signTimeParts.minutes)
                             })
                             .filter((period) => period > 0)
                     )
@@ -372,7 +370,7 @@ export function useNotifications() {
                             if (signedPeriodsToday.has(roster.period)) return
 
                             items.push({
-                                id: `duty-overdue-${roster.id}-${todayStart.toISOString().slice(0, 10)}`,
+                                id: `duty-overdue-${roster.id}-${todayDateKey}`,
                                 title: "值班签到已逾期",
                                 description: `${formatDutySlot(roster.day_of_week, roster.period)} 已结束超过 10 分钟，仍未签到。`,
                                 href: "/",
