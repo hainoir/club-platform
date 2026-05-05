@@ -21,15 +21,25 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
     const dutyManager = useDuty(initialData);
     const {
         rosters,
+        swaps,
         approvedLeaves,
         approvedSwaps,
+        pendingLeaves,
         isPending,
+        isSwapping,
         toggleDutySlot,
         toggleKey,
         refreshRosters,
+        refreshSwaps,
         refreshApprovedLeaves,
         refreshPendingLeaves,
         refreshApprovedSwaps,
+        respondToSwap,
+        volunteerForSwap,
+        rejectSwap,
+        submitLeave,
+        approvePendingLeave,
+        deletePendingLeave,
     } = dutyManager;
 
     const { user } = useUserStore();
@@ -72,8 +82,29 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                             请假和代班审批集中在这里处理；成员侧发起与响应入口已放到首页。
                         </p>
                         <div className="space-y-2">
-                            <SwapModal dutyManager={dutyManager} mode="admin" />
-                            <LeaveModal dutyManager={dutyManager} allMembers={initialMembers} mode="admin" />
+                            <SwapModal
+                                swaps={swaps}
+                                refreshSwaps={refreshSwaps}
+                                respondToSwap={respondToSwap}
+                                volunteerForSwap={volunteerForSwap}
+                                rejectSwap={rejectSwap}
+                                isSwapping={isSwapping}
+                                mode="admin"
+                            />
+                            <LeaveModal
+                                rosters={rosters}
+                                approvedLeaves={approvedLeaves}
+                                pendingLeaves={pendingLeaves}
+                                swaps={swaps}
+                                submitLeave={submitLeave}
+                                approvePendingLeave={approvePendingLeave}
+                                deletePendingLeave={deletePendingLeave}
+                                respondToSwap={respondToSwap}
+                                rejectSwap={rejectSwap}
+                                isSwapping={isSwapping}
+                                allMembers={initialMembers}
+                                mode="admin"
+                            />
                         </div>
                     </div>
 

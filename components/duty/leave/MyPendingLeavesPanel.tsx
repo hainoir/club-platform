@@ -7,26 +7,27 @@ import {
     formatDutySlot,
     formatPendingLeaveState,
 } from './leave-modal-utils';
-import { useDuty } from '@/hooks/useDuty';
+import type { LeaveWithMember, SwapWithMember } from '@/hooks/useDuty';
 
 interface MyPendingLeavesPanelProps {
-    dutyManager: ReturnType<typeof useDuty>;
+    pendingLeaves: LeaveWithMember[];
+    swaps: SwapWithMember[];
+    respondToSwap: (swapId: string, accept: boolean) => void | Promise<void>;
+    rejectSwap: (swapId: string) => void | Promise<void>;
+    deletePendingLeave: (leaveId: string) => void | Promise<void>;
+    isSwapping: boolean;
     currentUserId?: string;
 }
 
 export function MyPendingLeavesPanel({
-    dutyManager,
+    pendingLeaves,
+    swaps,
+    respondToSwap,
+    rejectSwap,
+    deletePendingLeave,
+    isSwapping,
     currentUserId,
 }: MyPendingLeavesPanelProps) {
-    const {
-        pendingLeaves,
-        swaps,
-        respondToSwap,
-        rejectSwap,
-        deletePendingLeave,
-        isSwapping,
-    } = dutyManager;
-
     const myPendingLeaves = useMemo(
         () => pendingLeaves.filter((leave) => leave.member_id === currentUserId),
         [currentUserId, pendingLeaves]

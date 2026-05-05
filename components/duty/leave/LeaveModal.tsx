@@ -16,16 +16,55 @@ import { LeaveAdminReview } from './LeaveAdminReview';
 import { LeaveApplyForm } from './LeaveApplyForm';
 import { MyPendingLeavesPanel } from './MyPendingLeavesPanel';
 import type { SimpleMember } from '@/components/duty/roster/DutyTable';
-import { useDuty } from '@/hooks/useDuty';
+import type { LeaveWithMember, RosterWithMember, SwapWithMember } from '@/hooks/useDuty';
 import { isAdminRole, useUserStore } from '@/store/useUserStore';
 
+interface LeaveCompensationPayload {
+    compensation_date: string;
+    day_of_week: number;
+    period: number;
+}
+
 interface LeaveModalProps {
-    dutyManager: ReturnType<typeof useDuty>;
+    rosters: RosterWithMember[];
+    approvedLeaves: LeaveWithMember[];
+    pendingLeaves: LeaveWithMember[];
+    swaps: SwapWithMember[];
+    submitLeave: (
+        day: number,
+        period: number,
+        reason: string,
+        penaltyShifts: number,
+        compensations: LeaveCompensationPayload[],
+        needSubstitute: boolean,
+        targetMemberId?: string | null
+    ) => Promise<boolean>;
+    approvePendingLeave: (leaveId: string) => void | Promise<void>;
+    deletePendingLeave: (
+        leaveId: string,
+        options?: { title?: string; description?: string }
+    ) => void | Promise<void>;
+    respondToSwap: (swapId: string, accept: boolean) => void | Promise<void>;
+    rejectSwap: (swapId: string) => void | Promise<void>;
+    isSwapping: boolean;
     allMembers: SimpleMember[];
     mode?: 'member' | 'admin';
 }
 
-export function LeaveModal({ dutyManager, allMembers, mode = 'member' }: LeaveModalProps) {
+export function LeaveModal({
+    rosters,
+    approvedLeaves,
+    pendingLeaves,
+    swaps,
+    submitLeave,
+    approvePendingLeave,
+    deletePendingLeave,
+    respondToSwap,
+    rejectSwap,
+    isSwapping,
+    allMembers,
+    mode = 'member',
+}: LeaveModalProps) {
     const [open, setOpen] = useState(false);
     const { user } = useUserStore();
     const isAdmin = isAdminRole(user?.role);
@@ -58,17 +97,35 @@ export function LeaveModal({ dutyManager, allMembers, mode = 'member' }: LeaveMo
                     {!isAdminMode && (
                         <>
                             <LeaveApplyForm
-                                dutyManager={dutyManager}
+                                rosters={rosters}
+                                approvedLeaves={approvedLeaves}
+                                pendingLeaves={pendingLeaves}
+                                submitLeave={submitLeave}
                                 allMembers={allMembers}
                                 currentUserId={user?.id}
                                 open={open}
                                 onClose={() => setOpen(false)}
                             />
-                            <MyPendingLeavesPanel dutyManager={dutyManager} currentUserId={user?.id} />
+                            <MyPendingLeavesPanel
+                                pendingLeaves={pendingLeaves}
+                                swaps={swaps}
+                                respondToSwap={respondToSwap}
+                                rejectSwap={rejectSwap}
+                                deletePendingLeave={deletePendingLeave}
+                                isSwapping={isSwapping}
+                                currentUserId={user?.id}
+                            />
                         </>
                     )}
 
-                    <LeaveAdminReview dutyManager={dutyManager} canReview={canReview} />
+                    <LeaveAdminReview
+                        pendingLeaves={pendingLeaves}
+                        swaps={swaps}
+                        approvePendingLeave={approvePendingLeave}
+                        deletePendingLeave={deletePendingLeave}
+                        isSwapping={isSwapping}
+                        canReview={canReview}
+                    />
                 </div>
             </DialogContent>
         </Dialog>

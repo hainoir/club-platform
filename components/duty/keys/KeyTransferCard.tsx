@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Key, ArrowRight, Check, Send, ChevronDown, Search, Clock } from 'lucide-react';
-import { useDuty } from '@/hooks/useDuty';
+import type { KeyTransferWithMember, RosterWithMember } from '@/hooks/useDuty';
 import { useVisibilitySync } from '@/hooks/shared/useVisibilitySync';
 import { useUserStore } from '@/store/useUserStore';
 import { Input } from '@/components/ui/input';
@@ -29,14 +29,24 @@ function formatTime(dateStr: string) {
 }
 
 interface KeyTransferCardProps {
-    dutyManager: ReturnType<typeof useDuty>;
+    keyTransfers: KeyTransferWithMember[];
+    rosters: RosterWithMember[];
+    refreshKeyTransfers: () => void | Promise<void>;
+    submitKeyTransfer: (toMemberId: string, note: string) => Promise<boolean>;
+    confirmKeyTransfer: (transferId: string) => void | Promise<void>;
     allMembers: SimpleMember[];
     mode?: 'member';
 }
 
-export function KeyTransferCard({ dutyManager, allMembers }: KeyTransferCardProps) {
+export function KeyTransferCard({
+    keyTransfers,
+    rosters,
+    refreshKeyTransfers,
+    submitKeyTransfer,
+    confirmKeyTransfer,
+    allMembers,
+}: KeyTransferCardProps) {
     const { user } = useUserStore();
-    const { keyTransfers, rosters, refreshKeyTransfers, submitKeyTransfer, confirmKeyTransfer } = dutyManager;
 
     // 当前用户是否持有钥匙
     const userHasKey = rosters.some(r => r.member_id === user?.id && r.has_key);

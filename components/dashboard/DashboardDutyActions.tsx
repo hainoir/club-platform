@@ -18,9 +18,25 @@ interface DashboardDutyActionsProps {
 export function DashboardDutyActions({ initialData, initialMembers }: DashboardDutyActionsProps) {
     const dutyManager = useDuty(initialData)
     const {
+        rosters,
+        swaps,
+        approvedLeaves,
+        pendingLeaves,
+        keyTransfers,
+        isSwapping,
+        refreshSwaps,
         refreshApprovedLeaves,
         refreshApprovedSwaps,
         refreshPendingLeaves,
+        refreshKeyTransfers,
+        respondToSwap,
+        volunteerForSwap,
+        rejectSwap,
+        submitLeave,
+        approvePendingLeave,
+        deletePendingLeave,
+        submitKeyTransfer,
+        confirmKeyTransfer,
     } = dutyManager
 
     React.useEffect(() => {
@@ -40,13 +56,42 @@ export function DashboardDutyActions({ initialData, initialMembers }: DashboardD
                     <CardDescription>请假、代班和钥匙流转都在这里处理。</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col justify-center space-y-2">
-                    <SwapModal dutyManager={dutyManager} mode="member" />
-                    <LeaveModal dutyManager={dutyManager} allMembers={initialMembers} mode="member" />
+                    <SwapModal
+                        swaps={swaps}
+                        refreshSwaps={refreshSwaps}
+                        respondToSwap={respondToSwap}
+                        volunteerForSwap={volunteerForSwap}
+                        rejectSwap={rejectSwap}
+                        isSwapping={isSwapping}
+                        mode="member"
+                    />
+                    <LeaveModal
+                        rosters={rosters}
+                        approvedLeaves={approvedLeaves}
+                        pendingLeaves={pendingLeaves}
+                        swaps={swaps}
+                        submitLeave={submitLeave}
+                        approvePendingLeave={approvePendingLeave}
+                        deletePendingLeave={deletePendingLeave}
+                        respondToSwap={respondToSwap}
+                        rejectSwap={rejectSwap}
+                        isSwapping={isSwapping}
+                        allMembers={initialMembers}
+                        mode="member"
+                    />
                 </CardContent>
             </Card>
 
             <div className="lg:col-span-2 lg:h-full">
-                <KeyTransferCard dutyManager={dutyManager} allMembers={initialMembers} mode="member" />
+                <KeyTransferCard
+                    keyTransfers={keyTransfers}
+                    rosters={rosters}
+                    refreshKeyTransfers={refreshKeyTransfers}
+                    submitKeyTransfer={submitKeyTransfer}
+                    confirmKeyTransfer={confirmKeyTransfer}
+                    allMembers={initialMembers}
+                    mode="member"
+                />
             </div>
         </div>
     )

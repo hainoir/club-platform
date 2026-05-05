@@ -6,26 +6,29 @@ import { UserCircle2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { formatDutySlot } from './leave-modal-utils';
-import { useDuty } from '@/hooks/useDuty';
+import type { LeaveWithMember, SwapWithMember } from '@/hooks/useDuty';
 import { filterPendingLeavesWithoutSwap } from '@/lib/duty/duty-leaves';
 
 interface LeaveAdminReviewProps {
-    dutyManager: ReturnType<typeof useDuty>;
+    pendingLeaves: LeaveWithMember[];
+    swaps: SwapWithMember[];
+    approvePendingLeave: (leaveId: string) => void | Promise<void>;
+    deletePendingLeave: (
+        leaveId: string,
+        options?: { title?: string; description?: string }
+    ) => void | Promise<void>;
+    isSwapping: boolean;
     canReview: boolean;
 }
 
 export function LeaveAdminReview({
-    dutyManager,
+    pendingLeaves,
+    swaps,
+    approvePendingLeave,
+    deletePendingLeave,
+    isSwapping,
     canReview,
 }: LeaveAdminReviewProps) {
-    const {
-        pendingLeaves,
-        swaps,
-        approvePendingLeave,
-        deletePendingLeave,
-        isSwapping,
-    } = dutyManager;
-
     const adminPendingDirectLeaves = useMemo(() => {
         if (!canReview) return [];
         return filterPendingLeavesWithoutSwap(pendingLeaves, swaps);

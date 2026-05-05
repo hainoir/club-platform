@@ -16,12 +16,29 @@ import {
     getCompensationSlotKey,
     getDutySlotKey,
 } from './leave-modal-utils';
-import { useDuty } from '@/hooks/useDuty';
+import type { LeaveWithMember, RosterWithMember } from '@/hooks/useDuty';
 import { listCompensationSlotsForDuty, type DutyCompensationSlot } from '@/lib/duty/duty-time';
 import { cn } from '@/lib/utils';
 
+interface LeaveCompensationPayload {
+    compensation_date: string;
+    day_of_week: number;
+    period: number;
+}
+
 interface LeaveApplyFormProps {
-    dutyManager: ReturnType<typeof useDuty>;
+    rosters: RosterWithMember[];
+    approvedLeaves: LeaveWithMember[];
+    pendingLeaves: LeaveWithMember[];
+    submitLeave: (
+        day: number,
+        period: number,
+        reason: string,
+        penaltyShifts: number,
+        compensations: LeaveCompensationPayload[],
+        needSubstitute: boolean,
+        targetMemberId?: string | null
+    ) => Promise<boolean>;
     allMembers: SimpleMember[];
     currentUserId?: string;
     open: boolean;
@@ -29,14 +46,16 @@ interface LeaveApplyFormProps {
 }
 
 export function LeaveApplyForm({
-    dutyManager,
+    rosters,
+    approvedLeaves,
+    pendingLeaves,
+    submitLeave,
     allMembers,
     currentUserId,
     open,
     onClose,
 }: LeaveApplyFormProps) {
     const { toast } = useToast();
-    const { rosters, approvedLeaves, pendingLeaves, submitLeave } = dutyManager;
     const [selectedRosterId, setSelectedRosterId] = useState('');
     const [penaltyShifts, setPenaltyShifts] = useState(1);
     const [selectedCompKeys, setSelectedCompKeys] = useState<string[]>([]);

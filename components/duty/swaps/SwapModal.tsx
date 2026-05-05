@@ -11,20 +11,23 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, UserCircle2, ArrowRight, Clock, CheckCircle2, Target } from 'lucide-react';
-import { useDuty } from '@/hooks/useDuty';
+import type { SwapWithMember } from '@/hooks/useDuty';
 import { useUserStore, isAdminRole } from '@/store/useUserStore';
 import { Badge } from '@/components/ui/badge';
 
 const DAYS = ['一', '二', '三', '四', '五'];
 
 interface SwapModalProps {
-    dutyManager: ReturnType<typeof useDuty>;
+    swaps: SwapWithMember[];
+    refreshSwaps: () => void | Promise<void>;
+    respondToSwap: (swapId: string, accept: boolean) => void | Promise<void>;
+    volunteerForSwap: (swapId: string) => void | Promise<void>;
+    rejectSwap: (swapId: string) => void | Promise<void>;
+    isSwapping: boolean;
     mode?: 'member' | 'admin';
 }
 
-function formatSwapStatus(
-    swap: ReturnType<typeof useDuty>['swaps'][number]
-) {
+function formatSwapStatus(swap: SwapWithMember) {
     if (swap.status === 'accepted') {
         return `${swap.target?.name || '成员'} 已应答`;
     }
@@ -36,10 +39,17 @@ function formatSwapStatus(
     return '公共代班';
 }
 
-export function SwapModal({ dutyManager, mode = 'member' }: SwapModalProps) {
+export function SwapModal({
+    swaps,
+    refreshSwaps,
+    respondToSwap,
+    volunteerForSwap,
+    rejectSwap,
+    isSwapping,
+    mode = 'member',
+}: SwapModalProps) {
     const [open, setOpen] = useState(false);
     const { user } = useUserStore();
-    const { swaps, refreshSwaps, respondToSwap, volunteerForSwap, rejectSwap, isSwapping } = dutyManager;
 
     const isAdmin = isAdminRole(user?.role);
     const isAdminMode = mode === 'admin';
@@ -73,7 +83,7 @@ export function SwapModal({ dutyManager, mode = 'member' }: SwapModalProps) {
         });
     }, [isAdminMode, sortedSwaps, user?.id]);
 
-    const renderActions = (swap: typeof swaps[number]) => {
+    const renderActions = (swap: SwapWithMember) => {
         const isMine = swap.requester_id === user?.id;
         const isTarget = swap.target_id === user?.id;
         const isPending = swap.status === 'pending';
