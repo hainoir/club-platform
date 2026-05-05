@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react"
 
 import { createClient } from "@/utils/supabase/client"
 import { DEPARTMENT_OPTIONS, GRADE_OPTIONS, normalizeDepartmentValue, normalizeGradeValue } from "@/utils/profile-fields"
-import { DEFAULT_MEMBER_ROLE, normalizeUserRole, useUserStore } from "@/store/useUserStore"
+import { DEFAULT_MEMBER_ROLE, isAdminRole, normalizeUserRole, useUserStore } from "@/store/useUserStore"
 import { useToast } from "@/components/ui/toast-simple"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+
+function getPostLoginHref(role: string | null | undefined): "/" | "/duty" {
+    return isAdminRole(role) ? "/duty" : "/"
+}
 
 /**
  * 【学习注释：登录页承担认证层与业务层的衔接】
@@ -129,12 +133,15 @@ export default function LoginForm() {
                 .eq("email", normalizedEmail)
                 .maybeSingle()
 
-            setUser({
+            const appUser = {
                 id: memberData?.id || fallbackAuthId,
                 email: normalizedEmail,
                 role: normalizeUserRole(memberData?.role) || DEFAULT_MEMBER_ROLE,
                 name: memberData?.name || safeName,
-            })
+            }
+
+            setUser(appUser)
+            return appUser
         },
         [setUser, supabase]
     )
@@ -159,12 +166,14 @@ export default function LoginForm() {
 
                 if (error) throw error
 
+                let nextHref = "/"
                 if (data.user) {
-                    await syncOrCreateMemberProfile(normalizedEmail, data.user.id)
+                    const appUser = await syncOrCreateMemberProfile(normalizedEmail, data.user.id)
+                    nextHref = getPostLoginHref(appUser.role)
                 }
 
                 toast({ title: "登录成功", description: "欢迎回来。" })
-                router.push("/")
+                router.push(nextHref)
                 router.refresh()
             } else {
                 validateRegisterForm()
@@ -196,14 +205,14 @@ export default function LoginForm() {
                     toast({ title: "注册成功", description: "请前往邮箱完成验证后再登录。" })
                     setIsLoginMode(true)
                 } else {
-                    await syncOrCreateMemberProfile(normalizedEmail, signInData.user.id, {
+                    const appUser = await syncOrCreateMemberProfile(normalizedEmail, signInData.user.id, {
                         name,
                         department: normalizedDepartment || undefined,
                         grade: normalizedGrade || undefined,
                         studentId: safeStudentId,
                     })
                     toast({ title: "注册成功", description: "账号已创建并可立即使用。" })
-                    router.push("/")
+                    router.push(getPostLoginHref(appUser.role))
                     router.refresh()
                 }
             }

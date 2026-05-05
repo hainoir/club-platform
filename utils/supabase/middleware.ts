@@ -1,5 +1,43 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import type { SupabaseClient, User as SupabaseAuthUser } from '@supabase/supabase-js'
+import { isAdminRole } from '@/lib/app-user'
+import type { Database } from '@/types/supabase'
+
+async function resolvePostLoginPath(
+    supabase: SupabaseClient<Database>,
+    user: SupabaseAuthUser
+): Promise<'/' | '/duty'> {
+    try {
+        let role: string | null = null
+
+        const byIdResult = await supabase
+            .from('members')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle()
+
+        if (byIdResult.data?.role) {
+            role = byIdResult.data.role
+        }
+
+        if (!role && user.email) {
+            const byEmailResult = await supabase
+                .from('members')
+                .select('role, created_at')
+                .ilike('email', user.email)
+                .order('created_at', { ascending: false })
+                .limit(20)
+
+            const roles = (byEmailResult.data || []).map((member) => member.role).filter(Boolean)
+            role = roles.find((value) => isAdminRole(value)) || roles[0] || null
+        }
+
+        return isAdminRole(role) ? '/duty' : '/'
+    } catch {
+        return '/'
+    }
+}
 
 /**
  * 【学习注释：中间件里的统一会话收口】
@@ -17,7 +55,7 @@ export async function updateSession(request: NextRequest) {
         request,
     })
 
-    const supabase = createServerClient(
+    const supabase = createServerClient<Database>(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
@@ -67,7 +105,7 @@ export async function updateSession(request: NextRequest) {
     // 这类跳转不只是“方便”，它还能保持登录后路径语义稳定，减少用户对当前身份状态的困惑。
     if (user && pathname.startsWith('/login')) {
         const url = request.nextUrl.clone()
-        url.pathname = '/'
+        url.pathname = await resolvePostLoginPath(supabase, user)
         const redirectResponse = NextResponse.redirect(url)
         redirectResponse.headers.set('Cache-Control', 'private, no-store')
         return redirectResponse

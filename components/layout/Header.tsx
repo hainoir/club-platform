@@ -5,7 +5,7 @@ import { useTheme } from "next-themes"
 import { usePathname, useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { Bell, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react"
+import { Bell, Loader2, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react"
 
 import {
     DropdownMenu,
@@ -36,6 +36,10 @@ function formatRelativeTime(value: string): string {
     }
 }
 
+function isNavigationPathActive(pathname: string, href: string): boolean {
+    return href === "/" ? pathname === "/" : pathname.startsWith(href)
+}
+
 export function Header({ className }: { className?: string }) {
     const { setTheme, theme } = useTheme()
     const pathname = usePathname()
@@ -54,6 +58,21 @@ export function Header({ className }: { className?: string }) {
         refresh,
         markReadOnOpen,
     } = useNotifications()
+    const [mobileNavigationOpen, setMobileNavigationOpen] = React.useState(false)
+    const [pendingMobileHref, setPendingMobileHref] = React.useState<string | null>(null)
+
+    React.useEffect(() => {
+        if (!pendingMobileHref || !isNavigationPathActive(pathname, pendingMobileHref)) {
+            return
+        }
+
+        const frame = window.requestAnimationFrame(() => {
+            setMobileNavigationOpen(false)
+            setPendingMobileHref(null)
+        })
+
+        return () => window.cancelAnimationFrame(frame)
+    }, [pathname, pendingMobileHref])
 
     const handleLogout = async () => {
         await supabase.auth.signOut()
@@ -64,7 +83,15 @@ export function Header({ className }: { className?: string }) {
     return (
         <header className={cn("flex items-center justify-between px-6 z-10", className)}>
             <div className="flex items-center gap-2">
-                <DropdownMenu>
+                <DropdownMenu
+                    open={mobileNavigationOpen}
+                    onOpenChange={(open) => {
+                        setMobileNavigationOpen(open)
+                        if (!open) {
+                            setPendingMobileHref(null)
+                        }
+                    }}
+                >
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="rounded-full md:hidden" aria-label="打开页面导航菜单">
                             <Menu className="h-5 w-5" />
@@ -74,19 +101,30 @@ export function Header({ className }: { className?: string }) {
                         <DropdownMenuLabel>页面导航</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         {appNavigation.map((item) => {
-                            const isRoot = item.href === "/"
-                            const isActive = isRoot ? pathname === "/" : pathname.startsWith(item.href)
+                            const isActive = isNavigationPathActive(pathname, item.href)
+                            const isPending = pendingMobileHref === item.href
 
                             return (
                                 <DropdownMenuItem
                                     key={item.href}
-                                    className={cn("gap-2 cursor-pointer", isActive && "bg-accent text-accent-foreground")}
+                                    className={cn(
+                                        "gap-2 cursor-pointer",
+                                        isActive && "bg-accent text-accent-foreground",
+                                        isPending && "text-primary"
+                                    )}
                                     onSelect={(e) => {
                                         e.preventDefault()
+                                        if (isActive) {
+                                            setMobileNavigationOpen(false)
+                                            setPendingMobileHref(null)
+                                            return
+                                        }
+
+                                        setPendingMobileHref(item.href)
                                         router.push(item.href)
                                     }}
                                 >
-                                    <item.icon className="h-4 w-4" />
+                                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <item.icon className="h-4 w-4" />}
                                     <span>{item.name}</span>
                                 </DropdownMenuItem>
                             )
