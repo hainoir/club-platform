@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Key, ArrowRight, Check, Send, ChevronDown, Search, Clock } from 'lucide-react';
 import { useDuty } from '@/hooks/useDuty';
+import { useVisibilitySync } from '@/hooks/useVisibilitySync';
 import { useUserStore } from '@/store/useUserStore';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -43,29 +44,10 @@ export function KeyTransferCard({ dutyManager, allMembers }: KeyTransferCardProp
     const [note, setNote] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // 初始化加载
-    useEffect(() => {
-        const syncTransfers = () => {
-            void refreshKeyTransfers();
-        };
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                syncTransfers();
-            }
-        };
-
-        syncTransfers();
-        const timer = setInterval(syncTransfers, 30_000);
-        window.addEventListener('focus', syncTransfers);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            clearInterval(timer);
-            window.removeEventListener('focus', syncTransfers);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
+    const syncTransfers = useCallback(() => {
+        void refreshKeyTransfers();
     }, [refreshKeyTransfers]);
+    useVisibilitySync(syncTransfers, { intervalMs: 30_000 });
 
     // 发起交接
     const handleTransfer = async (toMemberId: string) => {

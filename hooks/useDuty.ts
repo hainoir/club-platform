@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useToast } from '@/components/ui/toast-simple';
 import { useDutyKeyTransfers } from '@/hooks/duty/useDutyKeyTransfers';
@@ -6,6 +6,7 @@ import { useDutyLeaves } from '@/hooks/duty/useDutyLeaves';
 import { useDutyRosters } from '@/hooks/duty/useDutyRosters';
 import { useDutySignIn } from '@/hooks/duty/useDutySignIn';
 import { useDutySwaps } from '@/hooks/duty/useDutySwaps';
+import { useVisibilitySync } from '@/hooks/useVisibilitySync';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { createClient } from '@/utils/supabase/client';
 import { useUserStore } from '@/store/useUserStore';
@@ -29,6 +30,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     const { user, setUser } = useUserStore();
     const supabase = useMemo(() => createClient(), []);
 
+    // swaps/leaves 之间需要互相触发刷新，ref 可以避免子 Hook 直接形成循环依赖。
     const refreshSwapsRef = useRef<RefreshCallback>(() => undefined);
     const refreshApprovedLeavesRef = useRef<RefreshCallback>(() => undefined);
     const refreshPendingLeavesRef = useRef<RefreshCallback>(() => undefined);
@@ -82,30 +84,13 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     refreshApprovedLeavesRef.current = leaves.refreshApprovedLeaves;
     refreshPendingLeavesRef.current = leaves.refreshPendingLeaves;
 
-    useEffect(() => {
-        const syncDutyData = () => {
-            void rosters.refreshRosters();
-            void swaps.refreshSwaps();
-            void swaps.refreshApprovedSwaps();
-            void leaves.refreshApprovedLeaves();
-            void leaves.refreshPendingLeaves();
-            void keyTransfers.refreshKeyTransfers();
-        };
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                syncDutyData();
-            }
-        };
-
-        syncDutyData();
-        window.addEventListener('focus', syncDutyData);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            window.removeEventListener('focus', syncDutyData);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
+    const syncDutyData = useCallback(() => {
+        void rosters.refreshRosters();
+        void swaps.refreshSwaps();
+        void swaps.refreshApprovedSwaps();
+        void leaves.refreshApprovedLeaves();
+        void leaves.refreshPendingLeaves();
+        void keyTransfers.refreshKeyTransfers();
     }, [
         keyTransfers.refreshKeyTransfers,
         leaves.refreshApprovedLeaves,
@@ -114,6 +99,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         swaps.refreshApprovedSwaps,
         swaps.refreshSwaps,
     ]);
+
+    useVisibilitySync(syncDutyData);
 
     return {
         rosters: rosters.rosters,

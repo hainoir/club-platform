@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { AlertTriangle } from 'lucide-react';
 
+import { useVisibilitySync } from '@/hooks/useVisibilitySync';
+import { extractErrorMessage, runWithTimeout } from '@/lib/client-request';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { createClient } from '@/utils/supabase/client';
 import { isDutyRequiredDate } from '@/lib/china-public-holidays';
@@ -24,7 +26,6 @@ const PERIOD_RANGES: Record<number, { end: [number, number] }> = {
 };
 
 const DAYS_LABEL = ['一', '二', '三', '四', '五'];
-const QUERY_TIMEOUT_MS = 10_000;
 
 function isPeriodPast(dateKey: string, period: number): boolean {
     if (!isDutyRequiredDate(dateKey)) return false;
@@ -35,21 +36,6 @@ function isPeriodPast(dateKey: string, period: number): boolean {
 
     const [endH, endM] = PERIOD_RANGES[period]?.end || [23, 59];
     return now.minutes >= endH * 60 + endM;
-}
-
-function extractErrorMessage(err: unknown, fallback: string): string {
-    const message = err && typeof err === 'object' && 'message' in err ? String((err as { message?: string }).message || '') : '';
-    return message || fallback;
-}
-
-async function runWithTimeout<T>(request: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
-    try {
-        return await request(controller.signal);
-    } finally {
-        window.clearTimeout(timer);
-    }
 }
 
 async function ensureSession(supabase: ReturnType<typeof createClient>): Promise<boolean> {
@@ -101,28 +87,7 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
         }
     }, [supabase]);
 
-    useEffect(() => {
-        const syncSignIns = () => {
-            void fetchSignIns();
-        };
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                syncSignIns();
-            }
-        };
-
-        syncSignIns();
-        const timer = setInterval(syncSignIns, 60_000);
-        window.addEventListener('focus', syncSignIns);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            clearInterval(timer);
-            window.removeEventListener('focus', syncSignIns);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [fetchSignIns]);
+    useVisibilitySync(fetchSignIns, { intervalMs: 60_000 });
 
     const absentMembers = useMemo(() => {
         const map = new Map<string, { name: string; slots: string[] }>();
