@@ -4,7 +4,7 @@ import { PostgrestError } from "@supabase/supabase-js"
 
 import { useToast } from "@/components/ui/toast-simple"
 import { useSupabase } from "@/hooks/shared/useSupabase"
-import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
+import { useProtectedAction } from "@/hooks/shared/useProtectedAction"
 import type { Member } from "@/components/members/MembersClient"
 
 type OptimisticAction = { action: "delete"; payload: string } | { action: "add" | "update"; payload: Member }
@@ -13,6 +13,7 @@ export function useMemberCrud(initialMembers: Member[]) {
     const router = useRouter()
     const supabase = useSupabase()
     const { toast } = useToast()
+    const { requireAuth } = useProtectedAction()
 
     const [members, setMembers] = React.useState<Member[]>(initialMembers)
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
@@ -24,16 +25,8 @@ export function useMemberCrud(initialMembers: Member[]) {
     }, [initialMembers])
 
     const requireActiveSession = React.useCallback(async () => {
-        const session = await ensureClientSession(supabase)
-        if (session) return true
-
-        toast({
-            title: "登录状态已失效",
-            description: "请重新登录后再继续操作。",
-            variant: "destructive",
-        })
-        return false
-    }, [supabase, toast])
+        return await requireAuth()
+    }, [requireAuth])
 
     const [optimisticMembers, addOptimistic] = React.useOptimistic<Member[], OptimisticAction>(
         members,

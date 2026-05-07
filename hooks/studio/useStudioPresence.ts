@@ -19,6 +19,7 @@ import {
 } from '@/lib/studio/studio-location';
 import { isAdminRole, useUserStore } from '@/store/useUserStore';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
+import { useProtectedAction } from '@/hooks/shared/useProtectedAction';
 
 import type { RosterWithMember } from '@/hooks/useDuty';
 
@@ -72,6 +73,7 @@ export function useStudioPresence({
     const supabase = useSupabase();
     const { user } = useUserStore();
     const { toast } = useToast();
+    const { requireAuth } = useProtectedAction();
     const [studioMembers, setStudioMembers] = useState<StudioMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [ending, setEnding] = useState(false);
@@ -206,9 +208,7 @@ export function useStudioPresence({
 
         setIsStartingStudy(true);
         try {
-            if (!(await ensureSession(supabase))) {
-                throw new Error('登录状态已失效，请重新登录。');
-            }
+            if (!(await requireAuth())) return;
 
             await validateStudioLocation();
 
@@ -235,9 +235,7 @@ export function useStudioPresence({
         if (!user) return;
         setEnding(true);
         try {
-            if (!(await ensureSession(supabase))) {
-                throw new Error('登录状态已失效，请重新登录。');
-            }
+            if (!(await requireAuth())) return;
 
             const mySession = studioMembers.find((member) => member.id === user.id && member.type === 'study');
             if (mySession) {
@@ -266,9 +264,7 @@ export function useStudioPresence({
 
         setDeletingSessionId(member.sessionId);
         try {
-            if (!(await ensureSession(supabase))) {
-                throw new Error('登录状态已失效，请重新登录。');
-            }
+            if (!(await requireAuth())) return;
 
             const { error } = await supabase.from('studio_sessions').delete().eq('id', member.sessionId);
             if (error) throw error;

@@ -13,7 +13,7 @@ import {
     type DutyAvailabilityReason,
 } from "@/lib/duty/duty-sign-in"
 import { useSupabase } from "@/hooks/shared/useSupabase"
-import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
+import { useProtectedAction } from "@/hooks/shared/useProtectedAction"
 
 /**
  * 【学习注释：仪表盘签到入口的客户端职责】
@@ -35,6 +35,7 @@ export function DashboardSignInWidget({
 }: DashboardSignInWidgetProps) {
     const supabase = useSupabase()
     const { toast } = useToast()
+    const { requireAuth } = useProtectedAction()
     const [isSigningIn, setIsSigningIn] = React.useState(false)
     const [hasSignedInToday, setHasSignedInToday] = React.useState(initialHasSignedInToday)
     const [isInDutyPeriod, setIsInDutyPeriod] = React.useState(false)
@@ -93,21 +94,7 @@ export function DashboardSignInWidget({
         try {
             // 【学习注释：写操作前先确认 session 还有足够寿命】
             // 否则定位成功后才发现 token 过期，会把用户体验变成“看起来能点，提交时失败”。
-            let activeSession = false
-            try {
-                activeSession = !!(await ensureClientSession(supabase))
-            } catch (sessionError) {
-                console.warn("Failed to recover auth session before dashboard duty sign-in:", sessionError)
-            }
-
-            if (!activeSession) {
-                toast({
-                    title: "登录状态已失效",
-                    description: "请重新登录后再进行值班签到。",
-                    variant: "destructive",
-                })
-                return
-            }
+            if (!(await requireAuth("请重新登录后再进行值班签到。"))) return
 
             const result = await submitDutySignIn({
                 supabase,

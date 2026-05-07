@@ -8,7 +8,7 @@ import { useDutySignIn } from '@/hooks/duty/useDutySignIn';
 import { useDutySwaps } from '@/hooks/duty/useDutySwaps';
 import { useSupabase } from '@/hooks/shared/useSupabase';
 import { useVisibilitySync } from '@/hooks/shared/useVisibilitySync';
-import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
+import { useProtectedAction } from '@/hooks/shared/useProtectedAction';
 import { useUserStore } from '@/store/useUserStore';
 
 import type { RefreshCallback, RosterWithMember } from '@/hooks/duty/types';
@@ -27,8 +27,9 @@ export type {
  */
 export function useDuty(initialRosters: RosterWithMember[]) {
     const { toast } = useToast();
-    const { user, setUser } = useUserStore();
+    const { user } = useUserStore();
     const supabase = useSupabase();
+    const { requireAuth } = useProtectedAction();
 
     // swaps/leaves 之间需要互相触发刷新，ref 可以避免子 Hook 直接形成循环依赖。
     const refreshSwapsRef = useRef<RefreshCallback>(() => undefined);
@@ -38,23 +39,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     // 【学习注释：所有写操作共用一层 session 续命】
     // 这样排班、签到、换班等动作都不需要各自重复实现 token 恢复逻辑。
     const ensureActiveSession = useCallback(async () => {
-        try {
-            const activeSession = await ensureClientSession(supabase);
-            if (activeSession) {
-                return true;
-            }
-        } catch (error) {
-            console.warn('Failed to recover auth session before duty write:', error);
-        }
-
-        setUser(null);
-        toast({
-            title: '登录状态已失效',
-            description: '请重新登录后再进行值班相关操作。',
-            variant: 'destructive',
-        });
-        return false;
-    }, [setUser, supabase, toast]);
+        return await requireAuth('请重新登录后再进行值班相关操作。');
+    }, [requireAuth]);
 
     const context = {
         supabase,

@@ -6,13 +6,14 @@ import { format } from "date-fns"
 import { PostgrestError } from "@supabase/supabase-js"
 import { useToast } from "@/components/ui/toast-simple"
 import { Event } from "@/components/events/EventsClient"
-import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
+import { useProtectedAction } from "@/hooks/shared/useProtectedAction"
 
 export function useEvents(initialEvents: Event[]) {
     const router = useRouter()
     const supabase = useSupabase()
     const { user } = useUserStore()
     const { toast } = useToast()
+    const { requireAuth } = useProtectedAction()
 
     const [events, setEvents] = React.useState<Event[]>(initialEvents)
 
@@ -31,12 +32,8 @@ export function useEvents(initialEvents: Event[]) {
     const [viewingEvent, setViewingEvent] = React.useState<Event | null>(null)
 
     const requireActiveSession = React.useCallback(async () => {
-        const session = await ensureClientSession(supabase)
-        if (session) return true
-
-        toast({ title: "登录状态已失效", description: "请重新登录后再继续操作。", variant: "destructive" })
-        return false
-    }, [supabase, toast])
+        return await requireAuth()
+    }, [requireAuth])
 
     const openCreate = () => {
         setEditingEvent(null)
