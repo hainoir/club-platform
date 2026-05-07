@@ -1,6 +1,28 @@
 import { formatDutySlot } from "../notification-utils"
 import type { AppNotification, NotificationSourceContext } from "../types"
 
+// 管理员视角查询的代班记录字段
+interface AdminSwapRow {
+    id: string
+    original_day: number
+    original_period: number
+    created_at: string
+    requester: { name: string | null } | null
+}
+
+// 普通成员视角查询的代班记录字段
+interface MemberSwapRow {
+    id: string
+    requester_id: string
+    target_id: string | null
+    status: string | null
+    original_day: number
+    original_period: number
+    created_at: string
+    requester: { name: string | null } | null
+    target: { name: string | null } | null
+}
+
 export async function getSwapRequestNotifications({
     supabase,
     user,
@@ -27,7 +49,7 @@ export async function getSwapRequestNotifications({
     const items: AppNotification[] = []
 
     if (isAdmin) {
-        ;(swapResult.data || []).forEach((swap: any) => {
+        ;(swapResult.data as AdminSwapRow[] || []).forEach((swap) => {
             items.push({
                 id: `swap-review-${swap.id}`,
                 title: "代班请求待审批",
@@ -41,7 +63,7 @@ export async function getSwapRequestNotifications({
         return items
     }
 
-    ;(swapResult.data || []).forEach((swap: any) => {
+    ;(swapResult.data as MemberSwapRow[] || []).forEach((swap) => {
         const isRequester = swap.requester_id === user.id
         const waitingApproval = swap.status === "accepted"
 

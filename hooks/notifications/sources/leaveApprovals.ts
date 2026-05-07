@@ -47,7 +47,7 @@ export async function getLeaveApprovalNotifications({
     )
 
     if (isAdmin) {
-        return pendingDirectLeaves.slice(0, 6).map((leave: any) => ({
+        return pendingDirectLeaves.slice(0, 6).map((leave: PendingLeaveNotificationRow) => ({
             id: `leave-review-${leave.id}`,
             title: "请假请求待审批",
             description: `${leave.member?.name || "成员"} 的 ${formatDutySlot(leave.day_of_week, leave.period)} 请假等待审批。`,
@@ -57,7 +57,7 @@ export async function getLeaveApprovalNotifications({
         }))
     }
 
-    return pendingDirectLeaves.slice(0, 6).map((leave: any) => ({
+    return pendingDirectLeaves.slice(0, 6).map((leave: PendingLeaveNotificationRow) => ({
         id: `leave-followup-${leave.id}`,
         title: "请假待管理员审批",
         description: `${formatDutySlot(leave.day_of_week, leave.period)} 暂未生效，等待管理员审批。`,

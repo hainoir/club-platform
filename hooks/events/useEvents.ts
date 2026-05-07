@@ -31,9 +31,8 @@ export function useEvents(initialEvents: Event[]) {
     const [viewMode, setViewMode] = React.useState<"all" | "enrolled">("all")
     const [viewingEvent, setViewingEvent] = React.useState<Event | null>(null)
 
-    const requireActiveSession = React.useCallback(async () => {
-        return await requireAuth()
-    }, [requireAuth])
+    // 写操作前统一校验登录态，由 useProtectedAction 提供
+    const requireActiveSession = requireAuth
 
     const openCreate = () => {
         setEditingEvent(null)
@@ -176,13 +175,13 @@ export function useEvents(initialEvents: Event[]) {
 
     const handleRSVP = async (event: Event) => {
         if (!user) {
-            toast({ title: "Login required", description: "Please log in before RSVP.", variant: "destructive" })
+            toast({ title: "请先登录", description: "请登录后再进行活动报名。", variant: "destructive" })
             return
         }
 
         const normalizedEmail = (user.email || "").trim().toLowerCase()
         if (!normalizedEmail) {
-            toast({ title: "RSVP failed", description: "Current account has no email.", variant: "destructive" })
+            toast({ title: "报名失败", description: "当前账号未关联邮箱，无法报名。", variant: "destructive" })
             return
         }
 
@@ -198,7 +197,7 @@ export function useEvents(initialEvents: Event[]) {
                     .ilike('user_email', normalizedEmail)
 
                 if (error) throw error
-                toast({ title: "RSVP canceled", description: 'You have left "' + event.title + '".' })
+                toast({ title: "已取消报名", description: `已退出「${event.title}」。` })
             } else {
                 const { data: existing, error: checkError } = await supabase
                     .from('event_attendees')
@@ -209,7 +208,7 @@ export function useEvents(initialEvents: Event[]) {
 
                 if (checkError) throw checkError
                 if (existing && existing.length > 0) {
-                    toast({ title: "Already RSVP'd", description: 'You are already enrolled in "' + event.title + '".' })
+                    toast({ title: "已报名", description: `您已报名「${event.title}」，无需重复操作。` })
                     router.refresh()
                     return
                 }
@@ -219,21 +218,21 @@ export function useEvents(initialEvents: Event[]) {
                     .insert([{
                         event_id: event.id,
                         user_email: normalizedEmail,
-                        user_name: user.name || "Anonymous Member"
+                        user_name: user.name || "匿名成员"
                     }])
 
                 if (error) throw error
-                toast({ title: "RSVP successful", description: 'You have joined "' + event.title + '".' })
+                toast({ title: "报名成功", description: `已成功加入「${event.title}」。` })
             }
             router.refresh()
         } catch (error: unknown) {
             const pError = error as PostgrestError & { code?: string }
             if (pError.code === '23505') {
-                toast({ title: "Already RSVP'd", description: 'Duplicate RSVP request was blocked for "' + event.title + '".' })
+                toast({ title: "已报名", description: `「${event.title}」的重复报名请求已被拦截。` })
                 router.refresh()
                 return
             }
-            toast({ title: "Operation failed", description: pError.message || (error as Error).message || "Unable to complete request", variant: "destructive" })
+            toast({ title: "操作失败", description: pError.message || (error as Error).message || "无法完成请求，请稍后重试。", variant: "destructive" })
         }
     }
 

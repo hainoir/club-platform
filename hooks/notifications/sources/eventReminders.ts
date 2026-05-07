@@ -1,5 +1,11 @@
 import type { AppNotification, NotificationSourceContext } from "../types"
 
+// 活动参与者查询返回的关联字段
+interface EnrolledEventRow {
+    id: string
+    event: { id: string; title: string; event_date: string } | { id: string; title: string; event_date: string }[] | null
+}
+
 export async function getEventReminderNotifications({
     supabase,
     user,
@@ -15,7 +21,7 @@ export async function getEventReminderNotifications({
 
     const items: AppNotification[] = []
 
-    ;(enrolledEventsResult.data || []).forEach((row: any) => {
+    ;(enrolledEventsResult.data as EnrolledEventRow[] || []).forEach((row) => {
         const event = Array.isArray(row.event) ? row.event[0] : row.event
         if (!event?.event_date) return
 

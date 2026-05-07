@@ -45,7 +45,7 @@ interface DutyTableProps {
     currentUserId?: string;
     isAdmin: boolean;
     allMembers: SimpleMember[];
-    approvedLeaves?: any[];
+    approvedLeaves?: Array<{ member_id: string; day_of_week: number; period: number }>;
     approvedSwaps?: SwapWithMember[];
     onAssignMember: (day: number, period: number, memberId: string, memberName: string) => void;
     onRemoveMember: (day: number, period: number, memberId: string, memberName: string) => void;

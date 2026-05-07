@@ -2,6 +2,21 @@ import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from "@/lib/duty/keyTransfe
 
 import type { AppNotification, NotificationSourceContext } from "../types"
 
+// 入站钥匙交接查询返回的字段
+interface IncomingKeyTransferRow {
+    id: string
+    note: string | null
+    created_at: string
+    from_member: { name: string | null } | null
+}
+
+// 出站钥匙交接查询返回的字段
+interface OutgoingKeyTransferRow {
+    id: string
+    created_at: string
+    to_member: { name: string | null } | null
+}
+
 export async function getKeyTransferNotifications({
     supabase,
     user,
@@ -30,7 +45,7 @@ export async function getKeyTransferNotifications({
 
     const items: AppNotification[] = []
 
-    ;(incomingKeyTransfersResult.data || []).forEach((t: any) => {
+    ;((incomingKeyTransfersResult.data ?? []) as unknown as IncomingKeyTransferRow[]).forEach((t) => {
         items.push({
             id: `key-transfer-in-${t.id}`,
             title: "待确认钥匙交接",
@@ -41,7 +56,7 @@ export async function getKeyTransferNotifications({
         })
     })
 
-    ;(outgoingKeyTransfersResult.data || []).forEach((t: any) => {
+    ;((outgoingKeyTransfersResult.data ?? []) as unknown as OutgoingKeyTransferRow[]).forEach((t) => {
         items.push({
             id: `key-transfer-out-${t.id}`,
             title: "钥匙交接待对方确认",
