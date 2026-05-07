@@ -10,7 +10,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/supabase"
 
-export { DUTY_SIGN_IN_PERIOD_RANGES } from "./duty-constants.ts"
+import { DUTY_SIGN_IN_PERIOD_RANGES } from "./duty-constants.ts"
+export { DUTY_SIGN_IN_PERIOD_RANGES }
 
 export const DUTY_SIGN_IN_ACTION_COOLDOWN_MS = 5000
 

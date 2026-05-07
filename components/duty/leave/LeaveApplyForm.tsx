@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { Check, KeyRound } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
+
+import { CompensationSlotPicker } from './CompensationSlotPicker';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,14 +13,13 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/toast-simple';
 import type { SimpleMember } from '@/components/duty/roster/DutyTable';
 import {
-    formatCompensationSlotLabel,
     formatDutySlot,
     getCompensationSlotKey,
     getDutySlotKey,
 } from './leave-modal-utils';
 import type { LeaveWithMember, RosterWithMember } from '@/hooks/useDuty';
 import { listCompensationSlotsForDuty, type DutyCompensationSlot } from '@/lib/duty/duty-time';
-import { cn } from '@/lib/utils';
+
 
 interface LeaveCompensationPayload {
     compensation_date: string;
@@ -293,49 +294,12 @@ export function LeaveApplyForm({
                         请先选择要请假的班次，再安排补班。
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        {compensationSections.map((section) => (
-                            <div key={section.key} className="space-y-2">
-                                <div className="flex items-baseline justify-between gap-3">
-                                    <div>
-                                        <p className="text-sm font-medium">{section.title}</p>
-                                        <p className="text-xs text-muted-foreground">{section.description}</p>
-                                    </div>
-                                    <span className="text-xs text-muted-foreground">{section.slots.length} 个可选</span>
-                                </div>
-
-                                {section.slots.length === 0 ? (
-                                    <div className="rounded-md border border-dashed px-3 py-4 text-xs text-muted-foreground">
-                                        当前没有可补班次。
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                        {section.slots.map((slot) => {
-                                            const slotKey = getCompensationSlotKey(slot);
-                                            const isSelected = selectedCompKeys.includes(slotKey);
-
-                                            return (
-                                                <button
-                                                    key={slotKey}
-                                                    type="button"
-                                                    onClick={() => toggleComp(slot)}
-                                                    className={cn(
-                                                        'flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors',
-                                                        isSelected
-                                                            ? 'border-primary bg-primary/10 text-primary'
-                                                            : 'border-border hover:bg-muted/50'
-                                                    )}
-                                                >
-                                                    <span>{formatCompensationSlotLabel(slot)}</span>
-                                                    {isSelected && <Check className="h-4 w-4 shrink-0" />}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
+                    <CompensationSlotPicker
+                        sections={compensationSections}
+                        selectedKeys={selectedCompKeys}
+                        requiredCount={penaltyShifts}
+                        onToggle={toggleComp}
+                    />
                 )}
             </div>
 
