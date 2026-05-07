@@ -13,12 +13,7 @@ import type { RosterWithMember } from "@/hooks/useDuty"
 import type { Database } from "@/types/supabase"
 import type { AppUser } from "@/lib/app-user"
 
-const PERIOD_START_MINUTES: Record<number, number> = {
-    1: 8 * 60,
-    2: 10 * 60 + 5,
-    3: 13 * 60 + 30,
-    4: 15 * 60 + 35,
-}
+import { PERIOD_START_MINUTES } from "@/lib/duty/duty-constants"
 
 type DutyLeaveSlot = Pick<Database["public"]["Tables"]["duty_leaves"]["Row"], "id" | "member_id" | "day_of_week" | "period" | "status">
 type DutyLogSummary = Pick<Database["public"]["Tables"]["duty_logs"]["Row"], "member_id" | "sign_in_time" | "sign_in_date" | "location_verified">

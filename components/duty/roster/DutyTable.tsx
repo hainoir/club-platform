@@ -17,28 +17,13 @@ export interface SimpleMember {
     student_id: string | number | null;
 }
 
-const PERIODS = [
-    { id: 1, label: '第一大节', time: '(8:00-9:35)' },
-    { id: 2, label: '第二大节', time: '(10:05-11:40)' },
-    { id: 3, label: '第三大节', time: '(13:30-15:05)' },
-    { id: 4, label: '第四大节', time: '(15:35-17:10)' }
-];
+import { DUTY_PERIODS, DUTY_DAYS, PERIOD_END_HOUR_MINUTE } from '@/lib/duty/duty-constants';
 
-// 每节课的结束时间（小时, 分钟）
-const PERIOD_END_TIMES: Record<number, [number, number]> = {
-    1: [9, 35],
-    2: [11, 40],
-    3: [15, 5],
-    4: [17, 10],
-};
+const PERIODS = DUTY_PERIODS.map(p => ({ id: p.id, label: p.fullLabel, time: `(${p.start}-${p.end})` }));
 
-const DAYS = [
-    { id: 1, label: '周一' },
-    { id: 2, label: '周二' },
-    { id: 3, label: '周三' },
-    { id: 4, label: '周四' },
-    { id: 5, label: '周五' }
-];
+const PERIOD_END_TIMES = PERIOD_END_HOUR_MINUTE;
+
+const DAYS = DUTY_DAYS;
 
 interface DutyTableProps {
     rosters: RosterWithMember[];

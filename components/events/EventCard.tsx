@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import Image from "next/image"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Event } from "@/components/events/EventsClient"
@@ -42,7 +43,7 @@ export function EventCard({
             <Link href={`/events/${event.id}`} className="block relative focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-t-xl group">
                 {event.coverUrl ? (
                     <div className="w-full h-40 overflow-hidden bg-muted relative">
-                        <img src={event.coverUrl} alt={event.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                        <Image src={event.coverUrl} alt={event.title} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                     </div>
                 ) : (
                     <div className="w-full h-3 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20" />

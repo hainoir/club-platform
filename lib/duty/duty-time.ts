@@ -1,15 +1,9 @@
 import { isDutyRequiredDate } from "./china-public-holidays.ts"
+import { PERIOD_END_MINUTES } from "./duty-constants.ts"
 
 export const DUTY_TIME_ZONE = "Asia/Shanghai"
 
 const TIME_PARTS_FORMATTER_LOCALE = "en-US"
-
-const PERIOD_END_MINUTES: Record<number, number> = {
-    1: 9 * 60 + 35,
-    2: 11 * 60 + 40,
-    3: 15 * 60 + 5,
-    4: 17 * 60 + 10,
-}
 
 const formatters = new Map<string, Intl.DateTimeFormat>()
 

@@ -20,14 +20,10 @@ import { getAggregatedDashboardData } from "@/lib/services/dashboard-service"
 
 export const revalidate = 60
 
-const PERIODS: ReadonlyArray<{ id: number; label: string; start: string; end: string }> = [
-    { id: 1, label: "第一节", start: "08:00", end: "09:35" },
-    { id: 2, label: "第二节", start: "10:05", end: "11:40" },
-    { id: 3, label: "第三节", start: "13:30", end: "15:05" },
-    { id: 4, label: "第四节", start: "15:35", end: "17:10" },
-]
+import { DUTY_PERIODS, DUTY_DAY_SHORT_LABELS } from "@/lib/duty/duty-constants"
 
-const DAYS = ["一", "二", "三", "四", "五"]
+const PERIODS = DUTY_PERIODS
+const DAYS = DUTY_DAY_SHORT_LABELS
 
 /**
  * 【学习注释：首页被剥离为纯粹的视图层】

@@ -10,12 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/supabase"
 
-export const DUTY_SIGN_IN_PERIOD_RANGES: Record<number, [number, number]> = {
-    1: [8 * 60, 9 * 60 + 35],
-    2: [10 * 60 + 5, 11 * 60 + 40],
-    3: [13 * 60 + 30, 15 * 60 + 5],
-    4: [15 * 60 + 35, 17 * 60 + 10],
-}
+export { DUTY_SIGN_IN_PERIOD_RANGES } from "./duty-constants.ts"
 
 export const DUTY_SIGN_IN_ACTION_COOLDOWN_MS = 5000
 
