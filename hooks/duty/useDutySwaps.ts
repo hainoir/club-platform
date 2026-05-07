@@ -47,10 +47,12 @@ export function useDutySwaps({
             query = query.or(`requester_id.eq.${user.id},target_id.eq.${user.id},and(status.eq.pending,target_id.is.null)`);
         }
 
-        const { data, error } = await query.order('created_at', { ascending: false });
+        const { data, error } = await query
+            .order('created_at', { ascending: false })
+            .returns<SwapWithMember[]>();
 
         if (!error && data) {
-            setSwaps(data as unknown as SwapWithMember[]);
+            setSwaps(data);
         }
     }, [supabase, user]);
 
@@ -66,10 +68,11 @@ export function useDutySwaps({
             .from('duty_swaps')
             .select('*, requester:members!duty_swaps_requester_id_fkey(id, name), target:members!duty_swaps_target_id_fkey(id, name)')
             .eq('status', 'approved')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .returns<SwapWithMember[]>();
 
         if (!error && data) {
-            setApprovedSwaps(data as unknown as SwapWithMember[]);
+            setApprovedSwaps(data);
         }
     }, [supabase, user]);
 

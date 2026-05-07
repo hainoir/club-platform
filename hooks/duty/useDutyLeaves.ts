@@ -19,6 +19,8 @@ interface LeaveCompensationInput {
     period: number;
 }
 
+type CreatedLeaveId = Pick<LeaveWithMember, 'id'>;
+
 function getErrorMessage(error: unknown): string {
     return (error as { message?: string })?.message || '操作失败，请稍后重试。';
 }
@@ -45,10 +47,11 @@ export function useDutyLeaves({
             .from('duty_leaves')
             .select('*, member:members!duty_leaves_member_id_fkey(id, name)')
             .eq('status', 'approved')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .returns<LeaveWithMember[]>();
 
         if (!error && data) {
-            setApprovedLeaves(data as unknown as LeaveWithMember[]);
+            setApprovedLeaves(data);
         }
     }, [supabase, user]);
 
@@ -67,10 +70,12 @@ export function useDutyLeaves({
             query = query.eq('member_id', user.id);
         }
 
-        const { data, error } = await query.order('created_at', { ascending: false });
+        const { data, error } = await query
+            .order('created_at', { ascending: false })
+            .returns<LeaveWithMember[]>();
 
         if (!error && data) {
-            setPendingLeaves(data as unknown as LeaveWithMember[]);
+            setPendingLeaves(data);
         }
     }, [supabase, user]);
 
@@ -102,6 +107,7 @@ export function useDutyLeaves({
                     status: 'pending',
                 })
                 .select('id')
+                .returns<CreatedLeaveId[]>()
                 .single();
 
             if (leaveError || !leaveData) throw leaveError || new Error('Leave request was not created');

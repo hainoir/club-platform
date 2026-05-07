@@ -24,7 +24,9 @@ import { isDutyRequiredDate } from "@/lib/duty/china-public-holidays"
 import { buildStudioStudyLeaderboard } from "@/lib/studio/studio-time"
 import { createClient } from "@/utils/supabase/server"
 import { resolveAppUser } from "@/utils/supabase/resolve-app-user"
+import type { SimpleMember } from "@/components/duty/roster/DutyTable"
 import type { RosterWithMember } from "@/hooks/useDuty"
+import type { Database } from "@/types/supabase"
 
 export const revalidate = 60
 
@@ -42,6 +44,12 @@ const PERIOD_START_MINUTES: Record<number, number> = {
     2: 10 * 60 + 5,
     3: 13 * 60 + 30,
     4: 15 * 60 + 35,
+}
+
+type DutyLeaveSlot = Pick<Database["public"]["Tables"]["duty_leaves"]["Row"], "id" | "member_id" | "day_of_week" | "period" | "status">
+type DutyLogSummary = Pick<Database["public"]["Tables"]["duty_logs"]["Row"], "member_id" | "sign_in_time" | "sign_in_date" | "location_verified">
+type StudioSessionWithMember = Pick<Database["public"]["Tables"]["studio_sessions"]["Row"], "member_id" | "started_at" | "ended_at" | "is_active"> & {
+    member: Pick<Database["public"]["Tables"]["members"]["Row"], "name"> | null
 }
 
 // 【学习注释：把“周几第几节”换算成下一次真实时间点】
@@ -87,54 +95,38 @@ export default async function DashboardPage() {
             .from("duty_rosters")
             .select("id, member_id, day_of_week, period, has_key, created_at, member:members(id, name, student_id)")
             .order("day_of_week", { ascending: true })
-            .order("period", { ascending: true }),
+            .order("period", { ascending: true })
+            .returns<RosterWithMember[]>(),
         supabase
             .from("duty_leaves")
             .select("id, member_id, day_of_week, period, status")
-            .eq("status", "approved"),
+            .eq("status", "approved")
+            .returns<DutyLeaveSlot[]>(),
         supabase
             .from("duty_logs")
             .select("member_id, sign_in_time, sign_in_date, location_verified")
             .eq("sign_in_date", todayDateKey)
-            .eq("location_verified", true),
+            .eq("location_verified", true)
+            .returns<DutyLogSummary[]>(),
         supabase
             .from("members")
             .select("id, name, student_id")
             .eq("status", "active")
-            .order("name"),
-        supabase.from("studio_sessions").select("member_id, started_at, ended_at, is_active, member:members(name)"),
+            .order("name")
+            .returns<SimpleMember[]>(),
+        supabase
+            .from("studio_sessions")
+            .select("member_id, started_at, ended_at, is_active, member:members(name)")
+            .returns<StudioSessionWithMember[]>(),
         supabase.auth.getUser(),
     ])
 
-    const rosters = (rostersData || []) as unknown as RosterWithMember[]
-    const approvedLeaves = (approvedLeavesData || []) as Array<{
-        id: string
-        member_id: string
-        day_of_week: number
-        period: number
-        status: string | null
-    }>
+    const rosters = rostersData || []
+    const approvedLeaves = approvedLeavesData || []
     const activeRosters = filterRostersForDutyAvailability(rosters, approvedLeaves)
-    const activeMembers = (membersData || []) as Array<{
-        id: string
-        name: string
-        student_id: string | number | null
-    }>
-    const todayLogs = (todayLogsData || []) as Array<{
-        member_id: string
-        sign_in_time: string
-        sign_in_date: string | null
-        location_verified: boolean | null
-    }>
-    const studioSessions = (studioSessionsData || []) as Array<{
-        member_id: string
-        started_at: string
-        ended_at: string | null
-        is_active: boolean | null
-        member: {
-            name: string | null
-        } | null
-    }>
+    const activeMembers = membersData || []
+    const todayLogs = todayLogsData || []
+    const studioSessions = studioSessionsData || []
 
     // 【学习注释：签到记录先压成 slot 索引】
     // 首页只保留个人工作台语境，用当天签到记录判断“我的今日签到状态”。

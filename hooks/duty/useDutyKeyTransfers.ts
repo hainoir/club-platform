@@ -31,10 +31,11 @@ export function useDutyKeyTransfers({
             .select('*, from_member:members!key_transfers_from_member_id_fkey(id, name), to_member:members!key_transfers_to_member_id_fkey(id, name)')
             .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER)
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(10)
+            .returns<KeyTransferWithMember[]>();
 
         if (!error && data) {
-            setKeyTransfers(data as unknown as KeyTransferWithMember[]);
+            setKeyTransfers(data);
         }
     }, [supabase]);
 

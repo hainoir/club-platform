@@ -1,13 +1,22 @@
 import { DutyManagementOverview } from '@/components/duty/overview/DutyManagementOverview';
-import { RosterWithMember } from '@/hooks/useDuty';
+import type { SimpleMember } from '@/components/duty/roster/DutyTable';
+import type { RosterWithMember } from '@/hooks/useDuty';
 import { getDutyWeekMondayDateKey } from '@/lib/duty/duty-time';
 import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from '@/lib/duty/keyTransferFilters';
+import type { Database } from '@/types/supabase';
 import { createClient } from '@/utils/supabase/server';
 import { resolveAppUser } from '@/utils/supabase/resolve-app-user';
 
 import DutyClient from './DutyClient';
 
 export const dynamic = 'force-dynamic';
+
+type DutyLeaveSummary = Pick<Database['public']['Tables']['duty_leaves']['Row'], 'id' | 'member_id' | 'day_of_week' | 'period' | 'status'>;
+type PendingDutyLeaveSummary = DutyLeaveSummary & Pick<Database['public']['Tables']['duty_leaves']['Row'], 'created_at'>;
+type DutyLogSummary = Pick<Database['public']['Tables']['duty_logs']['Row'], 'member_id' | 'sign_in_time' | 'sign_in_date' | 'location_verified'>;
+type UpcomingEventSummary = Pick<Database['public']['Tables']['events']['Row'], 'id' | 'title' | 'event_date'>;
+type DutySwapId = Pick<Database['public']['Tables']['duty_swaps']['Row'], 'id'>;
+type KeyTransferId = Pick<Database['public']['Tables']['key_transfers']['Row'], 'id'>;
 
 export default async function DutyPage() {
     const supabase = await createClient();
@@ -28,32 +37,43 @@ export default async function DutyPage() {
     ] = await Promise.all([
         supabase
             .from('duty_rosters')
-            .select('*, member:members(id, name, student_id)'),
+            .select('*, member:members(id, name, student_id)')
+            .returns<RosterWithMember[]>(),
         supabase
             .from('members')
             .select('id, name, student_id')
             .eq('status', 'active')
-            .order('name'),
+            .order('name')
+            .returns<SimpleMember[]>(),
         supabase
             .from('duty_leaves')
             .select('id, member_id, day_of_week, period, status')
-            .eq('status', 'approved'),
+            .eq('status', 'approved')
+            .returns<DutyLeaveSummary[]>(),
         supabase
             .from('duty_leaves')
             .select('id, member_id, day_of_week, period, created_at, status')
-            .eq('status', 'pending'),
+            .eq('status', 'pending')
+            .returns<PendingDutyLeaveSummary[]>(),
         supabase
             .from('duty_logs')
             .select('member_id, sign_in_time, sign_in_date, location_verified')
             .gte('sign_in_date', mondayDateKey)
-            .eq('location_verified', true),
+            .eq('location_verified', true)
+            .returns<DutyLogSummary[]>(),
         supabase
             .from('events')
             .select('id, title, event_date')
             .gt('event_date', now.toISOString())
             .order('event_date', { ascending: true })
-            .limit(1),
-        supabase.from('duty_swaps').select('id', { count: 'exact', head: true }).eq('status', 'pending').is('target_id', null),
+            .limit(1)
+            .returns<UpcomingEventSummary[]>(),
+        supabase
+            .from('duty_swaps')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'pending')
+            .is('target_id', null)
+            .returns<DutySwapId[]>(),
         supabase.auth.getUser(),
     ]);
 
@@ -76,40 +96,24 @@ export default async function DutyPage() {
                 .select('id', { count: 'exact', head: true })
                 .eq('to_member_id', me.id)
                 .eq('status', 'pending')
-                .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER),
+                .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER)
+                .returns<KeyTransferId[]>(),
             supabase
                 .from('duty_swaps')
                 .select('id', { count: 'exact', head: true })
                 .in('status', ['pending', 'accepted'])
-                .or(`requester_id.eq.${me.id},target_id.eq.${me.id}`),
+                .or(`requester_id.eq.${me.id},target_id.eq.${me.id}`)
+                .returns<DutySwapId[]>(),
         ]);
 
         pendingKeyForMe = keyCount || 0;
         myRelatedSwapCount = swapCount || 0;
     }
 
-    const rosterList = (rosters || []) as unknown as RosterWithMember[];
-    const approvedLeaves = (approvedLeavesData || []) as Array<{
-        id: string;
-        member_id: string;
-        day_of_week: number;
-        period: number;
-        status: string | null;
-    }>;
-    const pendingLeaves = (pendingLeavesData || []) as Array<{
-        id: string;
-        member_id: string;
-        day_of_week: number;
-        period: number;
-        created_at: string;
-        status: string | null;
-    }>;
-    const weekLogs = (weekLogsData || []) as Array<{
-        member_id: string;
-        sign_in_time: string;
-        sign_in_date: string | null;
-        location_verified: boolean | null;
-    }>;
+    const rosterList = rosters || [];
+    const approvedLeaves = approvedLeavesData || [];
+    const pendingLeaves = pendingLeavesData || [];
+    const weekLogs = weekLogsData || [];
     const upcomingEvent = upcomingEventData?.[0] || null;
 
     return (

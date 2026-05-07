@@ -27,10 +27,11 @@ export function useDutyRosters(
     const refreshRosters = useCallback(async () => {
         const { data, error } = await supabase
             .from('duty_rosters')
-            .select('*, member:members(id, name, student_id)');
+            .select('*, member:members(id, name, student_id)')
+            .returns<RosterWithMember[]>();
 
         if (!error && data) {
-            setRosters(data as unknown as RosterWithMember[]);
+            setRosters(data);
         }
     }, [supabase]);
 
