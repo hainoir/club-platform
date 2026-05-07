@@ -5,7 +5,7 @@ import { useUserStore } from "@/store/useUserStore"
 import { format } from "date-fns"
 import { PostgrestError } from "@supabase/supabase-js"
 import { useToast } from "@/components/ui/toast-simple"
-import { Event } from "@/app/events/EventsClient"
+import { Event } from "@/components/events/EventsClient"
 import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 
 export function useEvents(initialEvents: Event[]) {

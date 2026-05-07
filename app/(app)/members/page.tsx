@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server"
 import { normalizeDepartmentForStorage, normalizeGradeValue } from "@/utils/profile-fields"
-import MembersClient, { Member } from "./MembersClient"
+import MembersClient, { Member } from "@/components/members/MembersClient"
 
 function normalizeStudentId(value: string | number | null): string {
     if (value === null || value === undefined) return ""

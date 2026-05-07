@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server"
 import { DEFAULT_MEMBER_ROLE } from "@/lib/app-user"
-import SettingsClient, { SettingsProfile } from "./SettingsClient"
+import SettingsClient, { SettingsProfile } from "@/components/settings/SettingsClient"
 
 export const dynamic = "force-dynamic"
 

@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { useDebounce } from "@/hooks/shared/useDebounce"
-import type { Member } from "@/app/members/MembersClient"
+import type { Member } from "@/components/members/MembersClient"
 
 import {
     DEFAULT_SORT_CONFIG,

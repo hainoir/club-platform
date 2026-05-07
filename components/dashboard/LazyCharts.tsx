@@ -1,18 +1,18 @@
-﻿"use client"
+"use client"
 
 import dynamic from "next/dynamic"
 
-const DashboardCharts = dynamic(() => import("@/app/DashboardCharts"), {
+const DashboardCharts = dynamic(() => import("@/components/dashboard/DashboardCharts"), {
     ssr: false,
     loading: () => <div className="w-full h-[350px]" />,
 })
 
-const DashboardPie = dynamic(() => import("@/app/DashboardPie"), {
+const DashboardPie = dynamic(() => import("@/components/dashboard/DashboardPie"), {
     ssr: false,
     loading: () => <div className="w-full h-[300px]" />,
 })
 
-const DashboardAttendance = dynamic(() => import("@/app/DashboardAttendance"), {
+const DashboardAttendance = dynamic(() => import("@/components/dashboard/DashboardAttendance"), {
     ssr: false,
     loading: () => <div className="w-full h-[300px]" />,
 })

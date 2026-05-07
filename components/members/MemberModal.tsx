@@ -1,9 +1,9 @@
-﻿import * as React from "react"
+import * as React from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import type { Member } from "@/app/members/MembersClient"
+import type { Member } from "@/components/members/MembersClient"
 
 interface MemberModalProps {
     isOpen: boolean

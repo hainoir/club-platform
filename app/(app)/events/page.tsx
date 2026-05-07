@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
-import EventsClient, { Event } from './EventsClient';
+import EventsClient, { Event } from '@/components/events/EventsClient';
 
 export default async function EventsPage() {
     const supabase = await createClient();

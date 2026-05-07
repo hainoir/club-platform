@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import type { Event } from "@/app/events/EventsClient"
+import type { Event } from "@/components/events/EventsClient"
 
 interface AttendeesModalProps {
     isOpen: boolean

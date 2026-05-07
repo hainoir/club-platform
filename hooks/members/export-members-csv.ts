@@ -1,4 +1,4 @@
-import type { Member } from "@/app/members/MembersClient"
+import type { Member } from "@/components/members/MembersClient"
 
 export function exportMembersToCSV(members: Member[]): boolean {
     if (members.length === 0) {

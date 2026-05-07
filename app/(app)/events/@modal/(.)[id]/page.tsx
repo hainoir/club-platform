@@ -1,5 +1,5 @@
 import EventPage from "../../[id]/page"
-import Modal from "../Modal"
+import Modal from "@/components/events/Modal"
 
 interface InterceptedPageProps {
     params: Promise<{ id: string }>

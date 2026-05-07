@@ -1,4 +1,4 @@
-import type { Member } from "@/app/members/MembersClient"
+import type { Member } from "@/components/members/MembersClient"
 
 export type MemberSortKey = "name" | "student_id" | "role" | "department" | "grade" | "join_date" | "status"
 export type MemberSortDirection = "asc" | "desc" | null

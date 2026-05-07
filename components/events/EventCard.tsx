@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import Link from "next/link"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { Event } from "@/app/events/EventsClient"
+import type { Event } from "@/components/events/EventsClient"
 
 interface EventCardProps {
     event: Event

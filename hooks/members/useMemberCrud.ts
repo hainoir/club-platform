@@ -5,7 +5,7 @@ import { PostgrestError } from "@supabase/supabase-js"
 import { useToast } from "@/components/ui/toast-simple"
 import { useSupabase } from "@/hooks/shared/useSupabase"
 import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
-import type { Member } from "@/app/members/MembersClient"
+import type { Member } from "@/components/members/MembersClient"
 
 type OptimisticAction = { action: "delete"; payload: string } | { action: "add" | "update"; payload: Member }
 

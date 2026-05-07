@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { useToast } from "@/components/ui/toast-simple"
-import type { Member } from "@/app/members/MembersClient"
+import type { Member } from "@/components/members/MembersClient"
 
 import { exportMembersToCSV as downloadMembersToCSV } from "./export-members-csv"
 import { useMemberCrud } from "./useMemberCrud"
