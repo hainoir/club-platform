@@ -7,7 +7,7 @@ import type { Database } from '@/types/supabase';
 import { createClient } from '@/utils/supabase/server';
 import { resolveAppUser } from '@/utils/supabase/resolve-app-user';
 
-import DutyClient from './DutyClient';
+import DutyClient from '@/components/duty/DutyClient';
 
 export const dynamic = 'force-dynamic';
 
