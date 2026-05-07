@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
-import type { Event } from "@/app/events/EventsClient"
+import type { Event } from "@/components/events/EventsClient"
 
 interface EventModalProps {
     isOpen: boolean
