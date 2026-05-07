@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
@@ -10,10 +11,10 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { StudioMembersCard } from "@/components/duty/attendance/AttendancePanels"
 import { DashboardDutyActions } from "@/components/dashboard/DashboardDutyActions"
 import { DashboardSignInWidget } from "@/components/dashboard/DashboardSignInWidget"
-import { StudioStudyStatsCard } from "@/components/dashboard/StudioStudyStatsCard"
+import { StudioOverview } from "@/components/dashboard/StudioOverview"
+import { StudioOverviewSkeleton } from "@/components/dashboard/StudioOverviewSkeleton"
 
 import { getAggregatedDashboardData } from "@/lib/services/dashboard-service"
 
@@ -47,7 +48,6 @@ export default async function DashboardPage() {
         rosters,
         activeMembers,
         activeRosters,
-        studioStudyLeaderboard,
     } = globalData
 
     return (
@@ -141,20 +141,9 @@ export default async function DashboardPage() {
 
             <DashboardDutyActions initialData={rosters} initialMembers={activeMembers} />
 
-            <div className="grid gap-4 lg:grid-cols-3">
-                <StudioMembersCard rosters={activeRosters} allowAdminDeleteStudy={false} />
-
-                <div className="h-full lg:col-span-2">
-                    <StudioStudyStatsCard
-                        todayRanking={studioStudyLeaderboard.today}
-                        weekRanking={studioStudyLeaderboard.week}
-                        monthRanking={studioStudyLeaderboard.month}
-                        semesterRanking={studioStudyLeaderboard.semester}
-                        totalRanking={studioStudyLeaderboard.total}
-                        activeCount={studioStudyLeaderboard.activeCount}
-                    />
-                </div>
-            </div>
+            <Suspense fallback={<StudioOverviewSkeleton />}>
+                <StudioOverview activeRosters={activeRosters} />
+            </Suspense>
         </div>
     )
 }

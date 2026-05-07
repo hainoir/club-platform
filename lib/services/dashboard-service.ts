@@ -47,8 +47,11 @@ export interface DashboardAggregatedData {
         rosters: RosterWithMember[]
         activeMembers: SimpleMember[]
         activeRosters: RosterWithMember[]
-        studioStudyLeaderboard: ReturnType<typeof buildStudioStudyLeaderboard>
     }
+}
+
+export interface StudioDashboardData {
+    studioStudyLeaderboard: ReturnType<typeof buildStudioStudyLeaderboard>
 }
 
 // 将排班转换为真实时间
@@ -77,7 +80,6 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
         { data: approvedLeavesData },
         { data: todayLogsData },
         { data: membersData },
-        { data: studioSessionsData },
         {
             data: { user: authUser },
         },
@@ -105,10 +107,6 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
             .eq("status", "active")
             .order("name")
             .returns<SimpleMember[]>(),
-        supabase
-            .from("studio_sessions")
-            .select("member_id, started_at, ended_at, is_active, member:members(name)")
-            .returns<StudioSessionWithMember[]>(),
         supabase.auth.getUser(),
     ])
 
@@ -117,7 +115,6 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
     const activeRosters = filterRostersForDutyAvailability(rosters, approvedLeaves)
     const activeMembers = membersData || []
     const todayLogs = todayLogsData || []
-    const studioSessions = studioSessionsData || []
 
     const signedSlotMap = new Map<string, string>()
     todayLogs.forEach((log) => {
@@ -165,8 +162,6 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
         }
     })
 
-    const studioStudyLeaderboard = buildStudioStudyLeaderboard(studioSessions, now)
-
     return {
         me,
         dutyInfo: {
@@ -181,7 +176,23 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
             rosters,
             activeMembers,
             activeRosters,
-            studioStudyLeaderboard,
         },
+    }
+}
+
+export async function getStudioDashboardData(): Promise<StudioDashboardData> {
+    const supabase = await createClient()
+    const now = new Date()
+
+    const { data: studioSessionsData } = await supabase
+        .from("studio_sessions")
+        .select("member_id, started_at, ended_at, is_active, member:members(name)")
+        .returns<StudioSessionWithMember[]>()
+
+    const studioSessions = studioSessionsData || []
+    const studioStudyLeaderboard = buildStudioStudyLeaderboard(studioSessions, now)
+
+    return {
+        studioStudyLeaderboard,
     }
 }
