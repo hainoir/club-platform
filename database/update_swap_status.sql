@@ -86,6 +86,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION public.accept_duty_swap(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.accept_duty_swap(uuid, uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.accept_duty_swap(uuid, uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.volunteer_for_duty_swap(
@@ -129,6 +130,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION public.volunteer_for_duty_swap(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.volunteer_for_duty_swap(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.volunteer_for_duty_swap(uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.return_duty_swap_to_hall(
@@ -193,4 +195,5 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION public.return_duty_swap_to_hall(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.return_duty_swap_to_hall(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.return_duty_swap_to_hall(uuid) TO authenticated;

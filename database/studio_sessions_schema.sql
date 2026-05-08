@@ -110,4 +110,5 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION public.expire_studio_sessions(timestamptz) FROM public;
+REVOKE ALL ON FUNCTION public.expire_studio_sessions(timestamptz) FROM anon;
 GRANT EXECUTE ON FUNCTION public.expire_studio_sessions(timestamptz) TO authenticated;

@@ -268,6 +268,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION public.confirm_key_transfer(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.confirm_key_transfer(uuid, uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO authenticated;
 
 -- ==========================================================
@@ -412,4 +413,5 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION public.approve_duty_leave(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.approve_duty_leave(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.approve_duty_leave(uuid) TO authenticated;

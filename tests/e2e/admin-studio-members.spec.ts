@@ -33,6 +33,19 @@ test.describe('Admin studio members controls', () => {
             })
         })
 
+        await page.route('**/rest/v1/rpc/expire_studio_sessions', async (route, request) => {
+            if (request.method() !== 'POST') {
+                await route.continue()
+                return
+            }
+
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: '0',
+            })
+        })
+
         await page.route('**/rest/v1/studio_sessions*', async (route, request) => {
             if (request.method() === 'GET') {
                 await route.fulfill({

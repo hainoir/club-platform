@@ -4,7 +4,7 @@
 -- 提示：在数据库控制台的查询编辑器中运行此脚本，以保证每次注册时即使没有会话也能自动插表建档
 
 -- 1. 创建或替换同步函数
-CREATE OR REPLACE FUNCTION public.handle_new_user() 
+CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.members (
@@ -32,7 +32,11 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM anon;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM authenticated;
 
 -- 2. 绑定触发器到认证用户表插入事件
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;

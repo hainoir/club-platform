@@ -162,12 +162,10 @@ USING (
 -- 注意：需要先在数据库控制台中创建对应存储桶
 -- ==========================================================
 
--- 允许认证用户读取活动封面海报
+-- Public bucket object URLs do not need a storage.objects SELECT policy.
+-- Removing broad SELECT policies prevents clients from listing the whole bucket.
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
 DROP POLICY IF EXISTS "events_bucket_read" ON storage.objects;
-CREATE POLICY "events_bucket_read"
-ON storage.objects FOR SELECT
-TO authenticated
-USING (bucket_id = 'events');
 
 -- 仅允许管理员上传图片（插入）
 DROP POLICY IF EXISTS "events_bucket_insert_admin" ON storage.objects;

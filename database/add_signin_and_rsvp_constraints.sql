@@ -67,4 +67,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS duty_logs_member_sign_in_date_unique
 ON public.duty_logs (member_id, sign_in_date);
 
 REVOKE ALL ON FUNCTION public.sync_duty_sign_in_date() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.sync_duty_sign_in_date() TO authenticated;
+REVOKE ALL ON FUNCTION public.sync_duty_sign_in_date() FROM anon;
+REVOKE ALL ON FUNCTION public.sync_duty_sign_in_date() FROM authenticated;

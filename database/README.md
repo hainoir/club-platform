@@ -20,6 +20,7 @@ This project uses SQL-first migrations. Run files in a strict order to avoid dri
 6. `database/update_swap_status.sql`
 7. `database/add_signin_and_rsvp_constraints.sql` (required hardening: sign-in de-dup + RSVP uniqueness)
 8. `database/fix_duty_hall_permissions.sql` (role/email compatibility hardening for duty hall)
+9. `database/security_linter_hardening.sql` (Supabase database-linter hardening for function grants and public storage listing)
 
 ## Incremental Upgrade Order (Existing Environments)
 
@@ -29,6 +30,7 @@ This project uses SQL-first migrations. Run files in a strict order to avoid dri
 4. `database/fix_duty_hall_permissions.sql` (role/email compatibility hardening for duty hall policies and RPCs)
 5. Re-apply `database/rls_policies.sql` only if you changed member/event policies.
 6. Re-apply `database/studio_sessions_schema.sql` when changing self-study presence cleanup behavior.
+7. Apply `database/security_linter_hardening.sql` after any SQL changes that recreate SECURITY DEFINER functions or storage policies.
 
 ## Rollback (Security Hardening)
 
@@ -65,3 +67,5 @@ GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO public;
 - `duty_compensations.compensation_date` exists and historical rows are backfilled.
 - `members.department` / `members.grade` and `auth.users.raw_user_meta_data` no longer contain legacy English enum values.
 - `expire_studio_sessions` exists, is executable by `authenticated`, and client code calls it instead of directly updating expired rows while reading active studio sessions.
+- Public `events` bucket has no broad `storage.objects` SELECT policy such as `Public Access` or `events_bucket_read`.
+- Trigger-only / maintenance functions are not executable by `anon` or `authenticated`; client-facing RPCs are not executable by `anon`.
