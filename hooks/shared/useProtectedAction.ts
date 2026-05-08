@@ -37,7 +37,7 @@ export function useProtectedAction() {
     )
 
     const withAuth = useCallback(
-        <TArgs extends any[], TReturn>(
+        <TArgs extends unknown[], TReturn>(
             action: (...args: TArgs) => Promise<TReturn>,
             customMessage?: string
         ) => {

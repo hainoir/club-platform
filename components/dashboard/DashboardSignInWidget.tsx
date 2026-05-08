@@ -120,7 +120,7 @@ export function DashboardSignInWidget({
         } finally {
             setIsSigningIn(false)
         }
-    }, [hasSignedInToday, isSigningIn, memberId, refreshSignInState, supabase, toast])
+    }, [hasSignedInToday, isSigningIn, memberId, refreshSignInState, requireAuth, supabase, toast])
 
     return (
         <SignInCard

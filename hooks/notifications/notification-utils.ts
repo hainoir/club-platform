@@ -1,22 +1,9 @@
 import { getDutyPeriodByMinutes, getNextDutySlotDateKey } from "@/lib/duty/duty-time"
+import { PERIOD_START_MINUTES } from "@/lib/duty/duty-constants"
 
 import type { AppNotification, NotificationLevel } from "./types"
 
 const DAY_LABELS = ["周一", "周二", "周三", "周四", "周五"]
-
-export const PERIOD_END_TIMES: Record<number, [number, number]> = {
-    1: [9, 35],
-    2: [11, 40],
-    3: [15, 5],
-    4: [17, 10],
-}
-
-const PERIOD_START_TIMES: Record<number, [number, number]> = {
-    1: [8, 0],
-    2: [10, 5],
-    3: [13, 30],
-    4: [15, 35],
-}
 
 export function formatDutySlot(day: number, period: number): string {
     const dayLabel = day >= 1 && day <= 5 ? DAY_LABELS[day - 1] : `周${day}`
@@ -35,11 +22,11 @@ export function parseStoredIds(raw: string | null): string[] {
 }
 
 export function resolveNextSlotTime(day: number, period: number, now: Date): Date {
-    const [hour, minute] = PERIOD_START_TIMES[period] || [8, 0]
+    const startMinutes = PERIOD_START_MINUTES[period] || 8 * 60
     const slotDateKey = getNextDutySlotDateKey(day, period, now)
     const [year, month, date] = slotDateKey.split("-").map(Number)
     const candidate = new Date(year, month - 1, date)
-    candidate.setHours(hour, minute, 0, 0)
+    candidate.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0)
 
     return candidate
 }

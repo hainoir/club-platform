@@ -21,6 +21,11 @@ type StudioSessionWithMember = Pick<Database["public"]["Tables"]["studio_session
     member: Pick<Database["public"]["Tables"]["members"]["Row"], "name"> | null
 }
 
+type SupabaseListResult<T> = {
+    data: T[] | null
+    error: { message: string } | null
+}
+
 export interface DashboardAggregatedData {
     me: AppUser | null
     dutyInfo: {
@@ -61,6 +66,14 @@ function resolveNextDutyTime(day: number, period: number, now: Date): Date {
     return candidate
 }
 
+function unwrapSupabaseList<T>(label: string, result: SupabaseListResult<T>): T[] {
+    if (result.error) {
+        throw new Error(`${label}: ${result.error.message}`)
+    }
+
+    return result.data || []
+}
+
 export async function getAggregatedDashboardData(): Promise<DashboardAggregatedData> {
     const supabase = await createClient()
 
@@ -71,13 +84,11 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
     const isTodayDutyRequired = isDutyRequiredDate(todayDateKey)
 
     const [
-        { data: rostersData },
-        { data: approvedLeavesData },
-        { data: todayLogsData },
-        { data: membersData },
-        {
-            data: { user: authUser },
-        },
+        rostersResult,
+        approvedLeavesResult,
+        todayLogsResult,
+        membersResult,
+        authResult,
     ] = await Promise.all([
         supabase
             .from("duty_rosters")
@@ -105,11 +116,11 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
         supabase.auth.getUser(),
     ])
 
-    const rosters = rostersData || []
-    const approvedLeaves = approvedLeavesData || []
+    const rosters = unwrapSupabaseList("duty rosters", rostersResult)
+    const approvedLeaves = unwrapSupabaseList("approved leaves", approvedLeavesResult)
     const activeRosters = filterRostersForDutyAvailability(rosters, approvedLeaves)
-    const activeMembers = membersData || []
-    const todayLogs = todayLogsData || []
+    const activeMembers = unwrapSupabaseList("active members", membersResult)
+    const todayLogs = unwrapSupabaseList("today duty logs", todayLogsResult)
 
     const signedSlotMap = new Map<string, string>()
     todayLogs.forEach((log) => {
@@ -130,7 +141,7 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
               .sort((a, b) => (a.period === b.period ? a.member.name.localeCompare(b.member.name, "zh-CN") : a.period - b.period))
         : []
 
-    const me = await resolveAppUser(supabase, authUser)
+    const me = await resolveAppUser(supabase, authResult.error ? null : authResult.data.user)
 
     const myTodayRosters = me?.id ? todayRosters.filter((r) => r.member_id === me.id) : []
     const myTodayAssignedPeriods = Array.from(new Set(myTodayRosters.map((r) => r.period))).sort((a, b) => a - b)
@@ -179,12 +190,12 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
     const supabase = await createClient()
     const now = new Date()
 
-    const { data: studioSessionsData } = await supabase
+    const studioSessionsResult = await supabase
         .from("studio_sessions")
         .select("member_id, started_at, ended_at, is_active, member:members(name)")
         .returns<StudioSessionWithMember[]>()
 
-    const studioSessions = studioSessionsData || []
+    const studioSessions = unwrapSupabaseList("studio sessions", studioSessionsResult)
     const studioStudyLeaderboard = buildStudioStudyLeaderboard(studioSessions, now)
 
     return {

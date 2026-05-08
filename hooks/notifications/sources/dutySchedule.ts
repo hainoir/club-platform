@@ -1,11 +1,10 @@
 import { isDutyRequiredDate } from "@/lib/duty/china-public-holidays"
 import { filterRostersForDutyAvailability } from "@/lib/duty/duty-leaves"
-import { getDutyNow, toDutyDateTimeParts } from "@/lib/duty/duty-time"
+import { getDutyNow, getDutyPeriodEndMinutes, toDutyDateTimeParts } from "@/lib/duty/duty-time"
 
 import {
     formatDutySlot,
     getMatchedPeriod,
-    PERIOD_END_TIMES,
     resolveNextSlotTime,
 } from "../notification-utils"
 import type { AppNotification, NotificationSourceContext } from "../types"
@@ -81,8 +80,7 @@ export async function getDutyScheduleNotifications({
     myRosters
         .filter((roster) => roster.day_of_week === todayDow)
         .forEach((roster) => {
-            const [endHour, endMinute] = PERIOD_END_TIMES[roster.period] || [23, 59]
-            const overDueAtMinutes = endHour * 60 + endMinute + 10
+            const overDueAtMinutes = getDutyPeriodEndMinutes(roster.period) + 10
             if (nowMinutes <= overDueAtMinutes) return
             if (signedPeriodsToday.has(roster.period)) return
 

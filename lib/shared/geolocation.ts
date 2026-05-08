@@ -51,7 +51,7 @@ function requestCurrentPosition(options: PositionOptions, hardTimeoutMs: number)
         }
 
         let settled = false
-        const finish = (handler: (value: any) => void, value: any) => {
+        const finish = <TValue,>(handler: (value: TValue) => void, value: TValue) => {
             if (settled) return
             settled = true
             window.clearTimeout(watchdog)

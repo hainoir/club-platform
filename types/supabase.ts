@@ -409,6 +409,12 @@ export interface Database {
                 }
                 Returns: undefined
             }
+            expire_studio_sessions: {
+                Args: {
+                    p_now?: string
+                }
+                Returns: number
+            }
             return_duty_swap_to_hall: {
                 Args: {
                     p_swap_id: string

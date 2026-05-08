@@ -4,6 +4,22 @@
 
 A Next.js 15 + Supabase application for club operations, duty workflows, events, and member management.
 
+## Portfolio Summary
+
+Club Platform is a campus club operations system focused on authenticated workflows rather than a static management dashboard. The strongest engineering chain is:
+
+- Server-side dashboard aggregation with App Router and Supabase SSR.
+- Auth/session synchronization across middleware, providers, and Zustand state.
+- Location-aware duty sign-in with duplicate-sign-in protection.
+- Approval-based duty leave, substitute swap, compensation-date, and key-transfer workflows.
+- Separate self-study presence tracking through `studio_sessions` and an RPC cleanup boundary.
+- Playwright coverage for protected flows, duty operations, member search, self-study, notifications, settings, and event RSVP.
+
+Useful deep-dive docs:
+
+- [Architecture Notes](./docs/architecture.md)
+- [Duty Workflow Contract](./docs/duty-contract.md)
+
 ## Tech Stack
 - Next.js App Router
 - React 19 + TypeScript

@@ -8,6 +8,7 @@ This project uses SQL-first migrations. Run files in a strict order to avoid dri
   `public.accept_duty_swap`, `public.volunteer_for_duty_swap`, and `public.return_duty_swap_to_hall`.
 - `database/fix_duty_hall_permissions.sql` intentionally mirrors those RPC definitions for role/email compatibility hardening and must stay in sync.
 - `database/accept_swap_rpc.sql` is deprecated and intentionally does not define RPC behavior.
+- `database/studio_sessions_schema.sql` owns `public.expire_studio_sessions`, the RPC boundary for closing expired self-study presence records.
 
 ## Fresh Environment Order
 
@@ -27,6 +28,7 @@ This project uses SQL-first migrations. Run files in a strict order to avoid dri
 3. `database/update_swap_status.sql` (refreshes swap approval / volunteer / return-to-hall RPCs)
 4. `database/fix_duty_hall_permissions.sql` (role/email compatibility hardening for duty hall policies and RPCs)
 5. Re-apply `database/rls_policies.sql` only if you changed member/event policies.
+6. Re-apply `database/studio_sessions_schema.sql` when changing self-study presence cleanup behavior.
 
 ## Rollback (Security Hardening)
 
@@ -62,3 +64,4 @@ GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO public;
 - `duty_leaves` only expose `pending` rows to the owner/admin; approved rows stay visible to everyone.
 - `duty_compensations.compensation_date` exists and historical rows are backfilled.
 - `members.department` / `members.grade` and `auth.users.raw_user_meta_data` no longer contain legacy English enum values.
+- `expire_studio_sessions` exists, is executable by `authenticated`, and client code calls it instead of directly updating expired rows while reading active studio sessions.

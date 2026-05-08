@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
     "e2e:smoke": "playwright test tests/e2e/smoke --reporter=line",
@@ -48,6 +48,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "@types/echarts": "^5.0.0",
     "@types/node": "^20",
     "@types/react": "^19",

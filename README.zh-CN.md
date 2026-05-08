@@ -4,6 +4,22 @@
 
 这是一个基于 Next.js 15 + Supabase 的社团管理平台，覆盖值班流程、活动管理、成员管理等核心场景。
 
+## 作品集摘要
+
+Club Platform 不是静态后台页面，而是一个围绕登录态、权限、排班和审批流构建的校园社团运营系统。项目最适合作为前端实习作品展示的主线是：
+
+- 基于 App Router 和 Supabase SSR 的首页服务端数据聚合。
+- middleware、Provider、Zustand 之间的登录态与用户状态同步。
+- 带定位校验和重复签到约束的值班签到。
+- 审批制请假、代班、补班日期和钥匙交接流程。
+- 与值班签到分离的工作室自习在场记录，并通过 RPC 收口过期会话清理。
+- Playwright 覆盖登录保护、值班操作、成员搜索、自习、通知、设置和活动报名等关键路径。
+
+延伸说明：
+
+- [架构说明](./docs/architecture.md)
+- [值班流程契约](./docs/duty-contract.md)
+
 ## 技术栈
 - Next.js App Router
 - React 19 + TypeScript

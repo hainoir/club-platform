@@ -12,18 +12,14 @@ import { isDutyRequiredDate } from '@/lib/duty/china-public-holidays';
 import {
     addDaysToDateKey,
     getDutyNow,
+    getDutyPeriodEndMinutes,
     getDutyWeekMondayDateKey,
     resolveDutySignInSlot,
 } from '@/lib/duty/duty-time';
 
+import type { PostgrestError } from '@supabase/supabase-js';
 import type { RosterWithMember } from '@/hooks/useDuty';
-
-const PERIOD_RANGES: Record<number, { end: [number, number] }> = {
-    1: { end: [9, 35] },
-    2: { end: [11, 40] },
-    3: { end: [15, 5] },
-    4: { end: [17, 10] },
-};
+import type { Database } from '@/types/supabase';
 
 const DAYS_LABEL = ['一', '二', '三', '四', '五'];
 
@@ -34,8 +30,7 @@ function isPeriodPast(dateKey: string, period: number): boolean {
     if (dateKey < now.dateKey) return true;
     if (dateKey > now.dateKey) return false;
 
-    const [endH, endM] = PERIOD_RANGES[period]?.end || [23, 59];
-    return now.minutes >= endH * 60 + endM;
+    return now.minutes >= getDutyPeriodEndMinutes(period);
 }
 
 async function ensureSession(supabase: SupabaseBrowserClient): Promise<boolean> {
@@ -45,6 +40,16 @@ async function ensureSession(supabase: SupabaseBrowserClient): Promise<boolean> 
 interface AbsentMembersCardProps {
     rosters: RosterWithMember[];
 }
+
+type DutyLogSignIn = Pick<
+    Database['public']['Tables']['duty_logs']['Row'],
+    'member_id' | 'sign_in_time' | 'sign_in_date'
+>;
+
+type PostgrestListResult<T> = {
+    data: T[] | null;
+    error: PostgrestError | null;
+};
 
 export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
     const supabase = useSupabase();
@@ -59,7 +64,7 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
             }
 
             const mondayDateKey = getDutyWeekMondayDateKey(new Date());
-            const { data, error } = await runWithTimeout<any>(async (signal) =>
+            const { data, error } = await runWithTimeout<PostgrestListResult<DutyLogSignIn>>(async (signal) =>
                 await supabase
                     .from('duty_logs')
                     .select('member_id, sign_in_time, sign_in_date')
@@ -71,7 +76,7 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
             if (error) throw error;
 
             const nextSignedSlots = new Set<string>();
-            (data || []).forEach((log: { member_id: string; sign_in_time: string; sign_in_date: string | null }) => {
+            (data || []).forEach((log) => {
                 const slot = resolveDutySignInSlot(log);
                 if (!slot) return;
                 nextSignedSlots.add(slot.slotKey);

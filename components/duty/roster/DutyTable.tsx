@@ -17,11 +17,10 @@ export interface SimpleMember {
     student_id: string | number | null;
 }
 
-import { DUTY_PERIODS, DUTY_DAYS, PERIOD_END_HOUR_MINUTE } from '@/lib/duty/duty-constants';
+import { DUTY_PERIODS, DUTY_DAYS } from '@/lib/duty/duty-constants';
+import { getDutyPeriodEndMinutes } from '@/lib/duty/duty-time';
 
 const PERIODS = DUTY_PERIODS.map(p => ({ id: p.id, label: p.fullLabel, time: `(${p.start}-${p.end})` }));
-
-const PERIOD_END_TIMES = PERIOD_END_HOUR_MINUTE;
 
 const DAYS = DUTY_DAYS;
 
@@ -152,14 +151,12 @@ export function DutyTable({
     const getSlotLabel = useMemo(() => {
         const now = new Date();
         const todayDow = now.getDay(); // 0=周日, 1=周一, ..., 5=周五
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
         // 判断某个节次是否已结束（仅当今天是该星期时才考虑时间）
         const isPeriodOver = (day: number, period: number) => {
             if (todayDow !== day) return todayDow > day && todayDow <= 5;
-            const [endH, endM] = PERIOD_END_TIMES[period] || [23, 59];
-            return currentHour > endH || (currentHour === endH && currentMinute >= endM);
+            return currentMinutes >= getDutyPeriodEndMinutes(period);
         };
 
         return (memberId: string, day: number, period: number): 'leave' | 'substitute' | null => {

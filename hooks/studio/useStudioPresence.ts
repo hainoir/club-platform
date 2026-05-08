@@ -9,6 +9,7 @@ import { resolveCurrentDutyAvailability } from '@/lib/duty/duty-sign-in';
 import {
     getDutyNow,
     getDutyPeriodByMinutes,
+    getDutyPeriodEndMinutes,
     toDutyDateTimeParts,
 } from '@/lib/duty/duty-time';
 import {
@@ -21,18 +22,12 @@ import { isAdminRole, useUserStore } from '@/store/useUserStore';
 import { ensureClientSession } from '@/utils/supabase/ensure-client-session';
 import { useProtectedAction } from '@/hooks/shared/useProtectedAction';
 
+import type { PostgrestError } from '@supabase/supabase-js';
 import type { RosterWithMember } from '@/hooks/useDuty';
-
-const PERIOD_RANGES: Record<number, { end: [number, number] }> = {
-    1: { end: [9, 35] },
-    2: { end: [11, 40] },
-    3: { end: [15, 5] },
-    4: { end: [17, 10] },
-};
+import type { Database } from '@/types/supabase';
 
 function getPeriodEndPlusMinutes(period: number, extraMin: number): number {
-    const [h, m] = PERIOD_RANGES[period]?.end || [23, 59];
-    return h * 60 + m + extraMin;
+    return getDutyPeriodEndMinutes(period) + extraMin;
 }
 
 function getMatchedPeriod(minutes: number): number {
@@ -60,6 +55,21 @@ interface StudioSessionWithMember {
         name: string | null;
     } | null;
 }
+
+type DutyLogPresence = Pick<
+    Database['public']['Tables']['duty_logs']['Row'],
+    'id' | 'member_id' | 'sign_in_time' | 'sign_in_date' | 'device_info'
+>;
+
+type PostgrestListResult<T> = {
+    data: T[] | null;
+    error: PostgrestError | null;
+};
+
+type PostgrestSingleResult<T> = {
+    data: T | null;
+    error: PostgrestError | null;
+};
 
 interface UseStudioPresenceOptions {
     rosters: RosterWithMember[];
@@ -96,7 +106,13 @@ export function useStudioPresence({
             const members: StudioMember[] = [];
             const seenIds = new Set<string>();
 
-            const { data: dutyLogs, error: dutyError } = await runWithTimeout<any>(async (signal) =>
+            const { error: expireError } = await runWithTimeout<PostgrestSingleResult<number>>(async (signal) =>
+                await supabase.rpc('expire_studio_sessions', {}).abortSignal(signal)
+            );
+
+            if (expireError) throw expireError;
+
+            const { data: dutyLogs, error: dutyError } = await runWithTimeout<PostgrestListResult<DutyLogPresence>>(async (signal) =>
                 await supabase
                     .from('duty_logs')
                     .select('id, member_id, sign_in_time, sign_in_date, device_info')
@@ -108,13 +124,7 @@ export function useStudioPresence({
             if (dutyError) throw dutyError;
 
             if (isDutyRequiredDate(todayDateKey)) {
-                (dutyLogs || []).forEach((log: {
-                    id: string;
-                    member_id: string;
-                    sign_in_time: string;
-                    sign_in_date: string | null;
-                    device_info: string | null;
-                }) => {
+                (dutyLogs || []).forEach((log) => {
                     if (seenIds.has(log.member_id)) return;
                     if (log.device_info?.includes('self-study')) return;
 
@@ -138,7 +148,7 @@ export function useStudioPresence({
                 });
             }
 
-            const { data: sessions, error: sessionError } = await runWithTimeout<any>(async (signal) =>
+            const { data: sessions, error: sessionError } = await runWithTimeout<PostgrestListResult<StudioSessionWithMember>>(async (signal) =>
                 await supabase
                     .from('studio_sessions')
                     .select('id, member_id, started_at, member:members(id, name)')
@@ -148,23 +158,12 @@ export function useStudioPresence({
 
             if (sessionError) throw sessionError;
 
-            ((sessions as StudioSessionWithMember[] | null) || []).forEach((session) => {
+            (sessions || []).forEach((session) => {
                 if (seenIds.has(session.member_id)) return;
 
                 const startParts = toDutyDateTimeParts(session.started_at);
                 const startMin = startParts.minutes;
                 const matchedPeriod = getMatchedPeriod(startMin);
-
-                if (matchedPeriod > 0) {
-                    const periodEndPlus10 = getPeriodEndPlusMinutes(matchedPeriod, 10);
-                    if (nowMin > periodEndPlus10) {
-                        void supabase
-                            .from('studio_sessions')
-                            .update({ is_active: false, ended_at: new Date().toISOString() })
-                            .eq('id', session.id);
-                        return;
-                    }
-                }
 
                 const roster = rosters.find((r) => r.member_id === session.member_id);
                 const sessionMemberName = session.member?.name?.trim() || '';
@@ -229,7 +228,7 @@ export function useStudioPresence({
         } finally {
             setIsStartingStudy(false);
         }
-    }, [fetchStudioMembers, isStartingStudy, supabase, toast, user]);
+    }, [fetchStudioMembers, isStartingStudy, requireAuth, supabase, toast, user]);
 
     const endSelfStudy = useCallback(async () => {
         if (!user) return;
@@ -257,7 +256,7 @@ export function useStudioPresence({
         } finally {
             setEnding(false);
         }
-    }, [fetchStudioMembers, studioMembers, supabase, toast, user]);
+    }, [fetchStudioMembers, requireAuth, studioMembers, supabase, toast, user]);
 
     const deleteStudySession = useCallback(async (member: StudioMember) => {
         if (!canAdminDeleteStudy || member.type !== 'study') return;
@@ -280,7 +279,7 @@ export function useStudioPresence({
         } finally {
             setDeletingSessionId(null);
         }
-    }, [canAdminDeleteStudy, fetchStudioMembers, supabase, toast]);
+    }, [canAdminDeleteStudy, fetchStudioMembers, requireAuth, supabase, toast]);
 
     const isAlreadyInStudio = studioMembers.some((member) => member.id === user?.id);
     const isSelfStudying = studioMembers.some((member) => member.id === user?.id && member.type === 'study');
