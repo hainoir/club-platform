@@ -39,6 +39,9 @@ test.describe('Admin studio members controls', () => {
                 return
             }
 
+            const body = request.postDataJSON()
+            expect(typeof body.p_now).toBe('string')
+
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',

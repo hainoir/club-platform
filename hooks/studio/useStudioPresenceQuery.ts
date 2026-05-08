@@ -68,7 +68,7 @@ export function useStudioPresenceQuery(supabase: SupabaseBrowserClient, rosters:
             const seenIds = new Set<string>();
 
             const { error: expireError } = await runWithTimeout<PostgrestSingleResult<number>>(async (signal) =>
-                await supabase.rpc('expire_studio_sessions', {}).abortSignal(signal)
+                await supabase.rpc('expire_studio_sessions', { p_now: new Date().toISOString() }).abortSignal(signal)
             );
 
             if (expireError) throw expireError;
