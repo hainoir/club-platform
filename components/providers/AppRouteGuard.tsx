@@ -26,8 +26,8 @@ export function AppRouteGuard({
     const effectiveUser = initialUser ?? user
     const hasResolvedAuth = !!initialUser || !!user || isInitialized
 
-    // 【学习注释：先同步服务端用户，再让后续组件读取统一 store】
-    // `useLayoutEffect` 会在浏览器绘制前执行，适合做这种首屏状态对齐，减少一帧错误 UI 闪烁。
+    // 【学习注释：先同步服务端用户，再让后续组件读取统一状态仓库】
+    // `useLayoutEffect` 会在浏览器绘制前执行，适合做这种首屏状态对齐，减少一帧错误界面闪烁。
     React.useLayoutEffect(() => {
         if (!initialUser) {
             return

@@ -41,7 +41,7 @@ async function resolvePostLoginPath(
 
 /**
  * 【学习注释：中间件里的统一会话收口】
- * middleware 是所有页面请求进入应用前最早经过的节点，适合集中处理 token 刷新和访问控制。
+ * 中间件是所有页面请求进入应用前最早经过的节点，适合集中处理 token 刷新和访问控制。
  * 这样页面本身就能更专注于渲染，不需要在每个入口都重复写一套登录判断。
  */
 export async function updateSession(request: NextRequest) {
@@ -77,8 +77,8 @@ export async function updateSession(request: NextRequest) {
     )
 
     // 【学习注释：借一次 getUser 完成 token 保活】
-    // 这里不只是“取用户”，更重要的是让 Supabase 在请求入口就有机会刷新即将过期的 session。
-    // 面试时可以强调：鉴权查询和令牌续期被集中放在 middleware，减少了页面层的重复逻辑。
+    // 这里不只是“取用户”，更重要的是让 Supabase 在请求入口就有机会刷新即将过期的会话。
+    // 面试时可以强调：鉴权查询和令牌续期被集中放在中间件，减少了页面层的重复逻辑。
     const {
         data: { user },
     } = await supabase.auth.getUser()

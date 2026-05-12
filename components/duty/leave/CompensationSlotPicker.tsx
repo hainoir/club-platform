@@ -19,7 +19,7 @@ interface CompensationSection {
 interface CompensationSlotPickerProps {
     /** 分组后的补班时段（本周/下周） */
     sections: CompensationSection[];
-    /** 当前已选中的补班槽位 key 列表 */
+    /** 当前已选中的补班槽位标识列表 */
     selectedKeys: string[];
     /** 需要选择的总数量 */
     requiredCount: number;

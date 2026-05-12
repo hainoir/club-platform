@@ -3,8 +3,8 @@ import type { NextConfig } from "next"
 /**
  * Next.js 配置
  *
- * - images: 允许 next/image 加载 Supabase Storage 托管的活动封面图
- * - headers: 为所有路由添加基础安全 HTTP 头
+ * - 图片配置：允许 next/image 加载 Supabase Storage 托管的活动封面图
+ * - 请求头配置：为所有路由添加基础安全 HTTP 头
  */
 const nextConfig: NextConfig = {
     images: {

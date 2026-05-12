@@ -1,34 +1,34 @@
-# Contributing
+# 贡献指南
 
-## Branching and Deployments
+## 分支与部署
 
-- Use feature branches for all changes.
-- Vercel Preview deployments should be used for branch and pull request validation.
-- `main` is reserved for production releases on Vercel.
+- 所有变更都应使用功能分支。
+- 分支和拉取请求的验证应使用 Vercel Preview 部署。
+- `main` 仅用于在 Vercel 上发布生产版本。
 
-## Release Flow
+## 发布流程
 
-1. Create a branch from `main`.
-2. Implement the change and open a pull request.
-3. Verify the Vercel Preview deployment and the GitHub Actions quality gate.
-4. Merge into `main` only after preview verification passes.
+1. 从 `main` 切出分支。
+2. 完成修改并创建拉取请求。
+3. 验证 Vercel Preview 部署和 GitHub Actions 质量门禁。
+4. 只有在预览验证通过后，才合并到 `main`。
 
-## Required Vercel Environment Variables
+## 必需的 Vercel 环境变量
 
-Set these variables in both the `Preview` and `Production` environments:
+请在 `Preview` 和 `Production` 两个环境中都设置以下变量：
 
 ```properties
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-Add the optional `E2E_*` variables only if preview or CI flows need authenticated end-to-end validation.
+只有在预览环境或持续集成流程需要带登录态的端到端验证时，才额外添加可选的 `E2E_*` 变量。
 
-## Local Safety Rules
+## 本地安全规则
 
-- Never commit `.env*.local`.
-- Never commit `.vercel`.
-- Run the local quality gate before merging when possible:
+- 不要提交 `.env*.local`。
+- 不要提交 `.vercel`。
+- 条件允许时，请在合并前运行本地质量门禁：
 
 ```bash
 pnpm run lint
@@ -39,4 +39,4 @@ pnpm run e2e:smoke
 pnpm run e2e:readonly
 ```
 
-Run `pnpm run e2e:mutation` only against an isolated Supabase environment because those specs exercise real write paths.
+`pnpm run e2e:mutation` 只能在隔离的 Supabase 环境中运行，因为这些用例会覆盖真实写入路径。

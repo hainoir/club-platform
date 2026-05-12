@@ -9,7 +9,7 @@ import { useEventAttendees } from "./useEventAttendees"
 /**
  * 活动模块的编排入口
  *
- * 组合 useEventCRUD、useEventRSVP、useEventAttendees 三个子域 Hook，
+ * 组合 useEventCRUD、useEventRSVP、useEventAttendees 三个子域钩子，
  * 并提供活动列表的过滤和排序计算。
  */
 export function useEvents(initialEvents: Event[]) {
@@ -24,7 +24,7 @@ export function useEvents(initialEvents: Event[]) {
         setEvents(initialEvents)
     }, [initialEvents])
 
-    // 子域 Hook 编排
+    // 子域钩子编排
     const crud = useEventCRUD(requireAuth)
     const rsvp = useEventRSVP(requireAuth)
     const attendees = useEventAttendees(requireAuth)
@@ -62,7 +62,7 @@ export function useEvents(initialEvents: Event[]) {
         upcomingEvents,
         endedEvents,
 
-        // CRUD 操作
+        // 增删改查操作
         isDialogOpen: crud.isDialogOpen, setIsDialogOpen: crud.setIsDialogOpen,
         isSubmitting: crud.isSubmitting,
         date: crud.date, setDate: crud.setDate,
@@ -72,7 +72,7 @@ export function useEvents(initialEvents: Event[]) {
         handleDelete: crud.handleDelete,
         handleSave: crud.handleSave,
 
-        // RSVP 操作
+        // 报名响应（RSVP）操作
         handleRSVP: rsvp.handleRSVP,
 
         // 参与者管理

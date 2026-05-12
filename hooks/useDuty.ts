@@ -21,8 +21,8 @@ export type {
 } from '@/hooks/duty/types';
 
 /**
- * 【学习注释：值班大厅的业务编排 Hook】
- * `useDuty` 是公开门面，负责创建共享上下文并组合排班、签到、代班、请假和钥匙交接子 Hook。
+ * 【学习注释：值班大厅的业务编排钩子】
+ * `useDuty` 是公开门面，负责创建共享上下文并组合排班、签到、代班、请假和钥匙交接子钩子。
  * 页面组件继续消费同一份返回值，但每个业务子域的读写逻辑已经拆到独立模块里维护。
  */
 export function useDuty(initialRosters: RosterWithMember[]) {
@@ -31,12 +31,12 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     const supabase = useSupabase();
     const { requireAuth } = useProtectedAction();
 
-    // swaps/leaves 之间需要互相触发刷新，ref 可以避免子 Hook 直接形成循环依赖。
+    // 代班与请假之间需要互相触发刷新，ref 可以避免子钩子直接形成循环依赖。
     const refreshSwapsRef = useRef<RefreshCallback>(() => undefined);
     const refreshApprovedLeavesRef = useRef<RefreshCallback>(() => undefined);
     const refreshPendingLeavesRef = useRef<RefreshCallback>(() => undefined);
 
-    // 【学习注释：所有写操作共用一层 session 续命】
+    // 【学习注释：所有写操作共用一层会话续命】
     // 这样排班、签到、换班等动作都不需要各自重复实现 token 恢复逻辑。
     const ensureActiveSession = useCallback(async () => {
         return await requireAuth('请重新登录后再进行值班相关操作。');

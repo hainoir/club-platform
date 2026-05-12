@@ -19,7 +19,7 @@ interface SwapActionButtonsProps {
 /**
  * 代班请求的操作按钮区域
  *
- * 根据当前用户身份（发起人/目标/管理员）和代班状态（pending/accepted/定向/公共）
+ * 根据当前用户身份（发起人、目标、管理员）和代班状态（pending、accepted、定向、公共）
  * 渲染不同的操作按钮或状态徽章。
  */
 export function SwapActionButtons({

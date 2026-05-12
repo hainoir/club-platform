@@ -11,7 +11,7 @@ const AUTH_INIT_TIMEOUT_MS = 30000
 
 /**
  * 【学习注释：异步初始化超时保护】
- * 登录态恢复会串联本地 session、服务端桥接和资料查询，多一步都可能卡住首屏。
+ * 登录态恢复会串联本地会话、服务端桥接和资料查询，多一步都可能卡住首屏。
  * 这里加超时不是为了“修复网络”，而是为了保证前端不会无限等待在未知状态。
  */
 async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label: string): Promise<T> {
@@ -37,7 +37,7 @@ async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label: string
  * 【学习注释：客户端接管登录态】
  * 根布局负责首屏骨架，真正持续监听登录态变化的是这个 provider。
  * 它会在页面获得焦点、标签页重新可见、token 刷新等时机重新对齐用户状态，
- * 让客户端 store 和 Supabase session 长期保持同步。
+ * 让客户端状态仓库和 Supabase 会话长期保持同步。
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const setUser = useUserStore((state) => state.setUser)
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         // 【学习注释：串行化初始化】
-        // 同一时间只保留一个初始化任务，避免 focus、可见性变化和 auth 事件同时触发时重复请求。
+        // 同一时间只保留一个初始化任务，避免焦点变化、可见性变化和鉴权事件同时触发时重复请求。
         const task = (async () => {
             const hadResolvedUser = (() => {
                 const currentState = useUserStore.getState()

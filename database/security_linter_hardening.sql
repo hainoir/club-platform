@@ -1,11 +1,11 @@
 -- ==========================================================
--- Supabase database-linter hardening
+-- Supabase 数据库检查器加固
 -- ==========================================================
--- Apply after the canonical schema scripts in an existing Supabase project.
--- This file is intentionally idempotent and also handles legacy functions
--- that may exist in production but are no longer defined in this repository.
+-- 在已有 Supabase 项目中，请于权威 schema 脚本之后执行。
+-- 本文件被刻意设计为幂等，同时也会处理那些可能仍存在于生产环境、
+-- 但仓库里已经不再定义的历史函数。
 
--- 1) Fix mutable search_path warnings for SECURITY DEFINER functions.
+-- 1) 修复 SECURITY DEFINER 函数的可变 search_path 告警。
 DO $$
 DECLARE
   function_signature text;
@@ -24,15 +24,15 @@ BEGIN
 END;
 $$;
 
--- 2) Remove broad SELECT policies from the public events bucket.
--- Public object URLs work without a storage.objects SELECT policy, and broad
--- bucket SELECT policies allow clients to list all object names.
+-- 2) 移除公开 events bucket 上过宽的 SELECT 策略。
+-- 公开对象链接在没有 storage.objects SELECT 策略时也能访问，而宽泛的
+-- bucket SELECT 策略会允许客户端枚举全部对象名称。
 DROP POLICY IF EXISTS "Public Access" ON storage.objects;
 DROP POLICY IF EXISTS "events_bucket_read" ON storage.objects;
 
--- 3) Revoke anonymous access to SECURITY DEFINER functions.
--- Client-facing RPCs keep authenticated execute grants because the app calls
--- them through Supabase RPC and each function performs its own auth checks.
+-- 3) 撤销匿名用户对 SECURITY DEFINER 函数的访问权限。
+-- 面向客户端的 RPC 仍保留 authenticated 执行权限，因为应用会通过
+-- Supabase RPC 调用它们，而且每个函数内部还会自行执行鉴权检查。
 DO $$
 DECLARE
   function_signature text;
@@ -61,7 +61,7 @@ BEGIN
 END;
 $$;
 
--- 4) Trigger-only and maintenance functions should not be directly callable.
+-- 4) 仅供触发器和维护使用的函数不应被直接调用。
 DO $$
 DECLARE
   function_signature text;
@@ -81,7 +81,7 @@ BEGIN
 END;
 $$;
 
--- 5) Re-assert the authenticated grants required by current client RPC calls.
+-- 5) 重新确认当前客户端 RPC 调用所需的 authenticated 授权。
 DO $$
 DECLARE
   function_signature text;

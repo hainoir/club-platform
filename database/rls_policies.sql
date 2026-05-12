@@ -162,8 +162,8 @@ USING (
 -- 注意：需要先在数据库控制台中创建对应存储桶
 -- ==========================================================
 
--- Public bucket object URLs do not need a storage.objects SELECT policy.
--- Removing broad SELECT policies prevents clients from listing the whole bucket.
+-- 公开 bucket 的对象链接不需要额外的 storage.objects SELECT 策略。
+-- 移除过宽的 SELECT 策略可以阻止客户端枚举整个 bucket。
 DROP POLICY IF EXISTS "Public Access" ON storage.objects;
 DROP POLICY IF EXISTS "events_bucket_read" ON storage.objects;
 

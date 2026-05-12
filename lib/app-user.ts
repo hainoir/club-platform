@@ -90,7 +90,7 @@ export function isAdminRole(role: string | null | undefined): boolean {
 }
 
 // 【学习注释：用户对象浅比较】
-// AuthProvider 和 route guard 会频繁同步用户状态，先做比较可以避免不必要的 store 写入和重复渲染。
+// AuthProvider 和路由守卫会频繁同步用户状态，先做比较可以避免不必要的 store 写入和重复渲染。
 export function areAppUsersEqual(left: AppUser | null | undefined, right: AppUser | null | undefined): boolean {
     if (!left && !right) return true
     if (!left || !right) return false

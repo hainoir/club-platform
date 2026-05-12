@@ -6,7 +6,7 @@ import { useToast } from "@/components/ui/toast-simple"
 import type { Event } from "@/components/events/EventsClient"
 
 /**
- * 活动报名（RSVP）操作
+ * 活动报名响应（RSVP）操作
  *
  * 处理报名、取消报名，包括去重检查和并发冲突处理。
  */

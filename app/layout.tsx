@@ -13,8 +13,8 @@ const inter = Inter({ subsets: ["latin"] })
 
 /**
  * 【学习注释：根布局元信息】
- * App Router 允许在布局层直接导出 metadata，让标题和描述在服务端渲染阶段就进入 HTML。
- * 面试里可以把这类配置归纳为“框架级 SEO 能力”，说明你知道页面结构和元信息应该放在最外层统一管理。
+ * App Router 允许在布局层直接导出元数据，让标题和描述在服务端渲染阶段就进入 HTML。
+ * 面试里可以把这类配置归纳为“框架级搜索优化能力”，说明你知道页面结构和元信息应该放在最外层统一管理。
  */
 export const metadata: Metadata = {
     title: "社团管理平台",
@@ -22,10 +22,10 @@ export const metadata: Metadata = {
 }
 
 /**
- * 【学习注释：应用壳层与 Server/Client 边界】
- * RootLayout 默认是 Server Component，适合承载字体、全局样式和稳定的页面骨架。
+ * 【学习注释：应用壳层与服务端/客户端边界】
+ * RootLayout 默认是服务端组件，适合承载字体、全局样式和稳定的页面骨架。
  * 真正依赖浏览器能力的主题切换、提示消息、持久化状态恢复和登录态同步，
- * 通过下方的 client providers 接管，既保住首屏渲染收益，也让架构分层更清晰。
+ * 通过下方的客户端 provider 组件接管，既保住首屏渲染收益，也让架构分层更清晰。
  */
 export default function RootLayout({
     children,

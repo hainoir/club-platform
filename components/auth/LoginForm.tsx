@@ -147,7 +147,7 @@ export default function LoginForm() {
     )
 
     // 【学习注释：统一收口登录与注册提交】
-    // 两种模式共用一个入口，便于集中处理 loading、错误翻译和登录后跳转。
+    // 两种模式共用一个入口，便于集中处理加载态、错误翻译和登录后跳转。
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
@@ -240,7 +240,7 @@ export default function LoginForm() {
     }
 
     // 【学习注释：密码重置仍然复用 Supabase 能力】
-    // 前端只负责拼接回跳地址和提示文案，真正的邮件发送与 token 校验交给 Auth 服务完成。
+    // 前端只负责拼接回跳地址和提示文案，真正的邮件发送与 token 校验交给鉴权服务完成。
     const handleForgotPassword = async () => {
         const normalizedEmail = email.trim().toLowerCase()
         if (!normalizedEmail) {

@@ -91,7 +91,7 @@ async function isProtectedShellReady(page: Page): Promise<boolean> {
         return true
     }
 
-    // Fallback for pages where notification trigger is absent, while still excluding login/guard blank states.
+    // 当页面没有通知触发器时使用回退判定，同时继续排除登录页或守卫页的空白状态。
     return !(await isLoginSurfaceVisible(page))
 }
 
@@ -165,7 +165,7 @@ export async function gotoProtectedPath(page: Page, path: string, timeoutMs = AP
         try {
             await waitForProtectedAppReady(page, readyTimeoutMs)
         } catch {
-            // Keep retrying while auth/session propagation catches up in CI.
+            // 在持续集成环境里等待鉴权与会话状态传播完成时，持续重试。
         }
 
         if (getPathname(page.url()) === expectedPathname && (await isStableProtectedPath(page, expectedPathname))) {

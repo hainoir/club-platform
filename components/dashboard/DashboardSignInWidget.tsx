@@ -17,7 +17,7 @@ import { useProtectedAction } from "@/hooks/shared/useProtectedAction"
 
 /**
  * 【学习注释：仪表盘签到入口的客户端职责】
- * 这个组件同时依赖当前时间、今日排班、浏览器定位和数据库写入，天然属于 Client Component。
+ * 这个组件同时依赖当前时间、今日排班、浏览器定位和数据库写入，天然属于客户端组件。
  * 把它从首页服务端组件里拆出来后，数据聚合和强交互逻辑的边界会更清晰。
  */
 type DisabledReason = DutyAvailabilityReason
@@ -92,7 +92,7 @@ export function DashboardSignInWidget({
 
         setIsSigningIn(true)
         try {
-            // 【学习注释：写操作前先确认 session 还有足够寿命】
+            // 【学习注释：写操作前先确认会话还有足够寿命】
             // 否则定位成功后才发现 token 过期，会把用户体验变成“看起来能点，提交时失败”。
             if (!(await requireAuth("请重新登录后再进行值班签到。"))) return
 

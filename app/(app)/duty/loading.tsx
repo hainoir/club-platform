@@ -1,7 +1,7 @@
 /**
  * 值班管理页骨架屏
  *
- * 模拟 DutyClient（排班表格）和 DutyManagementOverview（值班概览）的加载态。
+ * 模拟 DutyClient（排班表格）和 DutyManagementOverview（值班概览）对应的加载态。
  */
 export default function DutyLoading() {
     return (

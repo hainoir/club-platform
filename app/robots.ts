@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next"
 
 /**
- * robots.txt 生成
+ * 爬虫规则文件（robots.txt）生成
  *
  * 允许搜索引擎爬取公开页面，但阻止索引 API 路由和鉴权页面。
  */

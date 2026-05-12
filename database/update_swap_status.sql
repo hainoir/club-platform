@@ -1,6 +1,6 @@
 -- ==========================================================
--- Duty swap RPCs
--- Canonical source of truth for:
+-- 值班代班 RPC 定义
+-- 下列函数的权威事实来源：
 --   - public.accept_duty_swap
 --   - public.volunteer_for_duty_swap
 --   - public.return_duty_swap_to_hall

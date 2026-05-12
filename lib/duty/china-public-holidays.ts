@@ -1,6 +1,6 @@
 const CHINA_PUBLIC_HOLIDAY_DATE_KEYS = new Set([
-    // 2026 official public holiday dates from https://www.gov.cn/zhengce/zhengceku/202511/content_7047091.htm.
-    // Makeup working days are intentionally omitted.
+    // 2026 年法定节假日日期来源：https://www.gov.cn/zhengce/zhengceku/202511/content_7047091.htm
+    // 这里有意不包含调休工作日。
     "2026-01-01",
     "2026-01-02",
     "2026-01-03",

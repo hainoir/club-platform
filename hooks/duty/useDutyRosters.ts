@@ -35,7 +35,7 @@ export function useDutyRosters(
         }
     }, [supabase]);
 
-    // 【学习注释：排班操作与 optimistic update】
+    // 【学习注释：排班操作与乐观更新】
     // 管理员点击后先更新本地界面，再回写数据库；失败时再刷新真实数据回滚。
     const toggleDutySlot = useCallback(async (day: number, period: number, memberId: string, memberName: string) => {
         if (!user) {

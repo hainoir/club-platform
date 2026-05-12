@@ -6,8 +6,8 @@ import { ensureClientSession } from "@/utils/supabase/ensure-client-session"
 
 /**
  * 【学习注释：横切关注点抽象】
- * 将写操作前的 Session 校验逻辑抽象为全局 Hook。
- * 统一处理失效后的状态清空和弹窗提醒，避免在各自业务模块（如 Duty, Events, Members）中产生冗余样板代码。
+ * 将写操作前的会话校验逻辑抽象为全局钩子。
+ * 统一处理失效后的状态清空和弹窗提醒，避免在值班、活动、成员等业务模块中产生冗余样板代码。
  */
 export function useProtectedAction() {
     const supabase = useSupabase()

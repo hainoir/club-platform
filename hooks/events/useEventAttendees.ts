@@ -8,7 +8,7 @@ import type { Event } from "@/components/events/EventsClient"
 /**
  * 活动参与者管理
  *
- * 处理查看参与者列表、移除参与者、切换签到状态和导出 CSV。
+ * 处理查看参与者列表、移除参与者、切换签到状态和导出逗号分隔表。
  */
 export function useEventAttendees(
     requireActiveSession: () => Promise<boolean>,

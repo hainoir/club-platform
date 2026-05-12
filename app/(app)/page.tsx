@@ -28,7 +28,7 @@ const DAYS = DUTY_DAY_SHORT_LABELS
 /**
  * 【学习注释：首页被剥离为纯粹的视图层】
  * 所有复杂的数据获取、并发控制、排班过滤、打卡状态聚类等操作，
- * 都已下沉到了 dashboard-service 中，页面文件仅承担数据解构与骨架排版。
+ * 都已下沉到了 dashboard-service 中，页面文件仅承担数据解构与骨架布局。
  */
 export default async function DashboardPage() {
     const { me, dutyInfo, globalData } = await getAggregatedDashboardData()

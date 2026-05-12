@@ -222,8 +222,8 @@ REVOKE ALL ON FUNCTION public.accept_duty_swap(uuid, uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.accept_duty_swap(uuid, uuid) TO authenticated;
 
 -- ------------------------------------------------------------------
--- Duty swap RPC compatibility overrides
--- Keep these definitions aligned with database/update_swap_status.sql.
+-- 值班代班 RPC 兼容性覆盖定义
+-- 这些定义必须与 database/update_swap_status.sql 保持一致。
 -- ------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.accept_duty_swap(
   p_swap_id uuid,

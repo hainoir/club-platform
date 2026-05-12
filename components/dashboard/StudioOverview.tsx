@@ -10,7 +10,7 @@ interface StudioOverviewProps {
 /**
  * 【学习注释：分离的服务端组件】
  * 将自习室统计和成员在场状态剥离成独立组件。
- * 搭配 Suspense 边界，可实现不阻塞主面板(Stream UI)渲染的效果。
+ * 搭配 Suspense 边界，可实现不阻塞主面板流式渲染的效果。
  */
 export async function StudioOverview({ activeRosters }: StudioOverviewProps) {
     const { studioStudyLeaderboard } = await getStudioDashboardData()

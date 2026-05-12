@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/toast-simple"
 import type { Event } from "@/components/events/EventsClient"
 
 /**
- * 活动 CRUD 操作
+ * 活动增删改查操作
  *
  * 处理活动的创建、编辑、删除和表单状态管理。
  */
