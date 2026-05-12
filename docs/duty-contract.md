@@ -44,4 +44,5 @@ All RPC definitions must use `SECURITY DEFINER SET search_path = public, pg_temp
 - `approve_duty_leave` rejects leaves that already have a linked swap.
 - `accept_duty_swap`, `volunteer_for_duty_swap`, and `return_duty_swap_to_hall` stay in sync between `database/update_swap_status.sql` and `database/fix_duty_hall_permissions.sql`.
 - `expire_studio_sessions` is called before reading active studio sessions; client code must not update expired rows while rendering a presence list.
+- Before treating an RPC error as a frontend bug, verify the live Supabase function signature, execute grants, and PostgREST schema cache using `docs/supabase-rpc-checklist.md`.
 - Run `pnpm run lint`, `pnpm run typecheck`, `pnpm run build`, and the duty/self-study E2E specs after changing this contract.

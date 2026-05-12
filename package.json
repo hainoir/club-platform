@@ -8,8 +8,11 @@
     "start": "next start",
     "lint": "next lint --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
     "e2e": "playwright test",
     "e2e:smoke": "playwright test tests/e2e/smoke --reporter=line",
+    "e2e:readonly": "playwright test tests/e2e/auth-login.spec.ts tests/e2e/auth-refresh-regression.spec.ts tests/e2e/dashboard-signin-entry.spec.ts tests/e2e/duty-flow.spec.ts tests/e2e/members-search-stability.spec.ts tests/e2e/members-table-horizontal-scroll.spec.ts --reporter=line",
+    "e2e:mutation": "playwright test tests/e2e/admin-duty-smoke.spec.ts tests/e2e/admin-studio-members.spec.ts tests/e2e/duty-rpc-integration.spec.ts tests/e2e/duty-signin-error.spec.ts tests/e2e/event-rsvp.spec.ts tests/e2e/self-study-location.spec.ts tests/e2e/self-study-name.spec.ts tests/e2e/settings-profile-save.spec.ts --reporter=line",
     "gen:types": "supabase gen types typescript --local > types/supabase.ts"
   },
   "dependencies": {

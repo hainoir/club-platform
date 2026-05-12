@@ -33,7 +33,10 @@ Add the optional `E2E_*` variables only if preview or CI flows need authenticate
 ```bash
 pnpm run lint
 pnpm run typecheck
+pnpm run test:unit
 pnpm run build
 pnpm run e2e:smoke
-pnpm run e2e --reporter=line
+pnpm run e2e:readonly
 ```
+
+Run `pnpm run e2e:mutation` only against an isolated Supabase environment because those specs exercise real write paths.

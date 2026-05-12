@@ -32,7 +32,8 @@ export async function getKeyTransferNotifications({
             .eq("status", "pending")
             .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER)
             .order("created_at", { ascending: false })
-            .limit(6),
+            .limit(6)
+            .returns<IncomingKeyTransferRow[]>(),
         supabase
             .from("key_transfers")
             .select("id, created_at, to_member:members!key_transfers_to_member_id_fkey(name)")
@@ -40,12 +41,13 @@ export async function getKeyTransferNotifications({
             .eq("status", "pending")
             .or(EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER)
             .order("created_at", { ascending: false })
-            .limit(6),
+            .limit(6)
+            .returns<OutgoingKeyTransferRow[]>(),
     ])
 
     const items: AppNotification[] = []
 
-    ;((incomingKeyTransfersResult.data ?? []) as unknown as IncomingKeyTransferRow[]).forEach((t) => {
+    ;(incomingKeyTransfersResult.data ?? []).forEach((t) => {
         items.push({
             id: `key-transfer-in-${t.id}`,
             title: "待确认钥匙交接",
@@ -56,7 +58,7 @@ export async function getKeyTransferNotifications({
         })
     })
 
-    ;((outgoingKeyTransfersResult.data ?? []) as unknown as OutgoingKeyTransferRow[]).forEach((t) => {
+    ;(outgoingKeyTransfersResult.data ?? []).forEach((t) => {
         items.push({
             id: `key-transfer-out-${t.id}`,
             title: "钥匙交接待对方确认",

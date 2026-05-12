@@ -19,6 +19,7 @@ Useful deep-dive docs:
 
 - [Architecture Notes](./docs/architecture.md)
 - [Duty Workflow Contract](./docs/duty-contract.md)
+- [Supabase RPC Checklist](./docs/supabase-rpc-checklist.md)
 
 ## Tech Stack
 - Next.js App Router
@@ -106,7 +107,8 @@ Minimum required actions:
    - `E2E_ADMIN_PASSWORD`
    - `E2E_KEY_RECEIVER_EMAIL`
    - `E2E_KEY_RECEIVER_PASSWORD`
-4. Re-run CI and confirm smoke + full E2E both execute.
+4. Re-run CI and confirm lint, typecheck, unit tests, smoke E2E, and read-only E2E all execute.
+5. Run `pnpm run e2e:mutation` only against an isolated Supabase environment when write-path verification is needed.
 
 ## Quality Gate
 Local checks:
@@ -114,9 +116,10 @@ Local checks:
 ```bash
 pnpm run lint
 pnpm run typecheck
+pnpm run test:unit
 pnpm run build
 pnpm run e2e:smoke
-pnpm run e2e --reporter=line
+pnpm run e2e:readonly
 ```
 
-CI runs the same flow, with smoke tests first and full E2E after.
+`pnpm run e2e:mutation` is reserved for isolated environments because it exercises approval, RSVP, sign-in, self-study, and profile write paths.
