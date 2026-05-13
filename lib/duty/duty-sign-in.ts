@@ -36,6 +36,11 @@ export class DutySignInError extends Error {
     }
 }
 
+/**
+ * 【学习注释：前端的“是否可签到”只做快速交互判断】
+ * 这里根据当前时间、节次窗口、节假日和本人排班先决定按钮状态，
+ * 但它不是最终事实；真正提交前仍然会继续做重复签到和定位校验。
+ */
 export function resolveCurrentDutyAvailability(
     assignedPeriods: ReadonlyArray<number>,
     now: Date = new Date()
@@ -80,6 +85,8 @@ export async function submitDutySignIn(options: {
     today.setHours(0, 0, 0, 0)
 
     try {
+        // 【学习注释：先做最便宜的重复签到预检】
+        // 能在写库前直接拦住明显重复请求，减少无意义的定位校验和唯一键冲突。
         const { data: existingLogs, error: existingError } = await options.supabase
             .from("duty_logs")
             .select("id")
@@ -95,12 +102,16 @@ export async function submitDutySignIn(options: {
     }
 
     try {
+        // 【学习注释：定位校验是业务规则，不是 UI 装饰】
+        // 只有通过工作室定位验证后，才允许把签到写进 duty_logs。
         await validateStudioLocation()
     } catch (error) {
         throw new DutySignInError("location", getStudioLocationErrorMessage(error), error)
     }
 
     try {
+        // 【学习注释：真正的签到事实只认数据库写入】
+        // 前端不会自己缓存“签到成功”作为最终真相，而是等写库结果返回后再更新界面。
         const { error } = await options.supabase.from("duty_logs").insert({
             member_id: options.memberId,
             location_verified: true,

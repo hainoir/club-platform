@@ -16,6 +16,11 @@ interface UseDutySwapActionsOptions extends DutyHookContext {
     refreshPendingLeaves: RefreshCallback;
 }
 
+/**
+ * 【学习注释：代班写操作共享一份加载态】
+ * 提交申请、接单、批准和拒绝都属于同一条代班状态机，
+ * 用一层装配函数统一注入 `setIsSwapping`，页面反馈会更一致。
+ */
 export function useDutySwapActions(options: UseDutySwapActionsOptions) {
     const [isSwapping, setIsSwapping] = useState(false);
 

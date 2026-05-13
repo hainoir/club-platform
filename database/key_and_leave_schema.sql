@@ -26,7 +26,8 @@ UPDATE public.duty_leaves
 SET status = 'approved'
 WHERE status = 'pending';
 
--- 请假与代班请求关联，便于审批通过时同步生效
+-- 【学习注释：请假与代班不是两条孤立流程】
+-- leave_id 用来把“先请假、再找代班、管理员最终批准”串成同一条业务链。
 ALTER TABLE public.duty_swaps
 ADD COLUMN IF NOT EXISTS leave_id uuid;
 
@@ -46,6 +47,8 @@ END;
 $$;
 
 -- 3. 补班安排表 (请假时选择的本周剩余或下周补值班节次)
+-- 【学习注释：compensation_date 是补班链路里的关键事实】
+-- 仅靠星期和节次不够回答“具体哪一天补班”，因此这里把日历日期显式落库。
 CREATE TABLE IF NOT EXISTS public.duty_compensations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   leave_id uuid NOT NULL REFERENCES public.duty_leaves(id) ON DELETE CASCADE,
@@ -352,6 +355,8 @@ USING (
   )
 );
 
+-- 【学习注释：approve_duty_leave 只处理“纯请假审批”】
+-- 一旦 leave 已经和 duty_swaps 绑定，就必须改走代班流程收口，防止两边各批一次。
 CREATE OR REPLACE FUNCTION public.approve_duty_leave(
   p_leave_id uuid
 )

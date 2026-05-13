@@ -16,6 +16,11 @@ export interface DutySwapLeaveLinkLike {
     leave_id?: string | null
 }
 
+/**
+ * 【学习注释：请假对值班可用性的影响以“已批准”为分界】
+ * 只要还是 pending，就不能把成员从排班可用名单里拿掉；
+ * 这条规则同时被首页聚合、值班大厅和数据库契约复用。
+ */
 export function getDutyLeaveSlotKey(memberId: string, dayOfWeek: number, period: number): string {
     return `${memberId}-${dayOfWeek}-${period}`
 }
@@ -57,6 +62,8 @@ export function filterPendingLeavesWithoutSwap<T extends DutyLeaveSlotLike>(
     pendingLeaves: ReadonlyArray<T>,
     swaps: ReadonlyArray<DutySwapLeaveLinkLike>
 ): T[] {
+    // 【学习注释：代班关联的请假不能再按“普通待审批请假”展示】
+    // 否则管理员会在两个入口里看到同一件事，容易造成重复处理。
     const linkedLeaveIds = buildPendingSwapLeaveIdSet(swaps)
     return pendingLeaves.filter((leave) => !linkedLeaveIds.has(leave.id || ""))
 }

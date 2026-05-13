@@ -4,6 +4,11 @@ import { isAdminRole } from '@/store/useUserStore';
 
 import type { DutySupabaseClient, DutyUser, SwapWithMember } from './types';
 
+/**
+ * 【学习注释：代班查询同时服务“公共大厅”和“个人相关事项”】
+ * 管理员可以看到全部 pending/accepted 请求；
+ * 普通成员则只看自己发起、自己被定向、或公开大厅里仍无人接单的代班。
+ */
 export function useDutySwapQueries(supabase: DutySupabaseClient, user: DutyUser) {
     const [swaps, setSwaps] = useState<SwapWithMember[]>([]);
     const [approvedSwaps, setApprovedSwaps] = useState<SwapWithMember[]>([]);
@@ -20,6 +25,8 @@ export function useDutySwapQueries(supabase: DutySupabaseClient, user: DutyUser)
             .in('status', ['pending', 'accepted']);
 
         if (!isAdminRole(user.role)) {
+            // 【学习注释：普通成员不应看到与自己无关的定向代班】
+            // 公开大厅只保留“pending 且 target 为空”的记录。
             query = query.or(`requester_id.eq.${user.id},target_id.eq.${user.id},and(status.eq.pending,target_id.is.null)`);
         }
 

@@ -9,6 +9,11 @@ interface UseDutySwapsOptions extends DutyHookContext {
     refreshPendingLeaves: RefreshCallback;
 }
 
+/**
+ * 【学习注释：代班子域负责串联多张业务表的刷新】
+ * 代班一旦被接单或批准，会同时影响代班列表、排班结果和请假可见性，
+ * 所以这里集中管理依赖关系，避免页面组件自己手动拼刷新顺序。
+ */
 export function useDutySwaps({
     supabase,
     user,

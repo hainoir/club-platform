@@ -1,5 +1,13 @@
 # 架构说明
 
+本文聚焦“这套前端为什么这么分层”，重点解释请求链路、服务端聚合、客户端交互边界和数据库契约之间的关系。
+
+如果你第一次阅读这个仓库，建议先看：
+
+- [项目总览](./project-overview.md)
+- [值班流程契约](./duty-contract.md)
+- [面试讲稿](./interview-briefing.md)
+
 本项目是一个基于 Next.js App Router 的应用，后端依托 Supabase Auth、Postgres、Storage 与 RLS 策略。当前架构把服务端聚合、浏览器端交互和数据库状态流转分层处理，因此值班流程既容易解释，也便于测试。
 
 ## 请求与鉴权链路
@@ -61,3 +69,9 @@ stateDiagram-v2
 - 单元断言覆盖日期、值班时间、请假和自习时长等行为。
 - Playwright 测试覆盖鉴权、值班流程、仪表盘签到、成员搜索、自习、通知、设置和活动报名。
 - 持续集成会运行 lint、typecheck、build、smoke E2E 和完整 E2E。
+
+## 相关文档
+
+- [项目总览](./project-overview.md)
+- [值班流程契约](./duty-contract.md)
+- [面试讲稿](./interview-briefing.md)

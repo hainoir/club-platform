@@ -1,6 +1,14 @@
 # 值班流程契约
 
-本文记录值班流程背后的数据库与 RPC 契约。只要改动请假、代班、钥匙交接、签到或自习在场相关行为，都应先把它当作检查清单来对照。
+本文只处理值班、自习和钥匙交接相关的数据库与 RPC 事实来源，不讨论页面布局和视觉实现。
+
+如果你想先理解业务全貌，再回来看这里，建议按这个顺序阅读：
+
+- [项目总览](./project-overview.md)
+- [架构说明](./architecture.md)
+- [Supabase RPC 排查清单](./supabase-rpc-checklist.md)
+
+只要改动请假、代班、钥匙交接、签到或自习在场相关行为，都应先把它当作检查清单来对照。
 
 ## 核心数据表
 
@@ -46,3 +54,9 @@
 - 读取活跃自习会话前必须先调用 `expire_studio_sessions`；客户端在渲染在场列表时不应一边读列表一边直接回写过期记录。
 - 在把 RPC 报错当成前端 Bug 之前，应根据 `docs/supabase-rpc-checklist.md` 先检查线上 Supabase 函数签名、执行权限和 PostgREST schema cache。
 - 修改本契约后，应运行 `pnpm run lint`、`pnpm run typecheck`、`pnpm run build` 以及值班/自习相关 E2E 用例。
+
+## 相关文档
+
+- [项目总览](./project-overview.md)
+- [架构说明](./architecture.md)
+- [Supabase RPC 排查清单](./supabase-rpc-checklist.md)

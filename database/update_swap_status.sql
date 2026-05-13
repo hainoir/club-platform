@@ -63,6 +63,8 @@ BEGIN
     RAISE EXCEPTION 'Acceptor mismatch: expected %, got %', v_swap.target_id, p_acceptor_id;
   END IF;
 
+  -- 【学习注释：批准代班时，排班事实才真正发生转移】
+  -- accepted 只代表有人接单；到 approved 这一步才删除原排班并写入新的值班人。
   DELETE FROM public.duty_rosters
   WHERE member_id = v_swap.requester_id
     AND day_of_week = v_swap.original_day
@@ -120,6 +122,8 @@ BEGIN
     RAISE EXCEPTION 'Forbidden: swap request is reserved for another member';
   END IF;
 
+  -- 【学习注释：接单只是把请求从公共待处理推进到已接单】
+  -- 这一步不会立即改排班，仍然需要管理员做最终批准。
   UPDATE public.duty_swaps
   SET target_id = v_actor_id,
       status = 'accepted'
@@ -185,6 +189,8 @@ BEGIN
     RAISE EXCEPTION 'Forbidden: only requester, target, or admin can return the swap';
   END IF;
 
+  -- 【学习注释：退回大厅的本质是撤销当前接单人】
+  -- target_id 被清空后，请求重新回到公共 pending 状态，等待新的志愿者。
   UPDATE public.duty_swaps
   SET target_id = NULL,
       status = 'pending'

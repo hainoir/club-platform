@@ -54,7 +54,11 @@ export interface StudioDashboardData {
     studioStudyLeaderboard: ReturnType<typeof buildStudioStudyLeaderboard>
 }
 
-// 将排班转换为真实时间
+/**
+ * 【学习注释：把周期性排班映射成可排序的真实时间】
+ * duty_rosters 只记录星期和节次，服务端聚合层需要把它翻译成一个具体 Date，
+ * 才能在首页里稳定算出“下一次值班”这种面向用户的结果。
+ */
 function resolveNextDutyTime(day: number, period: number, now: Date): Date {
     const slotDateKey = getNextDutySlotDateKey(day, period, now)
     const [year, month, date] = slotDateKey.split("-").map(Number)
@@ -66,6 +70,11 @@ function resolveNextDutyTime(day: number, period: number, now: Date): Date {
     return candidate
 }
 
+/**
+ * 【学习注释：服务端错误收口】
+ * 仪表盘会并发读取多张表，这里先把 Supabase 的列表结果统一拆成“抛错 or 返回数组”，
+ * 避免页面层再去判断每个 data/error 分支。
+ */
 function unwrapSupabaseList<T>(label: string, result: SupabaseListResult<T>): T[] {
     if (result.error) {
         throw new Error(`${label}: ${result.error.message}`)
@@ -74,6 +83,11 @@ function unwrapSupabaseList<T>(label: string, result: SupabaseListResult<T>): T[
     return result.data || []
 }
 
+/**
+ * 【学习注释：首页服务端聚合入口】
+ * 页面本身保持轻量，真正的数据拼装放在服务层一次并发完成：
+ * 排班、已批准请假、今日签到、活跃成员和当前登录用户都在这里收口。
+ */
 export async function getAggregatedDashboardData(): Promise<DashboardAggregatedData> {
     const supabase = await createClient()
 
@@ -83,6 +97,8 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
     const todayDateKey = dutyNow.dateKey
     const isTodayDutyRequired = isDutyRequiredDate(todayDateKey)
 
+    // 【学习注释：并发读取首页关键事实】
+    // 这些查询彼此独立，放在 Promise.all 中能减少首页等待时间。
     const [
         rostersResult,
         approvedLeavesResult,
@@ -122,6 +138,8 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
     const activeMembers = unwrapSupabaseList("active members", membersResult)
     const todayLogs = unwrapSupabaseList("today duty logs", todayLogsResult)
 
+    // 【学习注释：签到事实先折叠成 slot map】
+    // 后面无论是判断“我今天是否签到”还是生成每节课状态，都只基于这一份标准化结果。
     const signedSlotMap = new Map<string, string>()
     todayLogs.forEach((log) => {
         if (!log.location_verified) return
@@ -135,6 +153,8 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
 
     const signedSlotSet = new Set(signedSlotMap.keys())
 
+    // 【学习注释：可值班名单以“排班 - 已批准请假”为准】
+    // 待审批请假不会改变可值班性，这和数据库契约保持一致。
     const todayRosters = isTodayDutyRequired
         ? activeRosters
               .filter((r) => r.day_of_week === todayDow)
@@ -190,6 +210,8 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
     const supabase = await createClient()
     const now = new Date()
 
+    // 【学习注释：自习统计和首页签到链路分离】
+    // 仪表盘只消费排行榜结果，具体统计口径继续留在 service/lib 层维护。
     const studioSessionsResult = await supabase
         .from("studio_sessions")
         .select("member_id, started_at, ended_at, is_active, member:members(name)")

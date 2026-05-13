@@ -10,6 +10,11 @@ interface UseDutyLeaveActionsOptions extends DutyHookContext {
     refreshSwaps: RefreshCallback;
 }
 
+/**
+ * 【学习注释：请假写操作的装配层】
+ * 这里不直接写业务逻辑，而是把提交、审批、删除三个动作装成统一入口，
+ * 保持 `useDutyLeaves` 对外接口稳定。
+ */
 export function useDutyLeaveActions(options: UseDutyLeaveActionsOptions) {
     const submitLeave = useSubmitLeave(options);
     const approvePendingLeave = useApprovePendingLeave(options);

@@ -50,6 +50,11 @@ function getPeriodEndPlusMinutes(period: number, extraMin: number): number {
     return getDutyPeriodEndMinutes(period) + extraMin;
 }
 
+/**
+ * 【学习注释：工作室在场列表是两条业务线的合并视图】
+ * 值班签到写在 duty_logs，自习记录写在 studio_sessions；
+ * 页面展示时需要先清理过期自习，再把两份事实来源合并成统一成员列表。
+ */
 export function useStudioPresenceQuery(supabase: SupabaseBrowserClient, rosters: RosterWithMember[]) {
     const [studioMembers, setStudioMembers] = useState<StudioMember[]>([]);
     const [loading, setLoading] = useState(true);
@@ -67,6 +72,8 @@ export function useStudioPresenceQuery(supabase: SupabaseBrowserClient, rosters:
             const members: StudioMember[] = [];
             const seenIds = new Set<string>();
 
+            // 【学习注释：先让数据库做过期收口，再读活跃会话】
+            // 过期判断依赖统一时间口径，放在 RPC 中比前端逐条修表更稳。
             const { error: expireError } = await runWithTimeout<PostgrestSingleResult<number>>(async (signal) =>
                 await supabase.rpc('expire_studio_sessions', { p_now: new Date().toISOString() }).abortSignal(signal)
             );
@@ -85,6 +92,8 @@ export function useStudioPresenceQuery(supabase: SupabaseBrowserClient, rosters:
             if (dutyError) throw dutyError;
 
             if (isDutyRequiredDate(todayDateKey)) {
+                // 【学习注释：先合并值班签到成员】
+                // 同一成员一旦被 duty 链路占用，就不再重复出现在自习链路里。
                 (dutyLogs || []).forEach((log) => {
                     if (seenIds.has(log.member_id)) return;
                     if (log.device_info?.includes('self-study')) return;
@@ -117,6 +126,8 @@ export function useStudioPresenceQuery(supabase: SupabaseBrowserClient, rosters:
 
             if (sessionError) throw sessionError;
 
+            // 【学习注释：再补充纯自习会话成员】
+            // 这样最终列表可以同时服务“谁在值班”和“谁在自习”的现场展示。
             (sessions || []).forEach((session) => {
                 if (seenIds.has(session.member_id)) return;
 
