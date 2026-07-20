@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { RosterWithMember, SwapWithMember } from '@/hooks/useDuty';
 import { cn } from '@/lib/utils';
+import { isCurrentDutyLeave } from '@/lib/duty-time';
 import { Button } from '@/components/ui/button';
 import { X, UserPlus, ChevronDown, Search, KeyRound } from 'lucide-react';
 import {
@@ -150,6 +151,28 @@ export function DutyTable({
     onToggleKey,
     isPending,
 }: DutyTableProps) {
+    const [clockNow, setClockNow] = useState(() => new Date());
+
+    useEffect(() => {
+        let timeoutId: ReturnType<typeof setTimeout>;
+
+        const scheduleNextMinute = () => {
+            const now = new Date();
+            const millisecondsUntilNextMinute =
+                60_000 - (now.getSeconds() * 1_000 + now.getMilliseconds());
+
+            timeoutId = setTimeout(() => {
+                setClockNow(new Date());
+                scheduleNextMinute();
+            }, millisecondsUntilNextMinute);
+        };
+
+        setClockNow(new Date());
+        scheduleNextMinute();
+
+        return () => clearTimeout(timeoutId);
+    }, []);
+
     // 按照“星期 + 节次”的二维矩阵预处理数据
     const rosterMap = React.useMemo(() => {
         const map: Record<number, Record<number, RosterWithMember[]>> = {};
@@ -165,7 +188,7 @@ export function DutyTable({
     // 获取某个成员在某个槽位的状态标签（请假/代班）
     // 节次结束后标签自动消失
     const getSlotLabel = useMemo(() => {
-        const now = new Date();
+        const now = clockNow;
         const todayDow = now.getDay(); // 0=周日, 1=周一, ..., 5=周五
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();
@@ -178,14 +201,17 @@ export function DutyTable({
         };
 
         return (memberId: string, day: number, period: number): 'leave' | 'substitute' | null => {
-            // 节次已结束，不显示标签
-            if (isPeriodOver(day, period)) return null;
-
-            // 检查请假
             const hasLeave = leaves.some(
-                l => l.member_id === memberId && l.day_of_week === day && l.period === period
+                l =>
+                    l.member_id === memberId &&
+                    l.day_of_week === day &&
+                    l.period === period &&
+                    isCurrentDutyLeave(l, clockNow)
             );
             if (hasLeave) return 'leave';
+
+            // 节次已结束，不显示标签
+            if (isPeriodOver(day, period)) return null;
 
             // 检查代班（已批准记录中目标成员是该成员）
             const isSubstitute = approvedSwaps.some(
@@ -195,7 +221,7 @@ export function DutyTable({
 
             return null;
         };
-    }, [leaves, approvedSwaps]);
+    }, [leaves, approvedSwaps, clockNow]);
 
     return (
         <div className="w-full overflow-x-auto rounded-xl border border-border bg-card shadow-sm">

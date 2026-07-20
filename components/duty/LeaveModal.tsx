@@ -66,7 +66,7 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
                 ? getNextDutyLeaveDateKey(selectedRoster.day_of_week, selectedRoster.period)
                 : ''
         );
-    }, [selectedRoster]);
+    }, [selectedRosterId, selectedRoster?.day_of_week, selectedRoster?.period]);
 
     // 重置表单
     useEffect(() => {
