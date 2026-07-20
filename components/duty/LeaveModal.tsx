@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import { getNextDutyLeaveDateKey, isDutyLeaveDateSelectable } from '@/lib/duty-time';
 
 const DAYS = ['一', '二', '三', '四', '五'];
 const PERIODS = [
@@ -41,6 +42,7 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
     const [selectedRosterId, setSelectedRosterId] = useState('');
     const [penaltyShifts, setPenaltyShifts] = useState(1);
     const [selectedComps, setSelectedComps] = useState<{ day: number; period: number }[]>([]);
+    const [leaveDate, setLeaveDate] = useState('');
     const [reason, setReason] = useState('');
     const [needSubstitute, setNeedSubstitute] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,12 +60,21 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
     // 选中班次是否持有钥匙
     const selectedHasKey = selectedRoster?.has_key ?? false;
 
+    useEffect(() => {
+        setLeaveDate(
+            selectedRoster
+                ? getNextDutyLeaveDateKey(selectedRoster.day_of_week, selectedRoster.period)
+                : ''
+        );
+    }, [selectedRoster]);
+
     // 重置表单
     useEffect(() => {
         if (open) {
             setSelectedRosterId('');
             setPenaltyShifts(1);
             setSelectedComps([]);
+            setLeaveDate('');
             setReason('');
             setNeedSubstitute(false);
         }
@@ -101,6 +112,14 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
             toast({ title: `请选择 ${penaltyShifts} 个补班节次`, variant: 'destructive' });
             return;
         }
+        if (!isDutyLeaveDateSelectable(leaveDate, selectedRoster.day_of_week, selectedRoster.period)) {
+            toast({
+                title: '请假日期无效',
+                description: '请选择与值班星期一致且尚未结束的班次日期。',
+                variant: 'destructive',
+            });
+            return;
+        }
 
         setIsSubmitting(true);
 
@@ -108,6 +127,7 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
         const success = await submitLeave(
             selectedRoster.day_of_week,
             selectedRoster.period,
+            leaveDate,
             reason,
             penaltyShifts,
             selectedComps.map(c => ({ day_of_week: c.day, period: c.period }))
@@ -172,6 +192,20 @@ export function LeaveModal({ dutyManager }: LeaveModalProps) {
                     </div>
 
                     {/* 是否需要代班开关 */}
+                    <div className="space-y-2">
+                        <Label htmlFor="leave-date" className="text-sm font-medium">请假日期</Label>
+                        <Input
+                            id="leave-date"
+                            type="date"
+                            value={leaveDate}
+                            onChange={e => setLeaveDate(e.target.value)}
+                            disabled={!selectedRoster}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            日期必须与所选班次的星期一致，且该节次尚未结束。
+                        </p>
+                    </div>
+
                     <div className="rounded-lg border border-amber-200 bg-amber-50/80 dark:border-amber-800 dark:bg-amber-950/30 p-3 space-y-2">
                         <div className="flex items-center justify-between">
                             <label htmlFor="need-substitute" className="text-sm font-medium flex items-center gap-2">

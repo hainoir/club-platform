@@ -72,6 +72,23 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.guard_duty_leave_expiry()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  NEW.expires_at := OLD.expires_at;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS duty_leaves_guard_expiry ON public.duty_leaves;
+CREATE TRIGGER duty_leaves_guard_expiry
+BEFORE UPDATE OF expires_at ON public.duty_leaves
+FOR EACH ROW
+EXECUTE FUNCTION public.guard_duty_leave_expiry();
+
 DROP TRIGGER IF EXISTS duty_leaves_set_expiry ON public.duty_leaves;
 CREATE TRIGGER duty_leaves_set_expiry
 BEFORE INSERT OR UPDATE OF leave_date, period ON public.duty_leaves

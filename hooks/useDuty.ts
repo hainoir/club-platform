@@ -5,6 +5,7 @@ import { Database } from '@/types/supabase';
 import { useToast } from '@/components/ui/toast-simple';
 import { getCurrentPositionWithFallback, getLocationErrorReason } from '@/lib/geolocation';
 import { EXCLUDE_CONFIRMED_E2E_KEY_TRANSFER_FILTER } from '@/lib/keyTransferFilters';
+import { isDutyLeaveDateSelectable } from '@/lib/duty-time';
 import { useUserStore, isAdminRole } from '@/store/useUserStore';
 
 type DutyRoster = Database['public']['Tables']['duty_rosters']['Row'];
@@ -570,7 +571,8 @@ export function useDuty(initialRosters: RosterWithMember[]) {
         const { data, error } = await supabase
             .from('duty_leaves')
             .select('*, member:members!duty_leaves_member_id_fkey(id, name)')
-            .order('created_at', { ascending: false });
+            .gt('expires_at', new Date().toISOString())
+            .order('leave_date', { ascending: true });
 
         if (!error && data) {
             setLeaves(data);
@@ -581,12 +583,21 @@ export function useDuty(initialRosters: RosterWithMember[]) {
     const submitLeave = async (
         day: number,
         period: number,
+        leaveDate: string,
         reason: string,
         penaltyShifts: number,
         compensations: { day_of_week: number; period: number }[]
     ) => {
         if (!user) return false;
         if (!(await ensureActiveSession())) return false;
+        if (!isDutyLeaveDateSelectable(leaveDate, day, period)) {
+            toast({
+                title: '请假日期无效',
+                description: '请选择与值班星期一致且尚未结束的班次日期。',
+                variant: 'destructive',
+            });
+            return false;
+        }
         try {
             // 第一步先拿到 leave id，后续补班记录要依赖这个主键。
             const { data: leaveData, error: leaveError } = await supabase
@@ -595,6 +606,7 @@ export function useDuty(initialRosters: RosterWithMember[]) {
                     member_id: user.id,
                     day_of_week: day,
                     period: period,
+                    leave_date: leaveDate,
                     reason: reason || null,
                     penalty_shifts: penaltyShifts,
                 })
