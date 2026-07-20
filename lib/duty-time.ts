@@ -87,11 +87,23 @@ function splitDateKey(dateKey: string): { year: number; month: number; day: numb
     if (!matched) {
         throw new Error(`Invalid date key: ${dateKey}`)
     }
-    return {
-        year: Number(matched[1]),
-        month: Number(matched[2]),
-        day: Number(matched[3]),
+
+    const year = Number(matched[1])
+    const month = Number(matched[2])
+    const day = Number(matched[3])
+    const date = new Date(0)
+    date.setUTCFullYear(year, month - 1, day)
+    date.setUTCHours(0, 0, 0, 0)
+
+    if (
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() !== month - 1 ||
+        date.getUTCDate() !== day
+    ) {
+        throw new Error(`Invalid date key: ${dateKey}`)
     }
+
+    return { year, month, day }
 }
 
 function safeDateKey(dateKey: string | null | undefined): string | null {
@@ -169,7 +181,41 @@ export interface DutyLeaveTimeLike {
 }
 
 function isWorkday(dayOfWeek: number): boolean {
-    return dayOfWeek >= 1 && dayOfWeek <= 5
+    return Number.isInteger(dayOfWeek) && dayOfWeek >= 1 && dayOfWeek <= 5
+}
+
+function parseUtcIsoDateTime(value: string): Date | null {
+    const matched = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/.exec(value)
+    if (!matched) return null
+
+    try {
+        const year = Number(matched[1])
+        const month = Number(matched[2])
+        const day = Number(matched[3])
+        const hour = Number(matched[4])
+        const minute = Number(matched[5])
+        const second = Number(matched[6])
+        const millisecond = Number((matched[7] || "").padEnd(3, "0"))
+        splitDateKey(`${matched[1]}-${matched[2]}-${matched[3]}`)
+
+        const date = new Date(value)
+        if (
+            Number.isNaN(date.getTime()) ||
+            date.getUTCFullYear() !== year ||
+            date.getUTCMonth() !== month - 1 ||
+            date.getUTCDate() !== day ||
+            date.getUTCHours() !== hour ||
+            date.getUTCMinutes() !== minute ||
+            date.getUTCSeconds() !== second ||
+            date.getUTCMilliseconds() !== millisecond
+        ) {
+            return null
+        }
+
+        return date
+    } catch {
+        return null
+    }
 }
 
 function getWeekMondayFromDateKey(dateKey: string): string {
@@ -228,8 +274,8 @@ export function isCurrentDutyLeave(
 ): boolean {
     try {
         const now = toDutyDateTimeParts(nowInput)
-        const expiresAt = new Date(leave.expires_at)
-        if (Number.isNaN(expiresAt.getTime())) return false
+        const expiresAt = parseUtcIsoDateTime(leave.expires_at)
+        if (!expiresAt) return false
 
         return (
             isDutyLeaveDateSelectable(leave.leave_date, leave.day_of_week, leave.period, nowInput) &&

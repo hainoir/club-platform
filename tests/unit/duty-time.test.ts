@@ -97,5 +97,37 @@ test('current leave is hidden at its end time and never reappears the next week'
     assert.equal(isCurrentDutyLeave(leave, '2026-03-30T00:30:00.000Z'), false)
 })
 
+test('leave time rules reject invalid slots and non-integer weekdays', () => {
+    assert.throws(
+        () => getNextDutyLeaveDateKey(1.5, 1, '2026-03-23T00:30:00.000Z'),
+        /Invalid duty leave slot/,
+    )
+    assert.throws(
+        () => getNextDutyLeaveDateKey(1, 5, '2026-03-23T00:30:00.000Z'),
+        /Invalid duty leave slot/,
+    )
+    assert.equal(isDutyLeaveDateSelectable('2026-03-23', 1.5, 1, '2026-03-23T00:30:00.000Z'), false)
+    assert.equal(isDutyLeaveDateSelectable('2026-03-23', 1, 5, '2026-03-23T00:30:00.000Z'), false)
+})
+
+test('leave date selection rejects nonexistent calendar dates', () => {
+    assert.equal(isDutyLeaveDateSelectable('2026-02-30', 1, 1, '2026-02-01T00:30:00Z'), false)
+})
+
+test('current leave rejects a nonexistent UTC expiration timestamp', () => {
+    assert.equal(
+        isCurrentDutyLeave(
+            {
+                day_of_week: 1,
+                period: 1,
+                leave_date: '2026-03-02',
+                expires_at: '2026-02-30T01:35:00.000Z',
+            },
+            '2026-03-02T00:30:00Z',
+        ),
+        false,
+    )
+})
+
 
 
