@@ -15,10 +15,14 @@ import type { SimpleMember } from '@/components/duty/roster/DutyTable';
 import {
     formatDutySlot,
     getCompensationSlotKey,
-    getDutySlotKey,
 } from './leave-modal-utils';
 import type { LeaveWithMember, RosterWithMember } from '@/hooks/useDuty';
-import { listCompensationSlotsForDuty, type DutyCompensationSlot } from '@/lib/duty/duty-time';
+import {
+    getNextDutyLeaveDateKey,
+    isDutyLeaveDateSelectable,
+    listCompensationSlotsForDuty,
+    type DutyCompensationSlot,
+} from '@/lib/duty/duty-time';
 
 
 interface LeaveCompensationPayload {
@@ -34,6 +38,7 @@ interface LeaveApplyFormProps {
     submitLeave: (
         day: number,
         period: number,
+        leaveDate: string,
         reason: string,
         penaltyShifts: number,
         compensations: LeaveCompensationPayload[],
@@ -58,6 +63,7 @@ export function LeaveApplyForm({
 }: LeaveApplyFormProps) {
     const { toast } = useToast();
     const [selectedRosterId, setSelectedRosterId] = useState('');
+    const [leaveDate, setLeaveDate] = useState('');
     const [penaltyShifts, setPenaltyShifts] = useState(1);
     const [selectedCompKeys, setSelectedCompKeys] = useState<string[]>([]);
     const [reason, setReason] = useState('');
@@ -65,35 +71,43 @@ export function LeaveApplyForm({
     const [targetMemberId, setTargetMemberId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const ownBlockedSlots = useMemo(() => {
-        const blocked = new Set<string>();
-        [...approvedLeaves, ...pendingLeaves]
-            .filter((leave) => leave.member_id === currentUserId)
-            .forEach((leave) => blocked.add(getDutySlotKey(leave.day_of_week, leave.period)));
-        return blocked;
-    }, [approvedLeaves, currentUserId, pendingLeaves]);
-
     const myRosters = useMemo(() => (
         rosters
             .filter((roster) => roster.member_id === currentUserId)
-            .filter((roster) => !ownBlockedSlots.has(getDutySlotKey(roster.day_of_week, roster.period)))
             .sort((a, b) => (
                 a.day_of_week === b.day_of_week
                     ? a.period - b.period
                     : a.day_of_week - b.day_of_week
             ))
-    ), [currentUserId, ownBlockedSlots, rosters]);
+    ), [currentUserId, rosters]);
 
     const selectedRoster = useMemo(
         () => myRosters.find((roster) => roster.id === selectedRosterId),
         [myRosters, selectedRosterId]
     );
 
+    const hasDuplicateLeave = useMemo(() => (
+        Boolean(selectedRoster && leaveDate) && [...approvedLeaves, ...pendingLeaves].some((leave) => (
+            leave.member_id === currentUserId &&
+            leave.day_of_week === selectedRoster?.day_of_week &&
+            leave.period === selectedRoster?.period &&
+            leave.leave_date === leaveDate
+        ))
+    ), [approvedLeaves, currentUserId, leaveDate, pendingLeaves, selectedRoster]);
+
     const compensationSlots = useMemo(
-        () => selectedRoster
-            ? listCompensationSlotsForDuty(selectedRoster.day_of_week, selectedRoster.period)
+        () => selectedRoster && isDutyLeaveDateSelectable(
+            leaveDate,
+            selectedRoster.day_of_week,
+            selectedRoster.period
+        )
+            ? listCompensationSlotsForDuty(
+                selectedRoster.day_of_week,
+                selectedRoster.period,
+                `${leaveDate}T00:00:00+08:00`
+            )
             : [],
-        [selectedRoster]
+        [leaveDate, selectedRoster]
     );
 
     const selectedCompSlots = useMemo(() => {
@@ -111,14 +125,14 @@ export function LeaveApplyForm({
     const compensationSections = [
         {
             key: 'current-week',
-            title: '本周剩余班次',
-            description: '从该请假班次之后，到本周五结束前可补的班次。',
+            title: '请假当周剩余班次',
+            description: '从该请假班次之后，到请假当周周五结束前可补的班次。',
             slots: groupedCompensationSlots.currentWeek,
         },
         {
             key: 'next-week',
-            title: '下周所有班次',
-            description: '下周一至周五的全部班次都可作为补班。',
+            title: '请假次周所有班次',
+            description: '请假日期下一周的周一至周五班次都可作为补班。',
             slots: groupedCompensationSlots.nextWeek,
         },
     ];
@@ -132,12 +146,21 @@ export function LeaveApplyForm({
         if (!open) return;
 
         setSelectedRosterId('');
+        setLeaveDate('');
         setPenaltyShifts(1);
         setSelectedCompKeys([]);
         setReason('');
         setNeedSubstitute(false);
         setTargetMemberId('');
     }, [open]);
+
+    useEffect(() => {
+        setLeaveDate(
+            selectedRoster
+                ? getNextDutyLeaveDateKey(selectedRoster.day_of_week, selectedRoster.period)
+                : ''
+        );
+    }, [selectedRoster]);
 
     useEffect(() => {
         if (!needSubstitute) {
@@ -170,6 +193,20 @@ export function LeaveApplyForm({
             return;
         }
 
+        if (!isDutyLeaveDateSelectable(leaveDate, selectedRoster.day_of_week, selectedRoster.period)) {
+            toast({
+                title: '请假日期无效',
+                description: '请选择与值班星期一致、尚未结束且不是节假日的班次日期。',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        if (hasDuplicateLeave) {
+            toast({ title: '该日期已经提交过请假', variant: 'destructive' });
+            return;
+        }
+
         if (selectedCompSlots.length !== penaltyShifts) {
             toast({ title: `请选择 ${penaltyShifts} 个补班节次`, variant: 'destructive' });
             return;
@@ -180,6 +217,7 @@ export function LeaveApplyForm({
         const success = await submitLeave(
             selectedRoster.day_of_week,
             selectedRoster.period,
+            leaveDate,
             reason,
             penaltyShifts,
             selectedCompSlots.map((slot) => ({
@@ -198,7 +236,15 @@ export function LeaveApplyForm({
         }
     };
 
-    const canSubmit = Boolean(selectedRosterId) && selectedCompSlots.length === penaltyShifts;
+    const canSubmit = Boolean(selectedRosterId) &&
+        Boolean(selectedRoster) &&
+        isDutyLeaveDateSelectable(
+            leaveDate,
+            selectedRoster?.day_of_week || 0,
+            selectedRoster?.period || 0
+        ) &&
+        !hasDuplicateLeave &&
+        selectedCompSlots.length === penaltyShifts;
 
     return (
         <div className="space-y-5">
@@ -206,7 +252,7 @@ export function LeaveApplyForm({
                 <Label className="text-sm font-medium">选择请假班次</Label>
                 {myRosters.length === 0 ? (
                     <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-                        当前没有可发起的新请假班次。已提交或已生效的班次不会重复出现在这里。
+                        当前没有可发起请假的排班。
                     </p>
                 ) : (
                     <select
@@ -221,6 +267,23 @@ export function LeaveApplyForm({
                             </option>
                         ))}
                     </select>
+                )}
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="leave-date" className="text-sm font-medium">请假日期</Label>
+                <Input
+                    id="leave-date"
+                    type="date"
+                    value={leaveDate}
+                    onChange={(event) => setLeaveDate(event.target.value)}
+                    disabled={!selectedRoster}
+                />
+                <p className="text-xs text-muted-foreground">
+                    日期必须与所选班次的星期一致，该节次尚未结束，并且是正常值班日。
+                </p>
+                {hasDuplicateLeave && (
+                    <p className="text-xs text-destructive">该日期已经有待审批或已批准的请假。</p>
                 )}
             </div>
 

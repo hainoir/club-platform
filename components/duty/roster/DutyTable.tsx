@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { RosterWithMember, SwapWithMember } from '@/hooks/useDuty';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,11 @@ export interface SimpleMember {
 }
 
 import { DUTY_PERIODS, DUTY_DAYS } from '@/lib/duty/duty-constants';
-import { getDutyPeriodEndMinutes } from '@/lib/duty/duty-time';
+import {
+    getDutyPeriodEndMinutes,
+    isCurrentDutyLeave,
+    toDutyDateTimeParts,
+} from '@/lib/duty/duty-time';
 
 const PERIODS = DUTY_PERIODS.map(p => ({ id: p.id, label: p.fullLabel, time: `(${p.start}-${p.end})` }));
 
@@ -29,7 +33,13 @@ interface DutyTableProps {
     currentUserId?: string;
     isAdmin: boolean;
     allMembers: SimpleMember[];
-    approvedLeaves?: Array<{ member_id: string; day_of_week: number; period: number }>;
+    approvedLeaves?: Array<{
+        member_id: string;
+        day_of_week: number;
+        period: number;
+        leave_date: string;
+        expires_at: string;
+    }>;
     approvedSwaps?: SwapWithMember[];
     onAssignMember: (day: number, period: number, memberId: string, memberName: string) => void;
     onRemoveMember: (day: number, period: number, memberId: string, memberName: string) => void;
@@ -134,6 +144,28 @@ export function DutyTable({
     onToggleKey,
     isPending,
 }: DutyTableProps) {
+    const [clockNow, setClockNow] = useState(() => new Date());
+
+    useEffect(() => {
+        let timeoutId: ReturnType<typeof setTimeout>;
+
+        const scheduleNextMinute = () => {
+            const now = new Date();
+            const millisecondsUntilNextMinute =
+                60_000 - (now.getSeconds() * 1_000 + now.getMilliseconds());
+
+            timeoutId = setTimeout(() => {
+                setClockNow(new Date());
+                scheduleNextMinute();
+            }, millisecondsUntilNextMinute);
+        };
+
+        setClockNow(new Date());
+        scheduleNextMinute();
+
+        return () => clearTimeout(timeoutId);
+    }, []);
+
     // 按照“星期 + 节次”的二维矩阵预处理数据
     const rosterMap = React.useMemo(() => {
         const map: Record<number, Record<number, RosterWithMember[]>> = {};
@@ -149,9 +181,9 @@ export function DutyTable({
     // 获取某个成员在某个槽位的状态标签（请假/代班）
     // 节次结束后标签自动消失
     const getSlotLabel = useMemo(() => {
-        const now = new Date();
-        const todayDow = now.getDay(); // 0=周日, 1=周一, ..., 5=周五
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const dutyNow = toDutyDateTimeParts(clockNow);
+        const todayDow = dutyNow.dayOfWeek;
+        const currentMinutes = dutyNow.minutes;
 
         // 判断某个节次是否已结束（仅当今天是该星期时才考虑时间）
         const isPeriodOver = (day: number, period: number) => {
@@ -160,14 +192,17 @@ export function DutyTable({
         };
 
         return (memberId: string, day: number, period: number): 'leave' | 'substitute' | null => {
-            // 节次已结束，不显示标签
-            if (isPeriodOver(day, period)) return null;
-
             // 检查请假
             const hasLeave = approvedLeaves.some(
-                l => l.member_id === memberId && l.day_of_week === day && l.period === period
+                l => l.member_id === memberId &&
+                    l.day_of_week === day &&
+                    l.period === period &&
+                    isCurrentDutyLeave(l, clockNow)
             );
             if (hasLeave) return 'leave';
+
+            // 节次已结束，不显示标签
+            if (isPeriodOver(day, period)) return null;
 
             // 检查代班（已批准记录中目标成员是该成员）
             const isSubstitute = approvedSwaps.some(
@@ -177,7 +212,7 @@ export function DutyTable({
 
             return null;
         };
-    }, [approvedLeaves, approvedSwaps]);
+    }, [approvedLeaves, approvedSwaps, clockNow]);
 
     return (
         <div className="w-full overflow-x-auto rounded-xl border border-border bg-card shadow-sm">

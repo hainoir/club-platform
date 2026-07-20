@@ -55,7 +55,7 @@ export function LeaveAdminReview({
                                 <div className="space-y-1 text-sm">
                                     <p className="font-medium flex items-center gap-2">
                                         <UserCircle2 className="h-4 w-4 text-primary" />
-                                        {leave.member?.name || '成员'} · {formatDutySlot(leave.day_of_week, leave.period)}
+                                        {leave.member?.name || '成员'} · {leave.leave_date} · {formatDutySlot(leave.day_of_week, leave.period)}
                                     </p>
                                     <p className="text-muted-foreground">等待管理员直接审批</p>
                                     {leave.reason && (

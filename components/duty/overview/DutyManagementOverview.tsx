@@ -22,12 +22,17 @@ import { DUTY_PERIODS, DUTY_DAY_SHORT_LABELS } from "@/lib/duty/duty-constants"
 const PERIODS = DUTY_PERIODS
 const DAYS = DUTY_DAY_SHORT_LABELS
 
-interface DutyLeaveSummary {
+interface DutyLeaveSlotSummary {
     id: string
     member_id: string
     day_of_week: number
     period: number
     status: string | null
+}
+
+interface DutyLeaveSummary extends DutyLeaveSlotSummary {
+    leave_date: string
+    expires_at: string
 }
 
 interface DutyLogSummary {
@@ -45,7 +50,7 @@ interface UpcomingEventSummary {
 interface DutyManagementOverviewProps {
     rosters: RosterWithMember[]
     approvedLeaves: DutyLeaveSummary[]
-    pendingLeaves: DutyLeaveSummary[]
+    pendingLeaves: DutyLeaveSlotSummary[]
     weekLogs: DutyLogSummary[]
     currentMemberId?: string | null
     pendingSwapCount?: number | null
@@ -72,7 +77,7 @@ export function DutyManagementOverview({
     const todayDateKey = dutyNow.dateKey
     const isTodayDutyRequired = isDutyRequiredDate(todayDateKey)
     const mondayDateKey = getDutyWeekMondayDateKey(now)
-    const activeRosters = filterRostersForDutyAvailability(rosters, approvedLeaves)
+    const activeRosters = filterRostersForDutyAvailability(rosters, approvedLeaves, now)
 
     const signedSlotMap = new Map<string, string>()
     weekLogs.forEach((log) => {

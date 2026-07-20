@@ -28,9 +28,10 @@ export async function getDutyScheduleNotifications({
         supabase.from("duty_rosters").select("id, member_id, day_of_week, period").eq("member_id", user.id),
         supabase
             .from("duty_leaves")
-            .select("id, member_id, day_of_week, period, status")
+            .select("id, member_id, day_of_week, period, leave_date, expires_at, status")
             .eq("member_id", user.id)
-            .eq("status", "approved"),
+            .eq("status", "approved")
+            .gt("expires_at", now.toISOString()),
         supabase
             .from("duty_logs")
             .select("sign_in_time")
@@ -42,7 +43,15 @@ export async function getDutyScheduleNotifications({
     const items: AppNotification[] = []
     const myRosters = filterRostersForDutyAvailability(
         (myRostersResult.data || []) as Array<{ id: string; member_id: string; day_of_week: number; period: number }>,
-        (myApprovedLeavesResult.data || []) as Array<{ member_id: string; day_of_week: number; period: number; status?: string | null }>
+        (myApprovedLeavesResult.data || []) as Array<{
+            member_id: string;
+            day_of_week: number;
+            period: number;
+            leave_date: string;
+            expires_at: string;
+            status?: string | null;
+        }>,
+        now
     )
     const todaySignIns = (todaySignInsResult.data || []) as Array<{ sign_in_time: string }>
 

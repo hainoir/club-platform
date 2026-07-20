@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { isAdminRole } from '@/store/useUserStore';
 
@@ -12,6 +12,34 @@ import type { DutySupabaseClient, DutyUser, LeaveWithMember } from './types';
 export function useDutyLeaveQueries(supabase: DutySupabaseClient, user: DutyUser) {
     const [approvedLeaves, setApprovedLeaves] = useState<LeaveWithMember[]>([]);
     const [pendingLeaves, setPendingLeaves] = useState<LeaveWithMember[]>([]);
+    const [clockNow, setClockNow] = useState(() => Date.now());
+
+    useEffect(() => {
+        let timeoutId: ReturnType<typeof setTimeout>;
+
+        const scheduleNextMinute = () => {
+            const now = new Date();
+            const millisecondsUntilNextMinute =
+                60_000 - (now.getSeconds() * 1_000 + now.getMilliseconds());
+
+            timeoutId = setTimeout(() => {
+                setClockNow(Date.now());
+                scheduleNextMinute();
+            }, millisecondsUntilNextMinute);
+        };
+
+        scheduleNextMinute();
+        return () => clearTimeout(timeoutId);
+    }, []);
+
+    const activeApprovedLeaves = useMemo(
+        () => approvedLeaves.filter((leave) => Date.parse(leave.expires_at) > clockNow),
+        [approvedLeaves, clockNow]
+    );
+    const activePendingLeaves = useMemo(
+        () => pendingLeaves.filter((leave) => Date.parse(leave.expires_at) > clockNow),
+        [pendingLeaves, clockNow]
+    );
 
     const refreshApprovedLeaves = useCallback(async () => {
         if (!user) {
@@ -23,7 +51,8 @@ export function useDutyLeaveQueries(supabase: DutySupabaseClient, user: DutyUser
             .from('duty_leaves')
             .select('*, member:members!duty_leaves_member_id_fkey(id, name)')
             .eq('status', 'approved')
-            .order('created_at', { ascending: false })
+            .gt('expires_at', new Date().toISOString())
+            .order('leave_date', { ascending: true })
             .returns<LeaveWithMember[]>();
 
         if (!error && data) {
@@ -42,7 +71,8 @@ export function useDutyLeaveQueries(supabase: DutySupabaseClient, user: DutyUser
         let query = supabase
             .from('duty_leaves')
             .select('*, member:members!duty_leaves_member_id_fkey(id, name)')
-            .eq('status', 'pending');
+            .eq('status', 'pending')
+            .gt('expires_at', new Date().toISOString());
 
         if (!isAdminRole(user.role)) {
             query = query.eq('member_id', user.id);
@@ -58,8 +88,8 @@ export function useDutyLeaveQueries(supabase: DutySupabaseClient, user: DutyUser
     }, [supabase, user]);
 
     return {
-        approvedLeaves,
-        pendingLeaves,
+        approvedLeaves: activeApprovedLeaves,
+        pendingLeaves: activePendingLeaves,
         refreshApprovedLeaves,
         refreshPendingLeaves,
     };

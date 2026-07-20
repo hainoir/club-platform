@@ -11,8 +11,9 @@ import DutyClient from '@/components/duty/DutyClient';
 
 export const dynamic = 'force-dynamic';
 
-type DutyLeaveSummary = Pick<Database['public']['Tables']['duty_leaves']['Row'], 'id' | 'member_id' | 'day_of_week' | 'period' | 'status'>;
-type PendingDutyLeaveSummary = DutyLeaveSummary & Pick<Database['public']['Tables']['duty_leaves']['Row'], 'created_at'>;
+type DutyLeaveSlotSummary = Pick<Database['public']['Tables']['duty_leaves']['Row'], 'id' | 'member_id' | 'day_of_week' | 'period' | 'status'>;
+type DutyLeaveSummary = DutyLeaveSlotSummary & Pick<Database['public']['Tables']['duty_leaves']['Row'], 'leave_date' | 'expires_at'>;
+type PendingDutyLeaveSummary = DutyLeaveSlotSummary & Pick<Database['public']['Tables']['duty_leaves']['Row'], 'created_at'>;
 type DutyLogSummary = Pick<Database['public']['Tables']['duty_logs']['Row'], 'member_id' | 'sign_in_time' | 'sign_in_date' | 'location_verified'>;
 type UpcomingEventSummary = Pick<Database['public']['Tables']['events']['Row'], 'id' | 'title' | 'event_date'>;
 type DutySwapId = Pick<Database['public']['Tables']['duty_swaps']['Row'], 'id'>;
@@ -21,6 +22,7 @@ type KeyTransferId = Pick<Database['public']['Tables']['key_transfers']['Row'], 
 export default async function DutyPage() {
     const supabase = await createClient();
     const now = new Date();
+    const nowIso = now.toISOString();
     const mondayDateKey = getDutyWeekMondayDateKey(now);
 
     const [
@@ -47,13 +49,15 @@ export default async function DutyPage() {
             .returns<SimpleMember[]>(),
         supabase
             .from('duty_leaves')
-            .select('id, member_id, day_of_week, period, status')
+            .select('id, member_id, day_of_week, period, leave_date, expires_at, status')
             .eq('status', 'approved')
+            .gt('expires_at', nowIso)
             .returns<DutyLeaveSummary[]>(),
         supabase
             .from('duty_leaves')
             .select('id, member_id, day_of_week, period, created_at, status')
             .eq('status', 'pending')
+            .gt('expires_at', nowIso)
             .returns<PendingDutyLeaveSummary[]>(),
         supabase
             .from('duty_logs')

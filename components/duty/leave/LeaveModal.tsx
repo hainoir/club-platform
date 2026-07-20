@@ -33,6 +33,7 @@ interface LeaveModalProps {
     submitLeave: (
         day: number,
         period: number,
+        leaveDate: string,
         reason: string,
         penaltyShifts: number,
         compensations: LeaveCompensationPayload[],

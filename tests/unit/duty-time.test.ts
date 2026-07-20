@@ -3,9 +3,12 @@ import test from 'node:test'
 
 import {
     addDaysToDateKey,
+    getNextDutyLeaveDateKey,
     getNextDutySlotDateKey,
     getDutyPeriodByMinutes,
     getDutyWeekMondayDateKey,
+    isCurrentDutyLeave,
+    isDutyLeaveDateSelectable,
     listCompensationSlotsForDuty,
     resolveDutySignInSlot,
     toDutyDateTimeParts,
@@ -61,6 +64,81 @@ test('slot resolution stays stable when runtime TZ changes', () => {
 test('week monday date key is computed in duty timezone', () => {
     assert.equal(getDutyWeekMondayDateKey('2026-03-29T10:00:00.000Z'), '2026-03-23')
     assert.equal(addDaysToDateKey('2026-03-23', 1), '2026-03-24')
+})
+
+test('next leave date stays on the current slot before it ends and moves after it ends', () => {
+    assert.equal(getNextDutyLeaveDateKey(1, 1, '2026-03-23T00:30:00.000Z'), '2026-03-23')
+    assert.equal(getNextDutyLeaveDateKey(1, 1, '2026-03-23T01:35:00.000Z'), '2026-03-30')
+})
+
+test('next leave date skips public holidays', () => {
+    assert.equal(getNextDutyLeaveDateKey(5, 1, '2026-04-30T01:00:00.000Z'), '2026-05-08')
+})
+
+test('leave date selection rejects another weekday, holidays, past dates, and ended slots', () => {
+    const beforeEnd = '2026-03-23T01:34:00.000Z'
+    const afterEnd = '2026-03-23T01:35:00.000Z'
+
+    assert.equal(isDutyLeaveDateSelectable('2026-03-23', 1, 1, beforeEnd), true)
+    assert.equal(isDutyLeaveDateSelectable('2026-03-24', 1, 1, beforeEnd), false)
+    assert.equal(isDutyLeaveDateSelectable('2026-03-16', 1, 1, beforeEnd), false)
+    assert.equal(isDutyLeaveDateSelectable('2026-03-23', 1, 1, afterEnd), false)
+    assert.equal(isDutyLeaveDateSelectable('2026-05-01', 5, 1, '2026-04-30T01:00:00.000Z'), false)
+})
+
+test('current leave is hidden at its end time and never reappears the next week', () => {
+    const leave = {
+        day_of_week: 1,
+        period: 1,
+        leave_date: '2026-03-23',
+        expires_at: '2026-03-23T01:35:00.000Z',
+    }
+
+    assert.equal(isCurrentDutyLeave(leave, '2026-03-23T01:34:59.000Z'), true)
+    assert.equal(isCurrentDutyLeave(leave, '2026-03-23T01:35:00.000Z'), false)
+    assert.equal(isCurrentDutyLeave(leave, '2026-03-30T00:30:00.000Z'), false)
+})
+
+test('future-week leave is stored but does not affect the current displayed week', () => {
+    assert.equal(isCurrentDutyLeave({
+        day_of_week: 1,
+        period: 1,
+        leave_date: '2026-03-30',
+        expires_at: '2026-03-30T01:35:00.000Z',
+    }, '2026-03-23T00:30:00.000Z'), false)
+})
+
+test('leave rules reject invalid dates, slots, and expiration timestamps', () => {
+    assert.throws(
+        () => getNextDutyLeaveDateKey(1.5, 1, '2026-03-23T00:30:00.000Z'),
+        /Invalid duty leave slot/,
+    )
+    assert.equal(isDutyLeaveDateSelectable('2026-02-30', 1, 1, '2026-02-01T00:30:00Z'), false)
+    assert.equal(isDutyLeaveDateSelectable('2026-03-23', 1, 5, '2026-03-23T00:30:00Z'), false)
+    assert.equal(isCurrentDutyLeave({
+        day_of_week: 1,
+        period: 1,
+        leave_date: '2026-03-02',
+        expires_at: '2026-02-30T01:35:00.000Z',
+    }, '2026-03-02T00:30:00Z'), false)
+})
+
+test('UTC PostgREST expiration formats are accepted consistently across runtime timezones', () => {
+    const now = '2026-03-23T00:30:00.000Z'
+    const leave = {
+        day_of_week: 1,
+        period: 1,
+        leave_date: '2026-03-23',
+        expires_at: '2026-03-23T01:35:00.000000+00:00',
+    }
+
+    const run = () => isCurrentDutyLeave(leave, now)
+    assert.equal(withTimeZone('UTC', run), true)
+    assert.equal(withTimeZone('America/Los_Angeles', run), true)
+    assert.equal(isCurrentDutyLeave({
+        ...leave,
+        expires_at: '2026-03-23T09:35:00+08:00',
+    }, now), false)
 })
 
 test('compensation slots include the rest of the leave week and all of next week', () => {
