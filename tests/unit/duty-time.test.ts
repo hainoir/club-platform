@@ -129,5 +129,73 @@ test('current leave rejects a nonexistent UTC expiration timestamp', () => {
     )
 })
 
+test('leave period validation rejects polluted runtime values', () => {
+    const invalidPeriods = ['1' as unknown as number, 1.5, Number.NaN, 0, 5]
+
+    for (const period of invalidPeriods) {
+        assert.throws(
+            () => getNextDutyLeaveDateKey(1, period, '2026-03-23T00:30:00.000Z'),
+            /Invalid duty leave slot/,
+        )
+        assert.equal(isDutyLeaveDateSelectable('2026-03-23', 1, period, '2026-03-23T00:30:00.000Z'), false)
+        assert.equal(
+            isCurrentDutyLeave(
+                {
+                    day_of_week: 1,
+                    period,
+                    leave_date: '2026-03-23',
+                    expires_at: '2026-03-23T01:35:00.000Z',
+                },
+                '2026-03-23T00:30:00.000Z',
+            ),
+            false,
+        )
+    }
+})
+
+test('UTC PostgREST expiration formats are accepted but non-UTC offsets are rejected', () => {
+    const leave = {
+        day_of_week: 1,
+        period: 1,
+        leave_date: '2026-03-23',
+    }
+    const now = '2026-03-23T00:30:00.000Z'
+
+    for (const expires_at of [
+        '2026-03-23T01:35:00Z',
+        '2026-03-23T01:35:00+00:00',
+        '2026-03-23T01:35:00.000000+00:00',
+        '2026-03-23T01:35:00.123456Z',
+    ]) {
+        assert.equal(isCurrentDutyLeave({ ...leave, expires_at }, now), true)
+    }
+
+    assert.equal(isCurrentDutyLeave({ ...leave, expires_at: '2026-03-23T09:35:00+08:00' }, now), false)
+})
+
+test('first duty period is unavailable exactly at its end time', () => {
+    const instant = '2026-03-23T01:35:00.000Z'
+
+    assert.equal(getNextDutyLeaveDateKey(1, 1, instant), '2026-03-30')
+    assert.equal(isDutyLeaveDateSelectable('2026-03-23', 1, 1, instant), false)
+})
+
+test('leave time rules are independent of the runtime timezone', () => {
+    const now = '2026-03-23T00:30:00.000Z'
+    const leave = {
+        day_of_week: 1,
+        period: 1,
+        leave_date: '2026-03-23',
+        expires_at: '2026-03-23T01:35:00.000000+00:00',
+    }
+    const run = () => ({
+        nextLeaveDate: getNextDutyLeaveDateKey(1, 1, now),
+        selectable: isDutyLeaveDateSelectable('2026-03-23', 1, 1, now),
+        current: isCurrentDutyLeave(leave, now),
+    })
+
+    assert.deepEqual(withTimeZone('UTC', run), withTimeZone('America/Los_Angeles', run))
+})
+
 
 

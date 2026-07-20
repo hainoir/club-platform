@@ -184,8 +184,12 @@ function isWorkday(dayOfWeek: number): boolean {
     return Number.isInteger(dayOfWeek) && dayOfWeek >= 1 && dayOfWeek <= 5
 }
 
+function isValidDutyPeriod(period: number): boolean {
+    return typeof period === "number" && Number.isInteger(period) && period >= 1 && period <= 4
+}
+
 function parseUtcIsoDateTime(value: string): Date | null {
-    const matched = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/.exec(value)
+    const matched = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(?:Z|\+00:00)$/.exec(value)
     if (!matched) return null
 
     try {
@@ -195,7 +199,7 @@ function parseUtcIsoDateTime(value: string): Date | null {
         const hour = Number(matched[4])
         const minute = Number(matched[5])
         const second = Number(matched[6])
-        const millisecond = Number((matched[7] || "").padEnd(3, "0"))
+        const millisecond = Number((matched[7] || "").slice(0, 3).padEnd(3, "0"))
         splitDateKey(`${matched[1]}-${matched[2]}-${matched[3]}`)
 
         const date = new Date(value)
@@ -229,11 +233,11 @@ export function getNextDutyLeaveDateKey(
     period: number,
     nowInput: Date | string | number = new Date(),
 ): string {
-    const periodEndMinutes = getDutyPeriodEndMinutes(period)
-    if (!isWorkday(dayOfWeek) || periodEndMinutes === 24 * 60) {
+    if (!isWorkday(dayOfWeek) || !isValidDutyPeriod(period)) {
         throw new Error("Invalid duty leave slot")
     }
 
+    const periodEndMinutes = getDutyPeriodEndMinutes(period)
     const now = toDutyDateTimeParts(nowInput)
     const offset = (dayOfWeek - now.dayOfWeek + 7) % 7
     let dateKey = addDaysToDateKey(now.dateKey, offset)
@@ -250,15 +254,15 @@ export function isDutyLeaveDateSelectable(
     nowInput: Date | string | number = new Date(),
 ): boolean {
     try {
-        const periodEndMinutes = getDutyPeriodEndMinutes(period)
         if (
             !isWorkday(dayOfWeek) ||
-            periodEndMinutes === 24 * 60 ||
+            !isValidDutyPeriod(period) ||
             getDayOfWeekFromDateKey(leaveDate) !== dayOfWeek
         ) {
             return false
         }
 
+        const periodEndMinutes = getDutyPeriodEndMinutes(period)
         const now = toDutyDateTimeParts(nowInput)
         if (leaveDate > now.dateKey) return true
         if (leaveDate < now.dateKey) return false
