@@ -15,7 +15,7 @@ import type { AppUser } from "@/lib/app-user"
 
 import { PERIOD_START_MINUTES } from "@/lib/duty/duty-constants"
 
-type DutyLeaveSlot = Pick<Database["public"]["Tables"]["duty_leaves"]["Row"], "id" | "member_id" | "day_of_week" | "period" | "status">
+type DutyLeaveSlot = Pick<Database["public"]["Tables"]["duty_leaves"]["Row"], "id" | "member_id" | "day_of_week" | "period" | "leave_date" | "expires_at" | "status">
 type DutyLogSummary = Pick<Database["public"]["Tables"]["duty_logs"]["Row"], "member_id" | "sign_in_time" | "sign_in_date" | "location_verified">
 type StudioSessionWithMember = Pick<Database["public"]["Tables"]["studio_sessions"]["Row"], "member_id" | "started_at" | "ended_at" | "is_active"> & {
     member: Pick<Database["public"]["Tables"]["members"]["Row"], "name"> | null
@@ -114,8 +114,9 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
             .returns<RosterWithMember[]>(),
         supabase
             .from("duty_leaves")
-            .select("id, member_id, day_of_week, period, status")
+            .select("id, member_id, day_of_week, period, leave_date, expires_at, status")
             .eq("status", "approved")
+            .gt("expires_at", now.toISOString())
             .returns<DutyLeaveSlot[]>(),
         supabase
             .from("duty_logs")
@@ -134,7 +135,7 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
 
     const rosters = unwrapSupabaseList("duty rosters", rostersResult)
     const approvedLeaves = unwrapSupabaseList("approved leaves", approvedLeavesResult)
-    const activeRosters = filterRostersForDutyAvailability(rosters, approvedLeaves)
+    const activeRosters = filterRostersForDutyAvailability(rosters, approvedLeaves, now)
     const activeMembers = unwrapSupabaseList("active members", membersResult)
     const todayLogs = unwrapSupabaseList("today duty logs", todayLogsResult)
 

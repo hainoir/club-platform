@@ -90,11 +90,23 @@ function splitDateKey(dateKey: string): { year: number; month: number; day: numb
     if (!matched) {
         throw new Error(`Invalid date key: ${dateKey}`)
     }
-    return {
-        year: Number(matched[1]),
-        month: Number(matched[2]),
-        day: Number(matched[3]),
+
+    const year = Number(matched[1])
+    const month = Number(matched[2])
+    const day = Number(matched[3])
+    const date = new Date(0)
+    date.setUTCFullYear(year, month - 1, day)
+    date.setUTCHours(0, 0, 0, 0)
+
+    if (
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() !== month - 1 ||
+        date.getUTCDate() !== day
+    ) {
+        throw new Error(`Invalid date key: ${dateKey}`)
     }
+
+    return { year, month, day }
 }
 
 function safeDateKey(dateKey: string | null | undefined): string | null {
@@ -164,6 +176,118 @@ export function getDutyPeriodEndMinutes(period: number): number {
     return PERIOD_END_MINUTES[period] || 24 * 60
 }
 
+export interface DutyLeaveTimeLike {
+    day_of_week: number
+    period: number
+    leave_date: string
+    expires_at: string
+}
+
+function isWorkday(dayOfWeek: number): boolean {
+    return Number.isInteger(dayOfWeek) && dayOfWeek >= 1 && dayOfWeek <= 5
+}
+
+function isValidDutyPeriod(period: number): boolean {
+    return typeof period === "number" && Number.isInteger(period) && period >= 1 && period <= 4
+}
+
+function parseUtcIsoDateTime(value: string): Date | null {
+    const matched = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(?:Z|\+00:00)$/.exec(value)
+    if (!matched) return null
+
+    try {
+        const year = Number(matched[1])
+        const month = Number(matched[2])
+        const day = Number(matched[3])
+        const hour = Number(matched[4])
+        const minute = Number(matched[5])
+        const second = Number(matched[6])
+        const millisecond = Number((matched[7] || "").slice(0, 3).padEnd(3, "0"))
+        splitDateKey(`${matched[1]}-${matched[2]}-${matched[3]}`)
+
+        const date = new Date(value)
+        if (
+            Number.isNaN(date.getTime()) ||
+            date.getUTCFullYear() !== year ||
+            date.getUTCMonth() !== month - 1 ||
+            date.getUTCDate() !== day ||
+            date.getUTCHours() !== hour ||
+            date.getUTCMinutes() !== minute ||
+            date.getUTCSeconds() !== second ||
+            date.getUTCMilliseconds() !== millisecond
+        ) {
+            return null
+        }
+
+        return date
+    } catch {
+        return null
+    }
+}
+
+function getWeekMondayFromDateKey(dateKey: string): string {
+    const dayOfWeek = getDayOfWeekFromDateKey(dateKey)
+    const offset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    return addDaysToDateKey(dateKey, offset)
+}
+
+export function getNextDutyLeaveDateKey(
+    dayOfWeek: number,
+    period: number,
+    nowInput: Date | string | number = new Date(),
+): string {
+    if (!isWorkday(dayOfWeek) || !isValidDutyPeriod(period)) {
+        throw new Error("Invalid duty leave slot")
+    }
+
+    return getNextDutySlotDateKey(dayOfWeek, period, nowInput)
+}
+
+export function isDutyLeaveDateSelectable(
+    leaveDate: string,
+    dayOfWeek: number,
+    period: number,
+    nowInput: Date | string | number = new Date(),
+): boolean {
+    try {
+        if (
+            !isWorkday(dayOfWeek) ||
+            !isValidDutyPeriod(period) ||
+            getDayOfWeekFromDateKey(leaveDate) !== dayOfWeek ||
+            !isDutyRequiredDate(leaveDate)
+        ) {
+            return false
+        }
+
+        const periodEndMinutes = getDutyPeriodEndMinutes(period)
+        const now = toDutyDateTimeParts(nowInput)
+        if (leaveDate > now.dateKey) return true
+        if (leaveDate < now.dateKey) return false
+        return now.minutes < periodEndMinutes
+    } catch {
+        return false
+    }
+}
+
+export function isCurrentDutyLeave(
+    leave: DutyLeaveTimeLike,
+    nowInput: Date | string | number = new Date(),
+): boolean {
+    try {
+        const now = toDutyDateTimeParts(nowInput)
+        const expiresAt = parseUtcIsoDateTime(leave.expires_at)
+        if (!expiresAt) return false
+
+        return (
+            isDutyLeaveDateSelectable(leave.leave_date, leave.day_of_week, leave.period, nowInput) &&
+            getWeekMondayFromDateKey(leave.leave_date) === getWeekMondayFromDateKey(now.dateKey) &&
+            expiresAt.getTime() > normalizeDateInput(nowInput).getTime()
+        )
+    } catch {
+        return false
+    }
+}
+
 export function getNextDutySlotDateKey(
     dayOfWeek: number,
     period: number,
@@ -181,7 +305,7 @@ export function getNextDutySlotDateKey(
     while (
         !isDutyRequiredDate(slotDateKey) ||
         slotDateKey < nowParts.dateKey ||
-        (slotDateKey === nowParts.dateKey && nowParts.minutes > getDutyPeriodEndMinutes(period))
+        (slotDateKey === nowParts.dateKey && nowParts.minutes >= getDutyPeriodEndMinutes(period))
     ) {
         slotDateKey = addDaysToDateKey(slotDateKey, 7)
     }

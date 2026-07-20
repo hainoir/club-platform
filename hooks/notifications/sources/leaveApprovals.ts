@@ -8,6 +8,7 @@ type PendingLeaveNotificationRow = {
     member_id: string
     day_of_week: number
     period: number
+    leave_date: string
     created_at?: string
     member?: { name?: string | null } | null
 }
@@ -25,15 +26,17 @@ export async function getLeaveApprovalNotifications({
         isAdmin
             ? supabase
                   .from("duty_leaves")
-                  .select("id, member_id, day_of_week, period, created_at, member:members!duty_leaves_member_id_fkey(name)")
+                  .select("id, member_id, day_of_week, period, leave_date, created_at, member:members!duty_leaves_member_id_fkey(name)")
                   .eq("status", "pending")
+                  .gt("expires_at", now.toISOString())
                   .order("created_at", { ascending: false })
                   .limit(12)
             : supabase
                   .from("duty_leaves")
-                  .select("id, member_id, day_of_week, period, created_at")
+                  .select("id, member_id, day_of_week, period, leave_date, created_at")
                   .eq("status", "pending")
                   .eq("member_id", user.id)
+                  .gt("expires_at", now.toISOString())
                   .order("created_at", { ascending: false })
                   .limit(12),
         isAdmin
@@ -50,7 +53,7 @@ export async function getLeaveApprovalNotifications({
         return pendingDirectLeaves.slice(0, 6).map((leave: PendingLeaveNotificationRow) => ({
             id: `leave-review-${leave.id}`,
             title: "请假请求待审批",
-            description: `${leave.member?.name || "成员"} 的 ${formatDutySlot(leave.day_of_week, leave.period)} 请假等待审批。`,
+            description: `${leave.member?.name || "成员"} 的 ${leave.leave_date} ${formatDutySlot(leave.day_of_week, leave.period)} 请假等待审批。`,
             href: "/duty",
             createdAt: leave.created_at || now.toISOString(),
             level: "warning",
@@ -60,7 +63,7 @@ export async function getLeaveApprovalNotifications({
     return pendingDirectLeaves.slice(0, 6).map((leave: PendingLeaveNotificationRow) => ({
         id: `leave-followup-${leave.id}`,
         title: "请假待管理员审批",
-        description: `${formatDutySlot(leave.day_of_week, leave.period)} 暂未生效，等待管理员审批。`,
+        description: `${leave.leave_date} ${formatDutySlot(leave.day_of_week, leave.period)} 暂未生效，等待管理员审批。`,
         href: "/",
         createdAt: leave.created_at || now.toISOString(),
         level: "info",

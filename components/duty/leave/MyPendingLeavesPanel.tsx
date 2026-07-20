@@ -64,7 +64,9 @@ export function MyPendingLeavesPanel({
                             <div key={leave.id} className="rounded-md border px-3 py-3">
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="space-y-1 text-sm">
-                                        <p className="font-medium">{formatDutySlot(leave.day_of_week, leave.period)}</p>
+                                        <p className="font-medium">
+                                            {leave.leave_date} · {formatDutySlot(leave.day_of_week, leave.period)}
+                                        </p>
                                         <p className="text-muted-foreground">{formatPendingLeaveState(linkedSwap)}</p>
                                         {leave.reason && (
                                             <p className="text-xs text-muted-foreground">原因：{leave.reason}</p>

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { getDutyActionErrorMessage } from './action-utils';
+import { isDutyLeaveDateSelectable } from '@/lib/duty/duty-time';
 
 import {
     DAYS_LABEL,
@@ -33,6 +34,7 @@ export function useSubmitLeave({
     return useCallback(async (
         day: number,
         period: number,
+        leaveDate: string,
         reason: string,
         penaltyShifts: number,
         compensations: LeaveCompensationInput[],
@@ -41,6 +43,14 @@ export function useSubmitLeave({
     ) => {
         if (!user) return false;
         if (!(await ensureActiveSession())) return false;
+        if (!isDutyLeaveDateSelectable(leaveDate, day, period)) {
+            toast({
+                title: '请假日期无效',
+                description: '请选择与值班星期一致、尚未结束且不是节假日的班次日期。',
+                variant: 'destructive',
+            });
+            return false;
+        }
 
         let leaveId: string | null = null;
 
@@ -51,6 +61,7 @@ export function useSubmitLeave({
                     member_id: user.id,
                     day_of_week: day,
                     period,
+                    leave_date: leaveDate,
                     reason: reason || null,
                     penalty_shifts: penaltyShifts,
                     status: 'pending',
@@ -97,9 +108,9 @@ export function useSubmitLeave({
                 title: '请假申请已提交',
                 description: needSubstitute
                     ? targetMemberId
-                        ? `周${DAYS_LABEL[day - 1]}第${period}大节，已提交待审批请假，并定向邀请代班成员。`
-                        : `周${DAYS_LABEL[day - 1]}第${period}大节，已提交待审批请假，并发布到公共代班大厅。`
-                    : `周${DAYS_LABEL[day - 1]}第${period}大节，已提交待审批请假，等待管理员审批。`,
+                        ? `${leaveDate}（周${DAYS_LABEL[day - 1]}第${period}大节）已提交待审批请假，并定向邀请代班成员。`
+                        : `${leaveDate}（周${DAYS_LABEL[day - 1]}第${period}大节）已提交待审批请假，并发布到公共代班大厅。`
+                    : `${leaveDate}（周${DAYS_LABEL[day - 1]}第${period}大节）已提交待审批请假，等待管理员审批。`,
             });
 
             void refreshPendingLeaves();

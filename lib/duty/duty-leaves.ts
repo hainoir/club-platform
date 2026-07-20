@@ -1,9 +1,13 @@
+import { isCurrentDutyLeave } from "./duty-time.ts"
+
 export interface DutyLeaveSlotLike {
     id?: string
     member_id: string
     day_of_week: number
     period: number
     status?: string | null
+    leave_date?: string
+    expires_at?: string
 }
 
 export interface DutyRosterSlotLike {
@@ -25,11 +29,21 @@ export function getDutyLeaveSlotKey(memberId: string, dayOfWeek: number, period:
     return `${memberId}-${dayOfWeek}-${period}`
 }
 
-export function buildApprovedLeaveSlotSet(leaves: ReadonlyArray<DutyLeaveSlotLike>): Set<string> {
+export function buildApprovedLeaveSlotSet(
+    leaves: ReadonlyArray<DutyLeaveSlotLike>,
+    nowInput: Date | string | number = new Date()
+): Set<string> {
     const approved = new Set<string>()
 
     leaves.forEach((leave) => {
         if (leave.status != null && leave.status !== "approved") return
+        if (!leave.leave_date || !leave.expires_at) return
+        if (!isCurrentDutyLeave({
+            day_of_week: leave.day_of_week,
+            period: leave.period,
+            leave_date: leave.leave_date,
+            expires_at: leave.expires_at,
+        }, nowInput)) return
         approved.add(getDutyLeaveSlotKey(leave.member_id, leave.day_of_week, leave.period))
     })
 
@@ -38,9 +52,10 @@ export function buildApprovedLeaveSlotSet(leaves: ReadonlyArray<DutyLeaveSlotLik
 
 export function filterRostersForDutyAvailability<T extends DutyRosterSlotLike>(
     rosters: ReadonlyArray<T>,
-    approvedLeaves: ReadonlyArray<DutyLeaveSlotLike>
+    approvedLeaves: ReadonlyArray<DutyLeaveSlotLike>,
+    nowInput: Date | string | number = new Date()
 ): T[] {
-    const approvedSlotSet = buildApprovedLeaveSlotSet(approvedLeaves)
+    const approvedSlotSet = buildApprovedLeaveSlotSet(approvedLeaves, nowInput)
     return rosters.filter(
         (roster) => !approvedSlotSet.has(getDutyLeaveSlotKey(roster.member_id, roster.day_of_week, roster.period))
     )
