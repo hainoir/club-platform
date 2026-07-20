@@ -252,6 +252,8 @@ export interface Database {
                     member_id: string
                     day_of_week: number
                     period: number
+                    leave_date: string
+                    expires_at: string
                     reason: string | null
                     penalty_shifts: number
                     status: string
@@ -262,6 +264,8 @@ export interface Database {
                     member_id: string
                     day_of_week: number
                     period: number
+                    leave_date: string
+                    expires_at?: string
                     reason?: string | null
                     penalty_shifts?: number
                     status?: string
@@ -272,6 +276,8 @@ export interface Database {
                     member_id?: string
                     day_of_week?: number
                     period?: number
+                    leave_date?: string
+                    expires_at?: string
                     reason?: string | null
                     penalty_shifts?: number
                     status?: string
