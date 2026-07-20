@@ -3,8 +3,11 @@ import test from 'node:test'
 
 import {
     addDaysToDateKey,
+    getNextDutyLeaveDateKey,
     getDutyPeriodByMinutes,
     getDutyWeekMondayDateKey,
+    isCurrentDutyLeave,
+    isDutyLeaveDateSelectable,
     resolveDutySignInSlot,
     toDutyDateTimeParts,
 } from '../../lib/duty-time.ts'
@@ -58,6 +61,40 @@ test('slot resolution stays stable when runtime TZ changes', () => {
 test('week monday date key is computed in duty timezone', () => {
     assert.equal(getDutyWeekMondayDateKey('2026-03-29T10:00:00.000Z'), '2026-03-23')
     assert.equal(addDaysToDateKey('2026-03-23', 1), '2026-03-24')
+})
+
+test('next leave date stays on the current slot before it ends and moves one week after it ends', () => {
+    assert.equal(
+        getNextDutyLeaveDateKey(1, 1, '2026-03-23T00:30:00.000Z'),
+        '2026-03-23',
+    )
+    assert.equal(
+        getNextDutyLeaveDateKey(1, 1, '2026-03-23T01:36:00.000Z'),
+        '2026-03-30',
+    )
+})
+
+test('leave date selection rejects another weekday, past dates, and an ended current slot', () => {
+    const beforeEnd = '2026-03-23T01:34:00.000Z'
+    const afterEnd = '2026-03-23T01:36:00.000Z'
+
+    assert.equal(isDutyLeaveDateSelectable('2026-03-23', 1, 1, beforeEnd), true)
+    assert.equal(isDutyLeaveDateSelectable('2026-03-24', 1, 1, beforeEnd), false)
+    assert.equal(isDutyLeaveDateSelectable('2026-03-16', 1, 1, beforeEnd), false)
+    assert.equal(isDutyLeaveDateSelectable('2026-03-23', 1, 1, afterEnd), false)
+})
+
+test('current leave is hidden at its end time and never reappears the next week', () => {
+    const leave = {
+        day_of_week: 1,
+        period: 1,
+        leave_date: '2026-03-23',
+        expires_at: '2026-03-23T01:35:00.000Z',
+    }
+
+    assert.equal(isCurrentDutyLeave(leave, '2026-03-23T01:34:59.000Z'), true)
+    assert.equal(isCurrentDutyLeave(leave, '2026-03-23T01:35:00.000Z'), false)
+    assert.equal(isCurrentDutyLeave(leave, '2026-03-30T00:30:00.000Z'), false)
 })
 
 

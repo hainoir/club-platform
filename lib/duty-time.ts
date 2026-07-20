@@ -161,6 +161,86 @@ export function getDutyPeriodEndMinutes(period: number): number {
     return PERIOD_END_MINUTES[period] || 24 * 60
 }
 
+export interface DutyLeaveTimeLike {
+    day_of_week: number
+    period: number
+    leave_date: string
+    expires_at: string
+}
+
+function isWorkday(dayOfWeek: number): boolean {
+    return dayOfWeek >= 1 && dayOfWeek <= 5
+}
+
+function getWeekMondayFromDateKey(dateKey: string): string {
+    const dayOfWeek = getDayOfWeekFromDateKey(dateKey)
+    const offset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    return addDaysToDateKey(dateKey, offset)
+}
+
+export function getNextDutyLeaveDateKey(
+    dayOfWeek: number,
+    period: number,
+    nowInput: Date | string | number = new Date(),
+): string {
+    const periodEndMinutes = getDutyPeriodEndMinutes(period)
+    if (!isWorkday(dayOfWeek) || periodEndMinutes === 24 * 60) {
+        throw new Error("Invalid duty leave slot")
+    }
+
+    const now = toDutyDateTimeParts(nowInput)
+    const offset = (dayOfWeek - now.dayOfWeek + 7) % 7
+    let dateKey = addDaysToDateKey(now.dateKey, offset)
+    if (dateKey === now.dateKey && now.minutes >= periodEndMinutes) {
+        dateKey = addDaysToDateKey(dateKey, 7)
+    }
+    return dateKey
+}
+
+export function isDutyLeaveDateSelectable(
+    leaveDate: string,
+    dayOfWeek: number,
+    period: number,
+    nowInput: Date | string | number = new Date(),
+): boolean {
+    try {
+        const periodEndMinutes = getDutyPeriodEndMinutes(period)
+        if (
+            !isWorkday(dayOfWeek) ||
+            periodEndMinutes === 24 * 60 ||
+            getDayOfWeekFromDateKey(leaveDate) !== dayOfWeek
+        ) {
+            return false
+        }
+
+        const now = toDutyDateTimeParts(nowInput)
+        if (leaveDate > now.dateKey) return true
+        if (leaveDate < now.dateKey) return false
+        return now.minutes < periodEndMinutes
+    } catch {
+        return false
+    }
+}
+
+export function isCurrentDutyLeave(
+    leave: DutyLeaveTimeLike,
+    nowInput: Date | string | number = new Date(),
+): boolean {
+    try {
+        const now = toDutyDateTimeParts(nowInput)
+        const expiresAt = new Date(leave.expires_at)
+        if (Number.isNaN(expiresAt.getTime())) return false
+
+        return (
+            isDutyLeaveDateSelectable(leave.leave_date, leave.day_of_week, leave.period, nowInput) &&
+            getWeekMondayFromDateKey(leave.leave_date) === getWeekMondayFromDateKey(now.dateKey) &&
+            expiresAt.getTime() > normalizeDateInput(nowInput).getTime()
+        )
+    } catch {
+        return false
+    }
+}
+
 export function resolveDutySignInSlot(log: DutySignInLogLike, timeZone = DUTY_TIME_ZONE): DutySignInSlot | null {
     try {
         const signInParts = toDutyDateTimeParts(log.sign_in_time, timeZone)
