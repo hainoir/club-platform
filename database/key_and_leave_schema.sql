@@ -68,6 +68,10 @@ BEGIN
   END IF;
 
   NEW.expires_at := (NEW.leave_date + period_end) AT TIME ZONE 'Asia/Shanghai';
+  IF NEW.expires_at <= statement_timestamp() THEN
+    RAISE EXCEPTION 'Duty leave must end in the future';
+  END IF;
+
   RETURN NEW;
 END;
 $$;
@@ -115,7 +119,19 @@ DROP POLICY IF EXISTS "允许本人提交请假" ON public.duty_leaves;
 CREATE POLICY "允许本人提交请假"
 ON public.duty_leaves FOR INSERT TO authenticated
 WITH CHECK (
-  EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email')))
+  EXISTS (
+    SELECT 1
+    FROM public.members m
+    WHERE m.id = member_id
+      AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email'))
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM public.duty_rosters roster
+    WHERE roster.member_id = public.duty_leaves.member_id
+      AND roster.day_of_week = public.duty_leaves.day_of_week
+      AND roster.period = public.duty_leaves.period
+  )
 );
 
 DROP POLICY IF EXISTS "允许管理员或本人操作请假" ON public.duty_leaves;
@@ -126,6 +142,22 @@ USING (
   OR EXISTS (
     SELECT 1 FROM public.members admin WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
       AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
+  )
+)
+WITH CHECK (
+  (
+    EXISTS (SELECT 1 FROM public.members m WHERE m.id = member_id AND lower(trim(m.email)) = lower(trim(auth.jwt()->>'email')))
+    OR EXISTS (
+      SELECT 1 FROM public.members admin WHERE lower(trim(admin.email)) = lower(trim(auth.jwt()->>'email'))
+        AND admin.role IN ('admin', U&'\4E3B\5E2D', U&'\6267\884C\4E3B\5E2D', U&'\526F\4E3B\5E2D', U&'\90E8\957F', U&'\7BA1\7406\5458')
+    )
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM public.duty_rosters roster
+    WHERE roster.member_id = public.duty_leaves.member_id
+      AND roster.day_of_week = public.duty_leaves.day_of_week
+      AND roster.period = public.duty_leaves.period
   )
 );
 
