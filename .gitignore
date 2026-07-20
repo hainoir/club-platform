@@ -35,4 +35,7 @@ next-env.d.ts
 
 /test-results
 
+# local Git worktrees
+/.worktrees/
+
 /.idea/
