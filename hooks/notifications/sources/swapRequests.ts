@@ -27,9 +27,9 @@ export async function getSwapRequestNotifications({
     supabase,
     user,
     isAdmin,
-    dutyReminder,
+    swapReminder,
 }: NotificationSourceContext): Promise<AppNotification[]> {
-    if (!dutyReminder) return []
+    if (!swapReminder) return []
 
     const swapResult = isAdmin
         ? await supabase

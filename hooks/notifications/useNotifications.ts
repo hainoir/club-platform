@@ -29,7 +29,15 @@ export function useNotifications() {
     const supabase = useSupabase()
     const { user } = useUserStore()
 
-    const { dutyReminder, eventReminder, keyTransferReminder, markReadOnOpen } = usePreferencesStore((s) => s.notifications)
+    const {
+        inAppEnabled,
+        dutyReminder,
+        eventReminder,
+        keyTransferReminder,
+        leaveReminder,
+        swapReminder,
+        markReadOnOpen,
+    } = usePreferencesStore((s) => s.notifications)
     const autoRefreshSeconds = usePreferencesStore((s) => s.interface.autoRefreshSeconds)
 
     const [notifications, setNotifications] = React.useState<AppNotification[]>([])
@@ -59,7 +67,7 @@ export function useNotifications() {
     }, [notifications])
 
     const refresh = React.useCallback(async () => {
-        if (!user) {
+        if (!user || !inAppEnabled) {
             setNotifications([])
             return
         }
@@ -75,6 +83,8 @@ export function useNotifications() {
                 dutyReminder,
                 eventReminder,
                 keyTransferReminder,
+                leaveReminder,
+                swapReminder,
             }
             const sourceBatches = await Promise.all(
                 NOTIFICATION_SOURCES.map((source) => source(context))
@@ -84,7 +94,7 @@ export function useNotifications() {
         } finally {
             setLoading(false)
         }
-    }, [supabase, user, dutyReminder, eventReminder, keyTransferReminder])
+    }, [supabase, user, inAppEnabled, dutyReminder, eventReminder, keyTransferReminder, leaveReminder, swapReminder])
 
     React.useEffect(() => {
         if (!user) return

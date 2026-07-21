@@ -39,6 +39,12 @@ async function resolvePostLoginPath(
     }
 }
 
+function getSafeNextPath(request: NextRequest): string | null {
+    const next = request.nextUrl.searchParams.get('next')
+    if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/login')) return null
+    return next
+}
+
 /**
  * 【学习注释：中间件里的统一会话收口】
  * 中间件是所有页面请求进入应用前最早经过的节点，适合集中处理 token 刷新和访问控制。
@@ -98,6 +104,8 @@ export async function updateSession(request: NextRequest) {
         // 在进入页面渲染前直接重定向，能避免“先渲染半页内容再跳登录”的闪烁体验。
         const url = request.nextUrl.clone()
         url.pathname = '/login'
+        url.search = ''
+        url.searchParams.set('next', `${pathname}${request.nextUrl.search}`)
         return NextResponse.redirect(url)
     }
 
@@ -105,7 +113,15 @@ export async function updateSession(request: NextRequest) {
     // 这类跳转不只是“方便”，它还能保持登录后路径语义稳定，减少用户对当前身份状态的困惑。
     if (user && pathname.startsWith('/login')) {
         const url = request.nextUrl.clone()
-        url.pathname = await resolvePostLoginPath(supabase, user)
+        const nextPath = getSafeNextPath(request)
+        if (nextPath) {
+            const destination = new URL(nextPath, request.url)
+            url.pathname = destination.pathname
+            url.search = destination.search
+        } else {
+            url.pathname = await resolvePostLoginPath(supabase, user)
+            url.search = ''
+        }
         const redirectResponse = NextResponse.redirect(url)
         redirectResponse.headers.set('Cache-Control', 'private, no-store')
         return redirectResponse

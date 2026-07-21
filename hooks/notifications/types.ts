@@ -20,6 +20,8 @@ export interface NotificationSourceContext {
     dutyReminder: boolean
     eventReminder: boolean
     keyTransferReminder: boolean
+    leaveReminder: boolean
+    swapReminder: boolean
 }
 
 export type NotificationSource = (context: NotificationSourceContext) => Promise<AppNotification[]>

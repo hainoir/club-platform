@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { ToastProvider } from "@/components/ui/toast-simple"
 import { AuthProvider } from "@/components/providers/AuthProvider"
 import { StoreHydration } from "@/components/providers/StoreHydration"
+import { PushProvider } from "@/components/providers/PushProvider"
 import { WebVitals } from "@/components/WebVitals"
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
@@ -19,6 +20,16 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
     title: "社团管理平台",
     description: "面向校园社团的全周期管理平台",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+        capable: true,
+        title: "社团平台",
+        statusBarStyle: "default",
+    },
+    icons: {
+        icon: "/icons/app-icon-192.png",
+        apple: "/icons/app-icon-192.png",
+    },
 }
 
 /**
@@ -44,7 +55,9 @@ export default function RootLayout({
                 <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
                     <ToastProvider>
                         <StoreHydration />
-                        <AuthProvider>{children}</AuthProvider>
+                        <PushProvider>
+                            <AuthProvider>{children}</AuthProvider>
+                        </PushProvider>
                     </ToastProvider>
                 </ThemeProvider>
                 <Analytics />

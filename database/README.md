@@ -22,6 +22,7 @@
 7. `database/add_signin_and_rsvp_constraints.sql`（必需的加固：签到去重与 RSVP 唯一性）
 8. `database/fix_duty_hall_permissions.sql`（值班大厅的角色/邮箱兼容性加固）
 9. `database/security_linter_hardening.sql`（针对函数授权与公开存储列举的 Supabase 数据库检查器加固）
+10. `database/web_push_schema.sql`（PWA Web Push 订阅、通知偏好、outbox、业务触发器与领取 RPC）
 
 ## 增量升级顺序（已有环境）
 
@@ -31,8 +32,9 @@
 4. `database/update_swap_status.sql`（刷新代班审批、接单和退回大厅相关 RPC）
 5. `database/fix_duty_hall_permissions.sql`（加固值班大厅策略与 RPC 的角色/邮箱兼容性）
 6. 只有在你改动了成员或活动相关策略时，才重新应用 `database/rls_policies.sql`。
-7. 当自习在场清理行为有变化时，重新应用 `database/studio_sessions_schema.sql`。
-8. 任何会重建 `SECURITY DEFINER` 函数或存储策略的 SQL 变更之后，都要补跑 `database/security_linter_hardening.sql`。
+7. `database/web_push_schema.sql`（在值班/请假/代班 RPC 已刷新后安装推送表与触发器）。
+8. 当自习在场清理行为有变化时，重新应用 `database/studio_sessions_schema.sql`。
+9. 任何会重建 `SECURITY DEFINER` 函数或存储策略的 SQL 变更之后，都要补跑 `database/security_linter_hardening.sql`。
 
 ## 回滚说明（安全加固）
 
@@ -72,3 +74,6 @@ GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO public;
 - `expire_studio_sessions` 必须存在、可被 `authenticated` 执行，并且客户端应通过它而不是在读取活跃自习列表时直接更新过期行。
 - 公开的 `events` bucket 不应保留类似 `Public Access` 或 `events_bucket_read` 这类宽泛的 `storage.objects` SELECT 策略。
 - 仅供触发器或维护使用的函数不应允许 `anon` 或 `authenticated` 直接执行；面向客户端的 RPC 也不应允许 `anon` 执行。
+- `push_subscriptions`、`notification_outbox`、`push_deliveries` 与 `notification_preferences` 不应允许普通客户端直接读取。
+- `claim_push_outbox` 必须只允许 `service_role` 执行，并使用 `FOR UPDATE SKIP LOCKED` 防止重复领取。
+- 应在 Supabase Cron 中按分钟调用生产环境 `/api/internal/push/dispatch`，真实密钥只存放于 Vault/环境变量。

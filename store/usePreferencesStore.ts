@@ -2,8 +2,11 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export interface NotificationPreferences {
+    inAppEnabled: boolean
     dutyReminder: boolean
     keyTransferReminder: boolean
+    leaveReminder: boolean
+    swapReminder: boolean
     eventReminder: boolean
     markReadOnOpen: boolean
 }
@@ -23,8 +26,11 @@ interface PreferencesState {
 }
 
 const defaultNotifications: NotificationPreferences = {
+    inAppEnabled: true,
     dutyReminder: true,
     keyTransferReminder: true,
+    leaveReminder: true,
+    swapReminder: true,
     eventReminder: true,
     markReadOnOpen: true,
 }

@@ -23,6 +23,13 @@ function getPostLoginHref(role: string | null | undefined): "/" | "/duty" {
     return isAdminRole(role) ? "/duty" : "/"
 }
 
+function getRequestedPostLoginHref(): string | null {
+    if (typeof window === "undefined") return null
+    const value = new URLSearchParams(window.location.search).get("next")
+    if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/login")) return null
+    return value
+}
+
 /**
  * 【学习注释：登录页承担认证层与业务层的衔接】
  * Supabase 只负责账号体系，而系统真正使用的还是 members 表中的业务资料。
@@ -166,10 +173,10 @@ export default function LoginForm() {
 
                 if (error) throw error
 
-                let nextHref = "/"
+                let nextHref: string = "/"
                 if (data.user) {
                     const appUser = await syncOrCreateMemberProfile(normalizedEmail, data.user.id)
-                    nextHref = getPostLoginHref(appUser.role)
+                    nextHref = getRequestedPostLoginHref() || getPostLoginHref(appUser.role)
                 }
 
                 toast({ title: "登录成功", description: "欢迎回来。" })
@@ -212,7 +219,7 @@ export default function LoginForm() {
                         studentId: safeStudentId,
                     })
                     toast({ title: "注册成功", description: "账号已创建并可立即使用。" })
-                    router.push(getPostLoginHref(appUser.role))
+                    router.push(getRequestedPostLoginHref() || getPostLoginHref(appUser.role))
                     router.refresh()
                 }
             }

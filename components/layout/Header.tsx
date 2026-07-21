@@ -75,6 +75,22 @@ export function Header({ className }: { className?: string }) {
     }, [pathname, pendingMobileHref])
 
     const handleLogout = async () => {
+        if ("serviceWorker" in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.ready
+                const subscription = await registration.pushManager.getSubscription()
+                if (subscription) {
+                    await fetch("/api/push/subscribe", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ endpoint: subscription.endpoint }),
+                    }).catch(() => undefined)
+                    await subscription.unsubscribe()
+                }
+            } catch {
+                // 即使服务端同步失败，也继续退出；浏览器端退订已尽力完成。
+            }
+        }
         await supabase.auth.signOut()
         logout()
         router.push("/login")

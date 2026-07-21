@@ -18,9 +18,9 @@ export async function getLeaveApprovalNotifications({
     user,
     isAdmin,
     now,
-    dutyReminder,
+    leaveReminder,
 }: NotificationSourceContext): Promise<AppNotification[]> {
-    if (!dutyReminder) return []
+    if (!leaveReminder) return []
 
     const [pendingLeavesResult, pendingSwapLeaveLinksResult] = await Promise.all([
         isAdmin

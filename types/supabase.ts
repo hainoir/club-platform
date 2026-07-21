@@ -390,6 +390,246 @@ export interface Database {
                     }
                 ]
             }
+            notification_preferences: {
+                Row: {
+                    member_id: string
+                    in_app_enabled: boolean
+                    web_push_enabled: boolean
+                    duty_reminder: boolean
+                    key_transfer_reminder: boolean
+                    leave_reminder: boolean
+                    swap_reminder: boolean
+                    event_reminder: boolean
+                    updated_at: string
+                }
+                Insert: {
+                    member_id: string
+                    in_app_enabled?: boolean
+                    web_push_enabled?: boolean
+                    duty_reminder?: boolean
+                    key_transfer_reminder?: boolean
+                    leave_reminder?: boolean
+                    swap_reminder?: boolean
+                    event_reminder?: boolean
+                    updated_at?: string
+                }
+                Update: {
+                    member_id?: string
+                    in_app_enabled?: boolean
+                    web_push_enabled?: boolean
+                    duty_reminder?: boolean
+                    key_transfer_reminder?: boolean
+                    leave_reminder?: boolean
+                    swap_reminder?: boolean
+                    event_reminder?: boolean
+                    updated_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "notification_preferences_member_id_fkey"
+                        columns: ["member_id"]
+                        isOneToOne: true
+                        referencedRelation: "members"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
+            push_subscriptions: {
+                Row: {
+                    id: string
+                    member_id: string
+                    endpoint: string
+                    p256dh: string
+                    auth: string
+                    user_agent: string | null
+                    platform: string | null
+                    device_label: string | null
+                    status: string
+                    failure_count: number
+                    last_success_at: string | null
+                    last_failure_at: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    member_id: string
+                    endpoint: string
+                    p256dh: string
+                    auth: string
+                    user_agent?: string | null
+                    platform?: string | null
+                    device_label?: string | null
+                    status?: string
+                    failure_count?: number
+                    last_success_at?: string | null
+                    last_failure_at?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    member_id?: string
+                    endpoint?: string
+                    p256dh?: string
+                    auth?: string
+                    user_agent?: string | null
+                    platform?: string | null
+                    device_label?: string | null
+                    status?: string
+                    failure_count?: number
+                    last_success_at?: string | null
+                    last_failure_at?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "push_subscriptions_member_id_fkey"
+                        columns: ["member_id"]
+                        isOneToOne: false
+                        referencedRelation: "members"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
+            notification_outbox: {
+                Row: {
+                    id: string
+                    recipient_member_id: string
+                    notification_type: string
+                    entity_type: string
+                    entity_id: string
+                    dedupe_key: string
+                    title: string
+                    body: string
+                    target_url: string
+                    urgency: "normal" | "high"
+                    scheduled_at: string
+                    expires_at: string
+                    status: string
+                    attempts: number
+                    next_attempt_at: string | null
+                    last_error: string | null
+                    worker_id: string | null
+                    processing_started_at: string | null
+                    sent_at: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    recipient_member_id: string
+                    notification_type: string
+                    entity_type: string
+                    entity_id: string
+                    dedupe_key: string
+                    title: string
+                    body: string
+                    target_url?: string
+                    urgency?: "normal" | "high"
+                    scheduled_at?: string
+                    expires_at: string
+                    status?: string
+                    attempts?: number
+                    next_attempt_at?: string | null
+                    last_error?: string | null
+                    worker_id?: string | null
+                    processing_started_at?: string | null
+                    sent_at?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    recipient_member_id?: string
+                    notification_type?: string
+                    entity_type?: string
+                    entity_id?: string
+                    dedupe_key?: string
+                    title?: string
+                    body?: string
+                    target_url?: string
+                    urgency?: "normal" | "high"
+                    scheduled_at?: string
+                    expires_at?: string
+                    status?: string
+                    attempts?: number
+                    next_attempt_at?: string | null
+                    last_error?: string | null
+                    worker_id?: string | null
+                    processing_started_at?: string | null
+                    sent_at?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "notification_outbox_recipient_member_id_fkey"
+                        columns: ["recipient_member_id"]
+                        isOneToOne: false
+                        referencedRelation: "members"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
+            push_deliveries: {
+                Row: {
+                    id: string
+                    outbox_id: string
+                    subscription_id: string
+                    status: string
+                    attempts: number
+                    response_status: number | null
+                    error_message: string | null
+                    sent_at: string | null
+                    next_attempt_at: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    outbox_id: string
+                    subscription_id: string
+                    status?: string
+                    attempts?: number
+                    response_status?: number | null
+                    error_message?: string | null
+                    sent_at?: string | null
+                    next_attempt_at?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    outbox_id?: string
+                    subscription_id?: string
+                    status?: string
+                    attempts?: number
+                    response_status?: number | null
+                    error_message?: string | null
+                    sent_at?: string | null
+                    next_attempt_at?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "push_deliveries_outbox_id_fkey"
+                        columns: ["outbox_id"]
+                        isOneToOne: false
+                        referencedRelation: "notification_outbox"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "push_deliveries_subscription_id_fkey"
+                        columns: ["subscription_id"]
+                        isOneToOne: false
+                        referencedRelation: "push_subscriptions"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
         }
         Views: {
             [_ in never]: never
@@ -415,6 +655,13 @@ export interface Database {
                 }
                 Returns: undefined
             }
+            claim_push_outbox: {
+                Args: {
+                    p_batch_size: number
+                    p_worker_id: string
+                }
+                Returns: Database["public"]["Tables"]["notification_outbox"]["Row"][]
+            }
             expire_studio_sessions: {
                 Args: {
                     p_now?: string
@@ -426,6 +673,12 @@ export interface Database {
                     p_swap_id: string
                 }
                 Returns: undefined
+            }
+            release_stale_push_jobs: {
+                Args: {
+                    p_stale_before: string
+                }
+                Returns: number
             }
             volunteer_for_duty_swap: {
                 Args: {

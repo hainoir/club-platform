@@ -8,6 +8,7 @@ import { useSupabase } from "@/hooks/shared/useSupabase"
 import { useToast } from "@/components/ui/toast-simple"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
 import { useUserStore } from "@/store/useUserStore"
+import { usePushNotifications } from "@/hooks/push/usePushNotifications"
 
 import { AppearanceTab } from "./AppearanceTab"
 import { NotificationTab } from "./NotificationTab"
@@ -29,8 +30,47 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
     const setNotificationPreference = usePreferencesStore((s) => s.setNotificationPreference)
     const setInterfacePreference = usePreferencesStore((s) => s.setInterfacePreference)
     const resetPreferences = usePreferencesStore((s) => s.resetPreferences)
+    const pushController = usePushNotifications()
 
     const [activeTab, setActiveTab] = React.useState<TabValue>("notifications")
+
+    React.useEffect(() => {
+        if (!pushController.hasServerPreferences) return
+        const server = pushController.deviceStatus.preferences
+        const nextValues = {
+            inAppEnabled: server.inAppEnabled,
+            dutyReminder: server.dutyReminder,
+            keyTransferReminder: server.keyTransferReminder,
+            leaveReminder: server.leaveReminder,
+            swapReminder: server.swapReminder,
+            eventReminder: server.eventReminder,
+        }
+        for (const [key, value] of Object.entries(nextValues)) {
+            const typedKey = key as keyof typeof nextValues
+            if (notifications[typedKey] !== value) {
+                setNotificationPreference(typedKey, value)
+            }
+        }
+    }, [notifications, pushController.deviceStatus.preferences, pushController.hasServerPreferences, setNotificationPreference])
+
+    const updateNotificationPreference = <K extends keyof typeof notifications>(key: K, value: (typeof notifications)[K]) => {
+        setNotificationPreference(key, value)
+        if (key === "markReadOnOpen") return
+
+        const next = { ...notifications, [key]: value }
+        void pushController.savePreferences({
+            inAppEnabled: next.inAppEnabled,
+            dutyReminder: next.dutyReminder,
+            keyTransferReminder: next.keyTransferReminder,
+            leaveReminder: next.leaveReminder,
+            swapReminder: next.swapReminder,
+            eventReminder: next.eventReminder,
+        }).then((saved) => {
+            if (!saved) {
+                toast({ title: "通知偏好保存失败", description: "本机设置已更新，但服务端同步失败。", variant: "destructive" })
+            }
+        })
+    }
 
     React.useEffect(() => {
         if (typeof window === "undefined") return
@@ -74,7 +114,8 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
                 <TabsContent value="notifications" className="space-y-4">
                     <NotificationTab
                         notifications={notifications}
-                        setNotificationPreference={setNotificationPreference}
+                        setNotificationPreference={updateNotificationPreference}
+                        pushController={pushController}
                     />
                 </TabsContent>
 

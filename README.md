@@ -14,12 +14,14 @@
 - 审批制请假、代班、补班日期和钥匙交接流程。
 - 与值班签到分离的 `studio_sessions` 自习在场记录，以及对应的 RPC 清理边界。
 - Playwright 覆盖受保护流程、值班操作、成员搜索、自习、通知、设置和活动报名等关键路径。
+- 可安装 PWA 与标准 VAPID Web Push，支持关键值班和工作流手机系统通知。
 
 推荐深入阅读：
 
 - [架构说明](./docs/architecture.md)
 - [值班流程契约](./docs/duty-contract.md)
 - [Supabase RPC 检查清单](./docs/supabase-rpc-checklist.md)
+- [PWA Web Push 部署与运维](./docs/web-push.md)
 
 ## 技术栈
 - Next.js App Router
@@ -50,6 +52,8 @@ Copy-Item .env.example .env.local
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
+
+手机系统通知还需要 Service Role、VAPID 和 Dispatcher 变量，完整配置见 [PWA Web Push 部署与运维](./docs/web-push.md)。
 
 可选的 E2E 账号变量请参考 `.env.example`。
 
