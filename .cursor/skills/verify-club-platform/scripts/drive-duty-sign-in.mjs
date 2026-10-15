@@ -386,12 +386,12 @@ try {
   fs.writeFileSync(path.join(evidence, 'duty-logs.txt'), (logDump || '(no rows)') + '\n')
 
   if (/已完成位置验证并记录到值班考勤/.test(insideText) && logDump) {
-    const [signInDate, verified, rowLat, rowLng, signInMinute] = logDump.split('|')
-    const dateOk = signInDate === dateKey && verified === 'true' && signInMinute === '08:30'
+    const [signInDate, verified, rowLat, rowLng, distanceMeters, signInMinute] = logDump.split('|')
+    const dateOk = signInDate === dateKey && verified === 'true' && signInMinute === '08:30' && distanceMeters === '0'
     record(
       'inside-fence',
       dateOk ? 'pass' : 'fail',
-      `row date=${signInDate} time=${signInMinute} verified=${verified} lat=${rowLat} lng=${rowLng} pinned=${dateKey}`
+      `row date=${signInDate} time=${signInMinute} verified=${verified} distance=${distanceMeters} lat=${rowLat} lng=${rowLng} pinned=${dateKey}`
     )
     const again = await openMember(browser, shanghaiInstant(dateKey, 8, 30), {
       latitude,
