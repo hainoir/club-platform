@@ -51,7 +51,7 @@ test('admin can update the studio geofence from settings and see the audit', asy
         await radius.fill('10')
         await reason.fill('半径太小')
         await save.click()
-        await expect(page.getByRole('alert')).toContainText('围栏半径必须在 20 到 200 米之间。')
+        await expect(page.locator('p[role="alert"]')).toContainText('围栏半径必须在 20 到 200 米之间。')
 
         await radius.fill(nextRadius)
         await reason.fill(`半径改为 ${nextRadius}`)
@@ -60,7 +60,7 @@ test('admin can update the studio geofence from settings and see the audit', asy
         )
         await save.click()
         expect((await savedResponse).ok()).toBeTruthy()
-        await expect(page.getByRole('status')).toContainText('围栏已更新')
+        await expect(page.locator('p[role="status"]')).toContainText('围栏已更新')
         await expect(page.getByText(`半径改为 ${nextRadius}`).first()).toBeVisible()
         await expect(radius).toHaveValue(nextRadius)
         saved = true

@@ -208,7 +208,7 @@ try {
       await adminPage.getByRole('button', { name: '保存围栏' }).click()
       const rpc = await response
       if (!rpc.ok()) throw new Error(`update_studio_geofence failed: ${rpc.status()}`)
-      await adminPage.getByRole('status').getByText('围栏已更新').waitFor({ timeout: 15_000 })
+      await adminPage.locator('p[role="status"]').getByText('围栏已更新').waitFor({ timeout: 15_000 })
     }
     await radiusInput.fill(nextRadius)
     await adminPage.locator('#geofence-reason').fill(`半径改为 ${nextRadius}`)
