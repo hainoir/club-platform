@@ -50,6 +50,6 @@ order by routine_name, grantee;
 
 ## 恢复说明
 
-- 如果函数缺失或签名不一致，先应用仓库里的 SQL；只有在远端项目修正完成后，才重新生成本地类型。
+- 如果函数缺失或签名不一致，先把仓库里的 Supabase 迁移应用到目标库；只有在远端项目修正完成后，才运行 `pnpm run gen:types`。
 - 如果函数存在，但应用仍报告 schema cache 不匹配，请触发 PostgREST schema cache 重载，或重启该项目的 Supabase API 服务。
 - 如果数据库契约检查都通过了，而界面仍然报错，再同时检查前端调用点和网络响应体。

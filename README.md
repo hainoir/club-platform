@@ -51,7 +51,7 @@ NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-可选的 E2E 账号变量请参考 `.env.example`。
+本地数据库用 Supabase CLI 启动，说明见 [supabase/README.md](./supabase/README.md)。可选的 E2E 账号由 `supabase/seed.sql` 种入，变量名见 `.env.example`。
 
 ## 部署流程
 
@@ -97,8 +97,8 @@ git ls-files .env.local
 
 最低必做项：
 1. 在 Supabase 项目设置中轮换 `NEXT_PUBLIC_SUPABASE_ANON_KEY`。
-2. 用新密钥替换本地 `.env.local` 中的值。
-3. 更新 GitHub Actions 仓库密钥：
+2. 用新密钥替换 Vercel Preview / Production 和本地 `.env.local` 中的值。
+3. 持续集成不再读取 Supabase 或 E2E 仓库密钥。可以删除这些 GitHub Actions secrets：
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `E2E_MEMBER_EMAIL`
@@ -107,8 +107,7 @@ git ls-files .env.local
    - `E2E_ADMIN_PASSWORD`
    - `E2E_KEY_RECEIVER_EMAIL`
    - `E2E_KEY_RECEIVER_PASSWORD`
-4. 重新运行持续集成，确认 lint、typecheck、单元测试、smoke E2E 和只读 E2E 都已执行。
-5. 只有在需要验证真实写入路径时，才在隔离的 Supabase 环境中运行 `pnpm run e2e:mutation`。
+4. 重新运行持续集成。质量检查与 E2E 分两个并行 job；E2E 会在 CI 里启动本地 Supabase，并跑 smoke、只读和写入用例。
 
 ## 质量门禁
 本地建议执行：
@@ -122,4 +121,4 @@ pnpm run e2e:smoke
 pnpm run e2e:readonly
 ```
 
-`pnpm run e2e:mutation` 仅适用于隔离环境，因为它会覆盖审批、报名、签到、自习和资料修改等真实写入路径。
+`pnpm run e2e:mutation` 会改审批、报名、签到、自习和资料。请只对 `pnpm run db:reset` 出来的本地库或 CI 里的一次性库运行。

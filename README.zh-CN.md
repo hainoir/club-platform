@@ -51,7 +51,7 @@
 - [架构说明](./docs/architecture.md)：请求链路、首页聚合、自习和布局边界。
 - [值班流程契约](./docs/duty-contract.md)：请假、代班、补班、钥匙交接和自习相关数据库/RPC 契约。
 - [面试讲稿](./docs/interview-briefing.md)：30 秒 / 90 秒 / 3 分钟介绍稿与高频追问。
-- [数据库说明](./database/README.md)：数据库脚本目录和用途。
+- [数据库说明](./supabase/README.md)：Supabase CLI 迁移、种子数据和本地启动。旧的 `database/` 脚本已退役，见 [database/README.md](./database/README.md)。
 
 ## 技术栈
 
@@ -123,5 +123,5 @@ git ls-files .env.local
 
 1. 在 Supabase 项目中轮换 `NEXT_PUBLIC_SUPABASE_ANON_KEY`。
 2. 把新密钥更新到本地 `.env.local`。
-3. 更新 GitHub Actions 仓库密钥：`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`E2E_MEMBER_EMAIL`、`E2E_MEMBER_PASSWORD`、`E2E_ADMIN_EMAIL`、`E2E_ADMIN_PASSWORD`、`E2E_KEY_RECEIVER_EMAIL`、`E2E_KEY_RECEIVER_PASSWORD`。
-4. 重新运行持续集成，确认 smoke 和完整 E2E 均已执行。
+3. 持续集成不再使用这些 GitHub Actions 密钥，确认后可以删除：`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`E2E_MEMBER_EMAIL`、`E2E_MEMBER_PASSWORD`、`E2E_ADMIN_EMAIL`、`E2E_ADMIN_PASSWORD`、`E2E_KEY_RECEIVER_EMAIL`、`E2E_KEY_RECEIVER_PASSWORD`。
+4. 重新运行持续集成。E2E 会在一次性本地 Supabase 上执行，包括写入用例。

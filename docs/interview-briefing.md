@@ -56,8 +56,8 @@
 - 首页聚合：`app/(app)/page.tsx`、`lib/services/dashboard-service.ts`
 - 值班签到：`components/dashboard/DashboardSignInWidget.tsx`、`lib/duty/duty-sign-in.ts`
 - 值班业务拆分：`hooks/useDuty.ts`、`hooks/duty/*`
-- 工作室自习：`hooks/studio/useStudioPresenceQuery.ts`、`database/studio_sessions_schema.sql`
-- 代班/请假契约：`database/key_and_leave_schema.sql`、`database/update_swap_status.sql`
+- 工作室自习：`hooks/studio/useStudioPresenceQuery.ts`、`supabase/migrations/`
+- 代班/请假契约：`supabase/migrations/*_functions_and_triggers.sql`
 
 ## 高频追问与回答
 

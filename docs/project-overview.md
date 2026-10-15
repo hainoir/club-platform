@@ -40,12 +40,12 @@
 - `hooks/useDuty.ts`：值班大厅的统一门面。
 - `hooks/duty/*`：拆分排班、签到、请假、代班、钥匙交接子域。
 - `lib/duty/*`：时间计算、签到规则、请假过滤、节假日判断等业务工具。
-- `database/key_and_leave_schema.sql`、`database/update_swap_status.sql`：数据库层状态流转规则。
+- `supabase/migrations/`：数据库层状态流转规则。
 
 ### 5. 工作室自习链
 
 - `hooks/studio/useStudioPresenceQuery.ts`：先触发过期清理，再合并 duty 与 self-study 两条来源。
-- `database/studio_sessions_schema.sql`：自习会话表与 `expire_studio_sessions` RPC。
+- `supabase/migrations/`：自习会话表与 `expire_studio_sessions` RPC。
 
 ## 关键数据流
 
@@ -99,7 +99,7 @@
 7. `components/dashboard/DashboardSignInWidget.tsx`
 8. `hooks/useDuty.ts`
 9. `hooks/studio/useStudioPresenceQuery.ts`
-10. `database/key_and_leave_schema.sql` 与 `database/update_swap_status.sql`
+10. `supabase/migrations/` 与 [数据库说明](../supabase/README.md)
 
 ## 验证方式
 

@@ -1,444 +1,365 @@
-export type Json =
-    | string
-    | number
-    | boolean
-    | null
-    | { [key: string]: Json | undefined }
-    | Json[]
 
-export interface Database {
-    public: {
-        Tables: {
-            members: {
-                Row: {
-                    id: string
-                    email: string
-                    name: string
-                    role: string
-                    student_id: string | number | null
-                    department: string | null
-                    grade: string | null
-                    status: string | null
-                    join_date: string | null
-                    created_at: string
-                }
-                Insert: {
-                    id?: string
-                    email?: string
-                    name: string
-                    role?: string
-                    student_id?: string | number | null
-                    department?: string | null
-                    grade?: string | null
-                    status?: string | null
-                    join_date?: string | null
-                    created_at?: string
-                }
-                Update: {
-                    id?: string
-                    email?: string
-                    name?: string
-                    role?: string
-                    student_id?: string | number | null
-                    department?: string | null
-                    grade?: string | null
-                    status?: string | null
-                    join_date?: string | null
-                    created_at?: string
-                }
-                Relationships: []
-            }
-            events: {
-                Row: {
-                    id: string
-                    title: string
-                    description: string | null
-                    event_date: string
-                    end_time: string | null
-                    location: string | null
-                    type: string | null
-                    is_online: boolean
-                    cover_url: string | null
-                    created_at: string
-                }
-                Insert: {
-                    id?: string
-                    title: string
-                    description?: string | null
-                    event_date: string
-                    end_time?: string | null
-                    location?: string | null
-                    type?: string | null
-                    is_online?: boolean
-                    cover_url?: string | null
-                    created_at?: string
-                }
-                Update: {
-                    id?: string
-                    title?: string
-                    description?: string | null
-                    event_date?: string
-                    end_time?: string | null
-                    location?: string | null
-                    type?: string | null
-                    is_online?: boolean
-                    cover_url?: string | null
-                    created_at?: string
-                }
-                Relationships: []
-            }
-            event_attendees: {
-                Row: {
-                    id: string
-                    event_id: string
-                    user_email: string
-                    user_name: string
-                    is_attended: boolean
-                    created_at: string
-                }
-                Insert: {
-                    id?: string
-                    event_id: string
-                    user_email: string
-                    user_name: string
-                    is_attended?: boolean
-                    created_at?: string
-                }
-                Update: {
-                    id?: string
-                    event_id?: string
-                    user_email?: string
-                    user_name?: string
-                    is_attended?: boolean
-                    created_at?: string
-                }
-                Relationships: [
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+
+export type Database = {
+  
+  "public": {
+          Tables: {
+            "duty_compensations": {
+                  Row: {
+                    "compensation_date": string,"completed": boolean,"created_at": string,"day_of_week": number,"id": string,"leave_id": string,"member_id": string,"period": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "compensation_date": string,"completed"?: boolean,"created_at"?: string,"day_of_week": number,"id"?: string,"leave_id": string,"member_id": string,"period": number
+                  }
+                  Update: {
+                    "compensation_date"?: string,"completed"?: boolean,"created_at"?: string,"day_of_week"?: number,"id"?: string,"leave_id"?: string,"member_id"?: string,"period"?: number
+                  }
+                  Relationships: [
                     {
-                        foreignKeyName: "event_attendees_event_id_fkey"
-                        columns: ["event_id"]
-                        isOneToOne: false
-                        referencedRelation: "events"
-                        referencedColumns: ["id"]
-                    }
-                ]
-            }
-            duty_rosters: {
-                Row: {
-                    id: string
-                    member_id: string
-                    day_of_week: number
-                    period: number
-                    has_key: boolean
-                    created_at: string
-                }
-                Insert: {
-                    id?: string
-                    member_id: string
-                    day_of_week: number
-                    period: number
-                    has_key?: boolean
-                    created_at?: string
-                }
-                Update: {
-                    id?: string
-                    member_id?: string
-                    day_of_week?: number
-                    period?: number
-                    has_key?: boolean
-                    created_at?: string
-                }
-                Relationships: [
-                    {
-                        foreignKeyName: "duty_rosters_member_id_fkey"
-                        columns: ["member_id"]
-                        isOneToOne: false
-                        referencedRelation: "members"
-                        referencedColumns: ["id"]
-                    }
-                ]
-            }
-            duty_logs: {
-                Row: {
-                    id: string
-                    member_id: string
-                    sign_in_time: string
-                    sign_in_date: string
-                    location_verified: boolean | null
-                    device_info: string | null
-                    week_number: number | null
-                }
-                Insert: {
-                    id?: string
-                    member_id: string
-                    sign_in_time?: string
-                    sign_in_date?: string
-                    location_verified?: boolean | null
-                    device_info?: string | null
-                    week_number?: number | null
-                }
-                Update: {
-                    id?: string
-                    member_id?: string
-                    sign_in_time?: string
-                    sign_in_date?: string
-                    location_verified?: boolean | null
-                    device_info?: string | null
-                    week_number?: number | null
-                }
-                Relationships: [
-                    {
-                        foreignKeyName: "duty_logs_member_id_fkey"
-                        columns: ["member_id"]
-                        isOneToOne: false
-                        referencedRelation: "members"
-                        referencedColumns: ["id"]
-                    }
-                ]
-            }
-            duty_swaps: {
-                Row: {
-                    id: string
-                    requester_id: string
-                    target_id: string | null
-                    leave_id: string | null
-                    original_day: number
-                    original_period: number
-                    target_day: number | null
-                    target_period: number | null
-                    status: string | null
-                    created_at: string
-                }
-                Insert: {
-                    id?: string
-                    requester_id: string
-                    target_id?: string | null
-                    leave_id?: string | null
-                    original_day: number
-                    original_period: number
-                    target_day?: number | null
-                    target_period?: number | null
-                    status?: string | null
-                    created_at?: string
-                }
-                Update: {
-                    id?: string
-                    requester_id?: string
-                    target_id?: string | null
-                    leave_id?: string | null
-                    original_day?: number
-                    original_period?: number
-                    target_day?: number | null
-                    target_period?: number | null
-                    status?: string | null
-                    created_at?: string
-                }
-                Relationships: [
-                    {
-                        foreignKeyName: "duty_swaps_leave_id_fkey"
-                        columns: ["leave_id"]
-                        isOneToOne: false
-                        referencedRelation: "duty_leaves"
-                        referencedColumns: ["id"]
-                    },
-                    {
-                        foreignKeyName: "duty_swaps_requester_id_fkey"
-                        columns: ["requester_id"]
-                        isOneToOne: false
-                        referencedRelation: "members"
-                        referencedColumns: ["id"]
-                    },
-                    {
-                        foreignKeyName: "duty_swaps_target_id_fkey"
-                        columns: ["target_id"]
-                        isOneToOne: false
-                        referencedRelation: "members"
-                        referencedColumns: ["id"]
-                    }
-                ]
-            }
-            duty_leaves: {
-                Row: {
-                    id: string
-                    member_id: string
-                    day_of_week: number
-                    period: number
-                    leave_date: string
-                    expires_at: string
-                    reason: string | null
-                    penalty_shifts: number
-                    status: string
-                    created_at: string
-                }
-                Insert: {
-                    id?: string
-                    member_id: string
-                    day_of_week: number
-                    period: number
-                    leave_date: string
-                    expires_at?: string
-                    reason?: string | null
-                    penalty_shifts?: number
-                    status?: string
-                    created_at?: string
-                }
-                Update: {
-                    id?: string
-                    member_id?: string
-                    day_of_week?: number
-                    period?: number
-                    leave_date?: string
-                    expires_at?: string
-                    reason?: string | null
-                    penalty_shifts?: number
-                    status?: string
-                    created_at?: string
-                }
-                Relationships: []
-            }
-            duty_compensations: {
-                Row: {
-                    id: string
-                    leave_id: string
-                    member_id: string
-                    compensation_date: string
-                    day_of_week: number
-                    period: number
-                    completed: boolean
-                    created_at: string
-                }
-                Insert: {
-                    id?: string
-                    leave_id: string
-                    member_id: string
-                    compensation_date: string
-                    day_of_week: number
-                    period: number
-                    completed?: boolean
-                    created_at?: string
-                }
-                Update: {
-                    id?: string
-                    leave_id?: string
-                    member_id?: string
-                    compensation_date?: string
-                    day_of_week?: number
-                    period?: number
-                    completed?: boolean
-                    created_at?: string
-                }
-                Relationships: []
-            }
-            key_transfers: {
-                Row: {
-                    id: string
-                    from_member_id: string | null
-                    to_member_id: string
-                    note: string | null
-                    status: string
-                    created_at: string
-                    confirmed_at: string | null
-                }
-                Insert: {
-                    id?: string
-                    from_member_id?: string | null
-                    to_member_id: string
-                    note?: string | null
-                    status?: string
-                    created_at?: string
-                    confirmed_at?: string | null
-                }
-                Update: {
-                    id?: string
-                    from_member_id?: string | null
-                    to_member_id?: string
-                    note?: string | null
-                    status?: string
-                    created_at?: string
-                    confirmed_at?: string | null
-                }
-                Relationships: []
-            }
-            studio_sessions: {
-                Row: {
-                    id: string
-                    member_id: string
-                    started_at: string
-                    ended_at: string | null
-                    is_active: boolean
-                }
-                Insert: {
-                    id?: string
-                    member_id: string
-                    started_at?: string
-                    ended_at?: string | null
-                    is_active?: boolean
-                }
-                Update: {
-                    id?: string
-                    member_id?: string
-                    started_at?: string
-                    ended_at?: string | null
-                    is_active?: boolean
-                }
-                Relationships: [
-                    {
-                        foreignKeyName: "studio_sessions_member_id_fkey"
-                        columns: ["member_id"]
-                        isOneToOne: false
-                        referencedRelation: "members"
-                        referencedColumns: ["id"]
-                    }
-                ]
-            }
-        }
-        Views: {
-            [_ in never]: never
-        }
-        Functions: {
-            accept_duty_swap: {
-                Args: {
-                    p_swap_id: string
-                    p_acceptor_id: string
-                }
-                Returns: undefined
-            }
-            approve_duty_leave: {
-                Args: {
-                    p_leave_id: string
-                }
-                Returns: undefined
-            }
-            confirm_key_transfer: {
-                Args: {
-                    p_transfer_id: string
-                    p_confirmer_id: string
-                }
-                Returns: undefined
-            }
-            expire_studio_sessions: {
-                Args: {
-                    p_now?: string
-                }
-                Returns: number
-            }
-            return_duty_swap_to_hall: {
-                Args: {
-                    p_swap_id: string
-                }
-                Returns: undefined
-            }
-            volunteer_for_duty_swap: {
-                Args: {
-                    p_swap_id: string
-                }
-                Returns: undefined
-            }
-        }
-        Enums: {
-            [_ in never]: never
-        }
-        CompositeTypes: {
-            [_ in never]: never
-        }
+      foreignKeyName: "duty_compensations_leave_id_fkey"
+      columns: ["leave_id"]
+isOneToOne: false
+      referencedRelation: "duty_leaves"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "duty_compensations_member_id_fkey"
+      columns: ["member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
     }
+                  ]
+                },"duty_leaves": {
+                  Row: {
+                    "created_at": string,"day_of_week": number,"expires_at": string,"id": string,"leave_date": string,"member_id": string,"penalty_shifts": number,"period": number,"reason": string | null,"status": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"day_of_week": number,"expires_at"?: string,"id"?: string,"leave_date": string,"member_id": string,"penalty_shifts"?: number,"period": number,"reason"?: string | null,"status"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"day_of_week"?: number,"expires_at"?: string,"id"?: string,"leave_date"?: string,"member_id"?: string,"penalty_shifts"?: number,"period"?: number,"reason"?: string | null,"status"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "duty_leaves_member_id_fkey"
+      columns: ["member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"duty_logs": {
+                  Row: {
+                    "device_info": string | null,"id": string,"location_verified": boolean | null,"member_id": string,"sign_in_date": string,"sign_in_time": string,"week_number": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "device_info"?: string | null,"id"?: string,"location_verified"?: boolean | null,"member_id": string,"sign_in_date"?: string,"sign_in_time"?: string,"week_number"?: number | null
+                  }
+                  Update: {
+                    "device_info"?: string | null,"id"?: string,"location_verified"?: boolean | null,"member_id"?: string,"sign_in_date"?: string,"sign_in_time"?: string,"week_number"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "duty_logs_member_id_fkey"
+      columns: ["member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"duty_rosters": {
+                  Row: {
+                    "created_at": string,"day_of_week": number,"has_key": boolean | null,"id": string,"member_id": string,"period": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"day_of_week": number,"has_key"?: boolean | null,"id"?: string,"member_id": string,"period": number
+                  }
+                  Update: {
+                    "created_at"?: string,"day_of_week"?: number,"has_key"?: boolean | null,"id"?: string,"member_id"?: string,"period"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "duty_rosters_member_id_fkey"
+      columns: ["member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"duty_swaps": {
+                  Row: {
+                    "created_at": string,"id": string,"leave_id": string | null,"original_day": number,"original_period": number,"requester_id": string,"status": string | null,"target_day": number | null,"target_id": string | null,"target_period": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"leave_id"?: string | null,"original_day": number,"original_period": number,"requester_id": string,"status"?: string | null,"target_day"?: number | null,"target_id"?: string | null,"target_period"?: number | null
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"leave_id"?: string | null,"original_day"?: number,"original_period"?: number,"requester_id"?: string,"status"?: string | null,"target_day"?: number | null,"target_id"?: string | null,"target_period"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "duty_swaps_leave_id_fkey"
+      columns: ["leave_id"]
+isOneToOne: false
+      referencedRelation: "duty_leaves"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "duty_swaps_requester_id_fkey"
+      columns: ["requester_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "duty_swaps_target_id_fkey"
+      columns: ["target_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"event_attendees": {
+                  Row: {
+                    "created_at": string,"event_id": string,"id": string,"is_attended": boolean,"user_email": string,"user_name": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"event_id": string,"id"?: string,"is_attended"?: boolean,"user_email": string,"user_name": string
+                  }
+                  Update: {
+                    "created_at"?: string,"event_id"?: string,"id"?: string,"is_attended"?: boolean,"user_email"?: string,"user_name"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "event_attendees_event_id_fkey"
+      columns: ["event_id"]
+isOneToOne: false
+      referencedRelation: "events"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"events": {
+                  Row: {
+                    "cover_url": string | null,"created_at": string,"description": string | null,"end_time": string | null,"event_date": string,"id": string,"is_online": boolean,"location": string | null,"title": string,"type": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cover_url"?: string | null,"created_at"?: string,"description"?: string | null,"end_time"?: string | null,"event_date": string,"id"?: string,"is_online"?: boolean,"location"?: string | null,"title": string,"type"?: string | null
+                  }
+                  Update: {
+                    "cover_url"?: string | null,"created_at"?: string,"description"?: string | null,"end_time"?: string | null,"event_date"?: string,"id"?: string,"is_online"?: boolean,"location"?: string | null,"title"?: string,"type"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"key_transfers": {
+                  Row: {
+                    "confirmed_at": string | null,"created_at": string,"from_member_id": string | null,"id": string,"note": string | null,"status": string,"to_member_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "confirmed_at"?: string | null,"created_at"?: string,"from_member_id"?: string | null,"id"?: string,"note"?: string | null,"status"?: string,"to_member_id": string
+                  }
+                  Update: {
+                    "confirmed_at"?: string | null,"created_at"?: string,"from_member_id"?: string | null,"id"?: string,"note"?: string | null,"status"?: string,"to_member_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "key_transfers_from_member_id_fkey"
+      columns: ["from_member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "key_transfers_to_member_id_fkey"
+      columns: ["to_member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"members": {
+                  Row: {
+                    "created_at": string,"department": string | null,"email": string,"grade": string | null,"id": string,"join_date": string | null,"name": string,"role": string,"status": string | null,"student_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"department"?: string | null,"email"?: string,"grade"?: string | null,"id"?: string,"join_date"?: string | null,"name": string,"role"?: string,"status"?: string | null,"student_id"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"department"?: string | null,"email"?: string,"grade"?: string | null,"id"?: string,"join_date"?: string | null,"name"?: string,"role"?: string,"status"?: string | null,"student_id"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"studio_sessions": {
+                  Row: {
+                    "ended_at": string | null,"id": string,"is_active": boolean,"member_id": string,"started_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "ended_at"?: string | null,"id"?: string,"is_active"?: boolean,"member_id": string,"started_at"?: string
+                  }
+                  Update: {
+                    "ended_at"?: string | null,"id"?: string,"is_active"?: boolean,"member_id"?: string,"started_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "studio_sessions_member_id_fkey"
+      columns: ["member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    }
+                  ]
+                }
+          }
+          Views: {
+            [_ in never]: never
+          }
+          Functions: {
+            "accept_duty_swap":
+{ Args: { "p_acceptor_id": string,"p_swap_id": string }; Returns: undefined
+                           },
+"approve_duty_leave":
+{ Args: { "p_leave_id": string }; Returns: undefined
+                           },
+"confirm_key_transfer":
+{ Args: { "p_confirmer_id": string,"p_transfer_id": string }; Returns: undefined
+                           },
+"expire_studio_sessions":
+{ Args: { "p_now"?: string }; Returns: number
+                           },
+"return_duty_swap_to_hall":
+{ Args: { "p_swap_id": string }; Returns: undefined
+                           },
+"volunteer_for_duty_swap":
+{ Args: { "p_swap_id": string }; Returns: undefined
+                           }
+          }
+          Enums: {
+            [_ in never]: never
+          }
+          CompositeTypes: {
+            [_ in never]: never
+          }
+        }
 }
+
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : never
+
+export const Constants = {
+  "public": {
+          Enums: {
+            
+          }
+        }
+} as const
