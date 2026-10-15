@@ -31,4 +31,4 @@ Read this index, then use one feature file as the recipe. Launch and doctor from
 - [Duty sign-in](./duty-sign-in.md) covers the fence, missing coordinates, one sign-in a day, the Shanghai date, and the shift, roster, and holiday rejections.
 - [Dashboard](./dashboard.md) covers the member home screen and its sign-in entry.
 - [Roster and leave](./roster-leave.md) covers admin assignment and the member leave entry.
-- [Admin geofence settings](./admin-geofence.md) covers the radius bounds and the audit row. The settings UI does not expose them.
+- [Admin geofence settings](./admin-geofence.md) covers the settings-page radius bounds and the audit row.

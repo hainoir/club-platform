@@ -181,21 +181,52 @@ try {
 
   await adminPage.getByRole('link', { name: '设置中心' }).click()
   await adminPage.getByRole('heading', { name: '设置中心' }).waitFor()
-  const settingsText = []
-  for (const tab of ['通知提醒', '界面偏好', '账号资料', '安全设置']) {
-    await adminPage.getByRole('tab', { name: tab }).click()
-    settingsText.push(await adminPage.locator('body').innerText())
-  }
-  const settingsBlob = settingsText.join('\n')
-  const geofenceVisible = /半径|围栏|studio_geofence/.test(settingsBlob)
-  await shot(adminPage, 'settings.png')
-  if (geofenceVisible) {
-    record('admin-geofence', 'unexpected', 'Settings shows geofence copy. Drive that form. Do not call update_studio_geofence by hand.')
-  } else {
+  const geofenceTab = adminPage.getByRole('tab', { name: '工作室围栏' })
+  if ((await geofenceTab.count()) === 0) {
+    await shot(adminPage, 'settings.png')
     record(
       'admin-geofence',
       'fail',
-      'No settings control for radius, latitude, or studio_geofence. The user path cannot write studio_geofence_audits.'
+      'No 工作室围栏 tab. The user path cannot write studio_geofence_audits.'
+    )
+  } else {
+    await geofenceTab.click()
+    const radiusInput = adminPage.locator('#geofence-radius')
+    await radiusInput.waitFor()
+    const originalRadius = await radiusInput.inputValue()
+    const nextRadius = originalRadius === '80' ? '70' : '80'
+    const beforeAudits = Number(psql('select count(*) from public.studio_geofence_audits'))
+    await radiusInput.fill('10')
+    await adminPage.locator('#geofence-reason').fill('半径太小')
+    await adminPage.getByRole('button', { name: '保存围栏' }).click()
+    await adminPage.getByText('围栏半径必须在 20 到 200 米之间。').waitFor()
+    const blockedAudits = Number(psql('select count(*) from public.studio_geofence_audits'))
+    const saveFence = async () => {
+      const response = adminPage.waitForResponse(
+        (res) => res.url().includes('/rest/v1/rpc/update_studio_geofence') && res.request().method() === 'POST'
+      )
+      await adminPage.getByRole('button', { name: '保存围栏' }).click()
+      const rpc = await response
+      if (!rpc.ok()) throw new Error(`update_studio_geofence failed: ${rpc.status()}`)
+      await adminPage.getByRole('status').getByText('围栏已更新').waitFor({ timeout: 15_000 })
+    }
+    await radiusInput.fill(nextRadius)
+    await adminPage.locator('#geofence-reason').fill(`半径改为 ${nextRadius}`)
+    await saveFence()
+    const savedRadius = Number(psql('select radius_meters from public.studio_geofence where id'))
+    const afterAudits = Number(psql('select count(*) from public.studio_geofence_audits'))
+    await shot(adminPage, 'settings.png')
+    await radiusInput.fill(originalRadius)
+    await adminPage.locator('#geofence-reason').fill('恢复验证前的围栏')
+    await saveFence()
+    const restoredRadius = Number(psql('select radius_meters from public.studio_geofence where id'))
+    const boundsHeld = blockedAudits === beforeAudits
+    const saved = savedRadius === Number(nextRadius) && afterAudits === beforeAudits + 1
+    const restored = restoredRadius === Number(originalRadius)
+    record(
+      'admin-geofence',
+      boundsHeld && saved && restored ? 'pass' : 'fail',
+      `bounds=${boundsHeld} saved=${savedRadius} audits=${beforeAudits}->${afterAudits} restored=${restoredRadius}`
     )
   }
 

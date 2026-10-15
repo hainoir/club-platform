@@ -11,7 +11,8 @@ export interface SettingsProfile {
 }
 
 export const TAB_VALUES = ["notifications", "interface", "account", "security"] as const
+export const GEOFENCE_TAB = "geofence" as const
 
-export type TabValue = (typeof TAB_VALUES)[number]
+export type TabValue = (typeof TAB_VALUES)[number] | typeof GEOFENCE_TAB
 
 export type SettingsSupabaseClient = SupabaseBrowserClient
