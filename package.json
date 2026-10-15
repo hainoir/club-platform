@@ -12,6 +12,8 @@
     "lint": "next lint --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
+    "test:react": "vitest run",
+    "test": "pnpm run test:unit && pnpm run test:react",
     "e2e": "playwright test",
     "e2e:smoke": "playwright test tests/e2e/smoke --reporter=line",
     "e2e:readonly": "playwright test tests/e2e/auth-login.spec.ts tests/e2e/auth-refresh-regression.spec.ts tests/e2e/dashboard-signin-entry.spec.ts tests/e2e/duty-flow.spec.ts tests/e2e/members-search-stability.spec.ts tests/e2e/members-table-horizontal-scroll.spec.ts --reporter=line",
@@ -53,18 +55,25 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@playwright/test": "^1.58.2",
-    "@typescript-eslint/eslint-plugin": "^8.56.1",
-    "@typescript-eslint/parser": "^8.56.1",
+    "@testing-library/react": "^16.3.3",
     "@types/echarts": "^5.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "eslint": "^8",
     "eslint-config-next": "15.5.28",
+    "jsdom": "^26.1.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   },
-  "packageManager": "pnpm@10.32.0+sha512.9b2634bb3fed5601c33633f2d92593f506270a3963b8c51d2b2d6a828da615ce4e9deebef9614ccebbc13ac8d3c0f9c9ccceb583c69c8578436fa477dbb20d70"
+  "packageManager": "pnpm@10.32.0+sha512.9b2634bb3fed5601c33633f2d92593f506270a3963b8c51d2b2d6a828da615ce4e9deebef9614ccebbc13ac8d3c0f9c9ccceb583c69c8578436fa477dbb20d70",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
 }

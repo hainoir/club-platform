@@ -47,6 +47,9 @@ jobs:
       - name: Run Unit Tests
         run: pnpm run test:unit
 
+      - name: Run Hook and Component Tests
+        run: pnpm run test:react
+
       - name: Build Project
         run: pnpm run build
 

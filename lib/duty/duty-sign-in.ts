@@ -101,40 +101,90 @@ export async function submitDutySignIn(options: {
         console.warn("Failed to pre-check duty logs:", error)
     }
 
+    let location: Awaited<ReturnType<typeof validateStudioLocation>>
     try {
-        // 【学习注释：定位校验是业务规则，不是 UI 装饰】
-        // 只有通过工作室定位验证后，才允许把签到写进 duty_logs。
-        await validateStudioLocation()
+        // 浏览器判断只用来提前提示。真正能否写入由 submit_duty_sign_in 和
+        // duty_logs 上的围栏触发器决定，客户端不能再直接插入签到行。
+        location = await validateStudioLocation()
     } catch (error) {
         throw new DutySignInError("location", getStudioLocationErrorMessage(error), error)
     }
 
     try {
-        // 【学习注释：真正的签到事实只认数据库写入】
-        // 前端不会自己缓存“签到成功”作为最终真相，而是等写库结果返回后再更新界面。
-        const { error } = await options.supabase.from("duty_logs").insert({
-            member_id: options.memberId,
-            location_verified: true,
-            device_info: options.deviceInfo ?? null,
+        const { data, error } = await options.supabase.rpc("submit_duty_sign_in", {
+            p_latitude: location.latitude,
+            p_longitude: location.longitude,
+            p_accuracy: location.accuracy,
+            p_device_info: options.deviceInfo,
         })
 
         if (error) throw error
-        return "signed_in"
+        if (data === "already_signed_in") return "already_signed_in"
+        if (data === "signed_in") return "signed_in"
+
+        throw new DutySignInError("write", "无法写入签到记录，请稍后重试。")
     } catch (error) {
+        if (error instanceof DutySignInError) throw error
+
         const typedError = error as { code?: string; message?: string }
         if (typedError?.code === "23505") {
             return "already_signed_in"
         }
 
+        const geofenceMessage = describeDutySignInGeofenceRejection(error)
         throw new DutySignInError(
-            "write",
-            typedError?.message || "无法写入签到记录，请稍后重试。",
+            geofenceMessage ? "location" : "write",
+            geofenceMessage || typedError?.message || "无法写入签到记录，请稍后重试。",
             error
         )
     }
 }
 
+function readErrorField(error: unknown, field: "hint" | "details"): string | null {
+    if (!error || typeof error !== "object") return null
+    const value = (error as Record<string, unknown>)[field]
+    return typeof value === "string" ? value : null
+}
+
+function describeGeofenceRejection(error: unknown): string | null {
+    const hint = readErrorField(error, "hint")
+    if (!hint) return null
+
+    const details = readErrorField(error, "details")
+    const numericDetails = details === null ? null : Number(details.trim())
+    const rounded = numericDetails !== null && Number.isFinite(numericDetails) ? Math.round(numericDetails) : null
+
+    switch (hint) {
+        case "out_of_range":
+            return rounded === null
+                ? "当前位置超出工作室允许范围。"
+                : `当前位置距离工作室约 ${rounded} 米，超出允许范围。`
+        case "insufficient_accuracy":
+            return rounded === null
+                ? "当前定位精度不足，请移动到开阔区域后重试。"
+                : `当前定位精度约 ${rounded} 米，请移动到开阔区域后重试。`
+        case "invalid_coordinates":
+            return "定位坐标无效，请稍后重试。"
+        case "invalid_accuracy":
+            return "定位精度异常，请稍后重试。"
+        case "geofence_unconfigured":
+            return "工作室地理围栏尚未配置，请联系管理员。"
+        default:
+            return null
+    }
+}
+
+function describeDutySignInGeofenceRejection(error: unknown): string | null {
+    const direct = describeGeofenceRejection(error)
+    if (direct) return direct
+    if (error instanceof DutySignInError) return describeGeofenceRejection(error.originalError)
+    return null
+}
+
 export function getDutySignInErrorMessage(error: unknown): string {
+    const geofenceMessage = describeDutySignInGeofenceRejection(error)
+    if (geofenceMessage) return geofenceMessage
+
     if (error instanceof DutySignInError) {
         if (error.reason === "location" && isStudioLocationValidationFailure(error.originalError)) {
             return getStudioLocationErrorMessage(error.originalError)

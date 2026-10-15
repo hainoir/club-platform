@@ -164,6 +164,10 @@ export interface Database {
                     sign_in_time: string
                     sign_in_date: string
                     location_verified: boolean | null
+                    latitude: number | null
+                    longitude: number | null
+                    accuracy_meters: number | null
+                    distance_meters: number | null
                     device_info: string | null
                     week_number: number | null
                 }
@@ -173,6 +177,10 @@ export interface Database {
                     sign_in_time?: string
                     sign_in_date?: string
                     location_verified?: boolean | null
+                    latitude?: number | null
+                    longitude?: number | null
+                    accuracy_meters?: number | null
+                    distance_meters?: number | null
                     device_info?: string | null
                     week_number?: number | null
                 }
@@ -182,6 +190,10 @@ export interface Database {
                     sign_in_time?: string
                     sign_in_date?: string
                     location_verified?: boolean | null
+                    latitude?: number | null
+                    longitude?: number | null
+                    accuracy_meters?: number | null
+                    distance_meters?: number | null
                     device_info?: string | null
                     week_number?: number | null
                 }
@@ -426,6 +438,15 @@ export interface Database {
                     p_swap_id: string
                 }
                 Returns: undefined
+            }
+            submit_duty_sign_in: {
+                Args: {
+                    p_latitude: number
+                    p_longitude: number
+                    p_accuracy: number
+                    p_device_info?: string
+                }
+                Returns: string
             }
             volunteer_for_duty_swap: {
                 Args: {

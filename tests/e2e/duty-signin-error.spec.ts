@@ -84,15 +84,11 @@ test.describe('Duty sign-in error handling', () => {
                 value: mockGeo,
             })
         })
-        await page.route('**/rest/v1/duty_logs*', async (route, request) => {
-            if (request.method() !== 'POST') {
-                await route.continue()
-                return
-            }
+        await page.route('**/rest/v1/rpc/submit_duty_sign_in', async (route) => {
             await route.fulfill({
-                status: 500,
+                status: 400,
                 contentType: 'application/json',
-                body: JSON.stringify({ message: 'mock duty_logs insert failed' }),
+                body: JSON.stringify({ message: 'mock duty_logs insert failed', code: 'P0001' }),
             })
         })
         const signInButton = await openDashboardWithEnabledSignIn(page)
@@ -124,11 +120,7 @@ test.describe('Duty sign-in error handling', () => {
                 value: mockGeo,
             })
         })
-        await page.route('**/rest/v1/duty_logs*', async (route, request) => {
-            if (request.method() !== 'POST') {
-                await route.continue()
-                return
-            }
+        await page.route('**/rest/v1/rpc/submit_duty_sign_in', async (route) => {
             await route.abort('failed')
         })
         const signInButton = await openDashboardWithEnabledSignIn(page)

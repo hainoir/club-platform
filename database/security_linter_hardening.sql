@@ -50,6 +50,8 @@ BEGIN
         ('public.is_current_admin()'),
         ('public.return_duty_swap_to_hall(uuid)'),
         ('public.rls_auto_enable()'),
+        ('public.enforce_duty_sign_in_geofence()'),
+        ('public.submit_duty_sign_in(double precision, double precision, double precision, text)'),
         ('public.sync_duty_sign_in_date()'),
         ('public.volunteer_for_duty_swap(uuid)')
     ) AS signatures(name)
@@ -70,6 +72,7 @@ BEGIN
     SELECT *
     FROM (
       VALUES
+        ('public.enforce_duty_sign_in_geofence()'),
         ('public.handle_new_user()'),
         ('public.rls_auto_enable()'),
         ('public.sync_duty_sign_in_date()')
@@ -94,6 +97,7 @@ BEGIN
         ('public.approve_duty_leave(uuid)'),
         ('public.confirm_key_transfer(uuid, uuid)'),
         ('public.return_duty_swap_to_hall(uuid)'),
+        ('public.submit_duty_sign_in(double precision, double precision, double precision, text)'),
         ('public.volunteer_for_duty_swap(uuid)')
     ) AS signatures(name)
     WHERE to_regprocedure(signatures.name) IS NOT NULL
