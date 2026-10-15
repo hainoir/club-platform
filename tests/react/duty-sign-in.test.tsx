@@ -95,7 +95,7 @@ describe('useDutySignIn', () => {
             await result.current.performSignIn()
         })
 
-        expect(supabase.rpc).not.toHaveBeenCalled()
+        expect(supabase.rpc).not.toHaveBeenCalledWith('submit_duty_sign_in', expect.anything())
         expect(supabase.calls.some((call) => call.method === 'insert')).toBe(false)
         expect(toast).toHaveBeenCalledWith(expect.objectContaining({
             title: '签到失败',
@@ -187,7 +187,7 @@ describe('useDutySignIn', () => {
             await result.current.performSignIn()
         })
 
-        expect(supabase.rpc).not.toHaveBeenCalled()
+        expect(supabase.rpc).not.toHaveBeenCalledWith('submit_duty_sign_in', expect.anything())
         expect(toast).toHaveBeenCalledWith(expect.objectContaining({
             description: expect.stringMatching(/定位权限被拒绝/),
         }))
@@ -219,7 +219,8 @@ describe('useDutySignIn', () => {
             await result.current.performSignIn()
         })
 
-        expect(supabase.rpc).toHaveBeenCalledTimes(1)
+        expect(supabase.rpc).toHaveBeenCalledWith('submit_duty_sign_in', expect.anything())
+        expect(supabase.rpc.mock.calls.filter((call) => call[0] === 'submit_duty_sign_in')).toHaveLength(1)
         expect(toast).toHaveBeenCalledWith(expect.objectContaining({
             title: '请求过于频繁',
             description: expect.stringMatching(/4 秒/),
@@ -245,8 +246,9 @@ describe('useDutySignIn', () => {
         expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: '公共假日无需值班' }))
     })
 
-    it('treats an existing log as already signed in without calling the RPC', async () => {
+    it('treats an existing Shanghai-day log for the resolved member as already signed in', async () => {
         const supabase = createDutySupabase({
+            memberId: 'member-1',
             results: {
                 duty_logs: { data: [{ id: 'log-1' }], error: null },
             },
@@ -254,7 +256,7 @@ describe('useDutySignIn', () => {
         const toast = vi.fn()
         const { result } = renderHook(() => useDutySignIn({
             supabase: supabase.client,
-            user: member,
+            user: { ...member, id: 'auth-user' },
             toast,
             ensureActiveSession: async () => true,
         }))
@@ -263,7 +265,13 @@ describe('useDutySignIn', () => {
             await result.current.performSignIn()
         })
 
-        expect(supabase.rpc).not.toHaveBeenCalled()
+        expect(supabase.rpc).toHaveBeenCalledWith('current_member_id')
+        expect(supabase.rpc).not.toHaveBeenCalledWith('submit_duty_sign_in', expect.anything())
+        expect(supabase.calls).toEqual(expect.arrayContaining([
+            expect.objectContaining({ table: 'duty_logs', method: 'eq', column: 'member_id', value: 'member-1' }),
+            expect.objectContaining({ table: 'duty_logs', method: 'eq', column: 'sign_in_date', value: '2026-10-15' }),
+        ]))
+        expect(supabase.calls.some((call) => call.table === 'duty_logs' && call.method === 'gte')).toBe(false)
         expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: '今日已签到' }))
     })
 })

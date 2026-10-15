@@ -13,8 +13,8 @@
 ## 核心数据表
 
 - `duty_rosters`：按 `member_id`、`day_of_week` 和 `period` 记录每周值班安排。
-- `duty_logs`：值班签到记录。`duty_logs_member_sign_in_date_unique` 用于阻止同一天重复签到。坐标、精度和距离由服务端写入；`location_verified` 只在围栏触发器通过后为 true。
-- `studio_geofence`：签到围栏的权威圆心、半径和精度上限。浏览器里的 `NEXT_PUBLIC_STUDIO_*` 只影响按钮提示。
+- `duty_logs`：值班签到记录。`duty_logs_member_sign_in_date_unique` 用于阻止同一天重复签到。坐标、精度和距离由服务端写入；`location_verified` 只在围栏触发器通过后为 true。登录用户不能 UPDATE 地点、核验、成员或日期列。作废和补签分别走 `mark_duty_sign_in_invalid`、`admin_backfill_duty_sign_in`，并写入 `duty_sign_in_admin_events`。
+- `studio_geofence`：签到和自习定位的权威圆心、半径和精度上限。客户端在定位前读取这一行。`authenticated` 只有 SELECT；修改走 `update_studio_geofence`，并写入 `studio_geofence_audits`。
 - `duty_leaves`：请假申请。只有 `approved` 状态的请假记录会影响值班可用性。
 - `duty_swaps`：代班流程。`leave_id` 用于把一条请假请求和它对应的代班处理关联起来。
 - `duty_compensations`：已批准请假的补班槽位。`compensation_date` 表示补班发生的具体日历日期。
@@ -40,14 +40,19 @@
 - `return_duty_swap_to_hall(p_swap_id uuid)`：申请人或管理员把一条已接单或定向代班退回到公共待处理状态。
 - `confirm_key_transfer(p_transfer_id uuid, p_confirmer_id uuid)`：由接收方确认钥匙交接。
 - `expire_studio_sessions(p_now timestamptz default now())`：对开始时段结束超过 10 分钟的活跃自习会话执行认证后的过期清理。
-- `submit_duty_sign_in(p_latitude double precision, p_longitude double precision, p_accuracy double precision, p_device_info text default null)`：当前登录成员提交一次值班签到。成员身份来自会话，不接受调用方传入的 `member_id`。返回 `signed_in` 或 `already_signed_in`。围栏外、精度不足、坐标无效或围栏未配置时抛出异常，`HINT` 分别为 `out_of_range`、`insufficient_accuracy`、`invalid_coordinates`、`invalid_accuracy`、`geofence_unconfigured`。
+- `submit_duty_sign_in(p_latitude double precision, p_longitude double precision, p_accuracy double precision, p_device_info text default null)`：当前登录成员提交一次值班签到。成员身份来自会话，不接受调用方传入的 `member_id`。上海日期已有记录时返回 `already_signed_in`，成功返回 `signed_in`。拒绝时的 `HINT`：`out_of_range`、`insufficient_accuracy`、`invalid_coordinates`、`invalid_accuracy`、`geofence_unconfigured`、`holiday`、`outside_shift_window`、`not_rostered`。节次窗口与 `lib/duty/duty-time.ts` 的 `getDutyPeriodByMinutes` 相同，比首页按钮的上课时间略宽。
+- `current_member_id()`：解析当前登录用户对应的 `members.id`。前端重复签到预检和值班提醒都用它，不用调用方传入的用户 id。
+- `mark_duty_sign_in_invalid(p_log_id uuid, p_reason text)`：管理员把一条已核验签到标为无效，并写审计。
+- `admin_backfill_duty_sign_in(p_member_id uuid, p_sign_in_time timestamptz, p_reason text)`：管理员补签。仍要求目标时刻落在节次内且该节有排班，不要求围栏坐标，已批准请假不阻挡。返回新行 id。
+- `update_studio_geofence(p_latitude double precision, p_longitude double precision, p_radius_meters double precision, p_max_accuracy_meters double precision, p_reason text)`：管理员更新围栏。半径必须在 20 到 200 米，精度上限必须在 30 到 200 米。
 
 所有 RPC 定义都必须使用 `SECURITY DEFINER SET search_path = public, pg_temp`，撤销 `public` 的执行权限，并且只向 `authenticated` 授予执行权限。
 
 ## 校验清单
 
 - `duty_swaps.status` 只接受 `pending`、`accepted`、`approved` 和 `rejected`。
-- 客户端不能直接 INSERT `duty_logs`。签到必须走 `submit_duty_sign_in`，并且插入触发器会忽略调用方传来的 `location_verified`。
+- 客户端不能直接 INSERT 或 UPDATE `duty_logs`。签到必须走 `submit_duty_sign_in`，并且插入触发器会忽略调用方传来的 `location_verified`。
+- 签到前客户端必须先读 `studio_geofence`。环境变量不是围栏来源。
 - 待审批请假仅对本人和管理员可见，且不会影响签到可用性。
 - 已批准请假对所有已认证用户可见，并且会影响值班可用性。
 - `duty_swaps.leave_id` 会在关联的请假/代班操作中被完整保留。

@@ -4,6 +4,7 @@ import { extractErrorMessage } from '@/lib/shared/client-request';
 import {
     getStudioLocationErrorMessage,
     isStudioLocationValidationFailure,
+    loadStudioGeofence,
     STUDIO_LOCATION_ACTION_COOLDOWN_MS,
     validateStudioLocation,
 } from '@/lib/studio/studio-location';
@@ -53,7 +54,8 @@ export function useSelfStudyActions({
         try {
             if (!(await requireAuth())) return;
 
-            await validateStudioLocation();
+            const fence = await loadStudioGeofence(supabase);
+            await validateStudioLocation(fence);
 
             const { error } = await supabase.from('studio_sessions').insert({ member_id: user.id });
             if (error) throw error;
