@@ -128,3 +128,82 @@ values (
 );
 
 drop function public._seed_auth_user(uuid, text, text, text);
+
+-- BEGIN verify-local-duty-clock
+-- Local and CI databases only. `supabase db reset` runs this file after migrations.
+-- Hosted projects apply supabase/migrations and do not run seed.sql.
+-- Do not copy this block into a migration. The production function in
+-- 20261015092000_duty_sign_in_enforcement.sql does not read this table.
+-- An empty table keeps duty_sign_in_instant() on now(). The verification
+-- drive inserts one row as the database superuser, then deletes it.
+-- authenticated and anon have no privileges here, and RLS has no policy.
+
+create table if not exists public.duty_sign_in_clock (
+  id boolean primary key default true check (id),
+  clock_at timestamptz not null
+);
+
+alter table public.duty_sign_in_clock enable row level security;
+
+revoke all on table public.duty_sign_in_clock from public, anon, authenticated;
+
+create or replace function public.duty_sign_in_instant()
+returns timestamptz
+language plpgsql
+stable
+set search_path = public, pg_temp
+as $$
+declare
+  v_clock timestamptz;
+  v_raw text;
+begin
+  select clock_at
+  into v_clock
+  from public.duty_sign_in_clock
+  where id;
+
+  if v_clock is not null then
+    return v_clock;
+  end if;
+
+  if session_user in ('postgres', 'supabase_admin') then
+    v_raw := nullif(current_setting('duty.sign_in_at', true), '');
+    if v_raw is not null then
+      return v_raw::timestamptz;
+    end if;
+  end if;
+
+  return now();
+end;
+$$;
+
+revoke all on function public.duty_sign_in_instant() from public, anon, authenticated;
+
+-- duty_logs.sign_in_time defaults to now(), and the migration trigger keeps that
+-- value. Stamp the local clock onto the row when a verification instant is set,
+-- so the stored Shanghai date matches the instant the RPC already evaluated.
+-- With no clock row this is the migration behavior: keep the supplied time, or now().
+create or replace function public.sync_duty_sign_in_date()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+declare
+  v_clock timestamptz;
+begin
+  select clock_at
+  into v_clock
+  from public.duty_sign_in_clock
+  where id;
+
+  if v_clock is not null then
+    new.sign_in_time := v_clock;
+  else
+    new.sign_in_time := coalesce(new.sign_in_time, now());
+  end if;
+
+  new.sign_in_date := timezone('Asia/Shanghai', new.sign_in_time)::date;
+  return new;
+end;
+$$;
+-- END verify-local-duty-clock

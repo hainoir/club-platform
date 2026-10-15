@@ -40,6 +40,10 @@ for (const file of ['launch.sh', 'doctor.sh', 'cleanup.sh', 'query-db.sh', 'driv
   else if ((fs.statSync(filePath).mode & 0o111) === 0) errors.push(`scripts/${file} is not executable`)
 }
 
+for (const file of ['freeze-duty-clock.cjs', 'duty-clock.txt']) {
+  if (!fs.existsSync(path.join(root, 'scripts', file))) errors.push(`missing scripts/${file}`)
+}
+
 if (!fs.existsSync(path.join(root, 'features/README.md'))) errors.push('missing features/README.md')
 
 if (errors.length) {

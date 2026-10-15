@@ -635,3 +635,94 @@ test('duty log deletes are audited and authenticated cannot delete directly', { 
         await db.close()
     }
 })
+
+function localClockSql() {
+    const seed = readFileSync(path.join(process.cwd(), 'supabase/seed.sql'), 'utf8')
+    const start = seed.indexOf('-- BEGIN verify-local-duty-clock')
+    const end = seed.indexOf('-- END verify-local-duty-clock')
+    assert.ok(start >= 0 && end > start, 'seed is missing the local duty clock markers')
+    return seed.slice(start, end)
+}
+
+test('local seed clock controls sign-in time and stays out of migrations', { timeout: 120_000 }, async () => {
+    const enforcement = enforcementSql()
+    assert.equal(enforcement.includes('duty_sign_in_clock'), false)
+    assert.match(enforcement, /session_user IN \('postgres', 'supabase_admin'\)/)
+
+    const db = new PGlite()
+    try {
+        await db.exec(FIXTURE_SQL)
+        await db.exec(migrationSql())
+        await db.exec(enforcementSql())
+        const production = await db.query<{ def: string }>(
+            `SELECT pg_get_functiondef('public.duty_sign_in_instant()'::regprocedure) AS def`
+        )
+        assert.equal(production.rows[0]?.def.includes('duty_sign_in_clock'), false)
+
+        await db.exec(localClockSql())
+        await db.query(`SELECT set_config('duty.sign_in_at', '', false)`)
+
+        const followsNow = await db.query<{ ok: boolean }>(
+            `SELECT abs(extract(epoch FROM (public.duty_sign_in_instant() - now()))) < 5 AS ok`
+        )
+        assert.equal(followsNow.rows[0]?.ok, true)
+
+        await db.exec(`
+            INSERT INTO public.duty_rosters (member_id, day_of_week, period)
+            VALUES ('${MEMBER_ID}', 4, 1)
+        `)
+        await db.query(`SELECT set_config('duty.sign_in_at', '2026-10-15 04:10:00+00', false)`)
+        await db.exec(`
+            INSERT INTO public.duty_sign_in_clock (id, clock_at)
+            VALUES (true, timestamptz '2026-10-15 00:30:00+00')
+        `)
+
+        const pinned = await db.query<{ ok: boolean }>(
+            `SELECT public.duty_sign_in_instant() = timestamptz '2026-10-15 00:30:00+00' AS ok`
+        )
+        assert.equal(pinned.rows[0]?.ok, true)
+        assert.equal(await signIn(db, STUDIO_LATITUDE, STUDIO_LONGITUDE, 5, 'pixel'), 'signed_in')
+
+        const stored = await db.query<{ sign_in_time: string; sign_in_date: string }>(`
+            SELECT sign_in_time::text, sign_in_date::text
+            FROM public.duty_logs
+        `)
+        assert.equal(stored.rows.length, 1)
+        assert.equal(stored.rows[0]?.sign_in_date, '2026-10-15')
+        assert.match(stored.rows[0]?.sign_in_time ?? '', /2026-10-15/)
+
+        await db.exec(`DELETE FROM public.duty_logs`)
+        await db.exec(`
+            UPDATE public.duty_sign_in_clock
+            SET clock_at = timestamptz '2026-10-15 04:10:00+00'
+            WHERE id
+        `)
+        await expectDatabaseError(
+            () => signIn(db, STUDIO_LATITUDE, STUDIO_LONGITUDE, 5),
+            'outside_shift_window'
+        )
+        assert.equal(await logCount(db), 0)
+
+        await db.exec(`DELETE FROM public.duty_sign_in_clock`)
+        await db.query(`SELECT set_config('duty.sign_in_at', '', false)`)
+        const restored = await db.query<{ ok: boolean }>(
+            `SELECT abs(extract(epoch FROM (public.duty_sign_in_instant() - now()))) < 5 AS ok`
+        )
+        assert.equal(restored.rows[0]?.ok, true)
+
+        await db.exec(`SET ROLE authenticated`)
+        try {
+            await expectDatabaseError(
+                () => db.exec(`
+                    INSERT INTO public.duty_sign_in_clock (id, clock_at)
+                    VALUES (true, timestamptz '2026-10-15 00:30:00+00')
+                `),
+                'permission denied'
+            )
+        } finally {
+            await db.exec(`RESET ROLE`)
+        }
+    } finally {
+        await db.close()
+    }
+})
