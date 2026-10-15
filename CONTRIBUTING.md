@@ -22,7 +22,7 @@ NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-只有在预览环境或持续集成流程需要带登录态的端到端验证时，才额外添加可选的 `E2E_*` 变量。
+持续集成的 E2E 使用仓库里的本地 Supabase 种子账号，不需要 `E2E_*` 仓库密钥。预览环境如果要手工登录，再按需配置。
 
 ## 本地安全规则
 
@@ -39,4 +39,4 @@ pnpm run e2e:smoke
 pnpm run e2e:readonly
 ```
 
-`pnpm run e2e:mutation` 只能在隔离的 Supabase 环境中运行，因为这些用例会覆盖真实写入路径。
+`pnpm run e2e:mutation` 只对 `supabase db reset` 后的本地库运行。持续集成里的 E2E job 会自己拉起一次性数据库再跑这组用例。

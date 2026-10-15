@@ -5,7 +5,7 @@ import {
 } from "../shared/geolocation.ts"
 
 // 仅用于签到按钮的交互提示。权威围栏在 public.studio_geofence，
-// 由 database/duty_signin_geofence.sql 初始化并在插入 duty_logs 时强制执行。
+// 由 supabase/migrations/20261015083723_duty_signin_geofence.sql 初始化并在插入 duty_logs 时强制执行。
 // 更换工作室时两边要一起改，否则浏览器会放行随后被数据库拒绝的坐标。
 const DEFAULT_STUDIO_COORDS = {
     lat: 39.181074,

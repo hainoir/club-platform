@@ -82,7 +82,7 @@ type DutyLogRow = {
 }
 
 function migrationSql() {
-    return readFileSync(path.join(process.cwd(), 'database/duty_signin_geofence.sql'), 'utf8')
+    return readFileSync(path.join(process.cwd(), 'supabase/migrations/20261015083723_duty_signin_geofence.sql'), 'utf8')
 }
 
 async function expectDatabaseError(run: () => Promise<unknown>, hint: string) {

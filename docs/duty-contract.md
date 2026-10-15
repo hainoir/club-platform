@@ -53,7 +53,7 @@
 - `duty_swaps.leave_id` 会在关联的请假/代班操作中被完整保留。
 - `duty_compensations.compensation_date` 是必填字段，并且应反映准确的补班日历日期。
 - `approve_duty_leave` 必须拒绝已经关联代班的请假。
-- `accept_duty_swap`、`volunteer_for_duty_swap` 和 `return_duty_swap_to_hall` 在 `database/update_swap_status.sql` 与 `database/fix_duty_hall_permissions.sql` 之间必须保持同步。
+- `accept_duty_swap`、`volunteer_for_duty_swap` 和 `return_duty_swap_to_hall` 只在 `supabase/migrations/*_functions_and_triggers.sql` 中定义一次。
 - 读取活跃自习会话前必须先调用 `expire_studio_sessions`；客户端在渲染在场列表时不应一边读列表一边直接回写过期记录。
 - 在把 RPC 报错当成前端 Bug 之前，应根据 `docs/supabase-rpc-checklist.md` 先检查线上 Supabase 函数签名、执行权限和 PostgREST schema cache。
 - 修改本契约后，应运行 `pnpm run lint`、`pnpm run typecheck`、`pnpm run build` 以及值班/自习相关 E2E 用例。

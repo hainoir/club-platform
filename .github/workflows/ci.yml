@@ -6,37 +6,44 @@ on:
   pull_request:
     branches: [main, master]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  quality-gate:
+  quality:
+    name: Lint, types, unit, build
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-      E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-      E2E_KEY_RECEIVER_EMAIL: ${{ secrets.E2E_KEY_RECEIVER_EMAIL }}
-      E2E_KEY_RECEIVER_PASSWORD: ${{ secrets.E2E_KEY_RECEIVER_PASSWORD }}
+      # Public values are inlined at build time. This job does not talk to Supabase;
+      # the e2e job rebuilds against the local stack.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: quality-build-placeholder
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 10
-          run_install: false
+      - uses: pnpm/action-setup@v4
 
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "pnpm"
+          node-version: 22
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx', '**/*.mjs', '**/*.css') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Run Linter
         run: pnpm run lint
@@ -53,16 +60,85 @@ jobs:
       - name: Build Project
         run: pnpm run build
 
-      - name: Install Playwright Browsers
+  e2e:
+    name: E2E against local Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      E2E_MEMBER_EMAIL: e2e.member@club.local
+      E2E_MEMBER_PASSWORD: e2e-member-pass
+      E2E_ADMIN_EMAIL: e2e.admin@club.local
+      E2E_ADMIN_PASSWORD: e2e-admin-pass
+      E2E_KEY_RECEIVER_EMAIL: e2e.receiver@club.local
+      E2E_KEY_RECEIVER_PASSWORD: e2e-receiver-pass
+      # The job builds once with the local keys. Playwright should only start the server.
+      PLAYWRIGHT_WEB_SERVER_COMMAND: pnpm exec next start --port 3001
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      - name: Start local Supabase
+        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta,mailpit
+
+      - name: Export local Supabase env
+        run: |
+          supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          # The CLI prints KEY="value" lines. Map them onto the Next.js public names.
+          set -a
+          # shellcheck disable=SC1091
+          source "$RUNNER_TEMP/supabase.env"
+          set +a
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL:-${SUPABASE_URL}}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY:-${SUPABASE_ANON_KEY}}"
+          } >> "$GITHUB_ENV"
+          test -n "${API_URL:-${SUPABASE_URL}}"
+          test -n "${ANON_KEY:-${SUPABASE_ANON_KEY}}"
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx', '**/*.mjs', '**/*.css') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Build project
+        run: pnpm run build
+
+      - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run E2E Smoke Tests
+      - name: Run E2E smoke tests
         run: pnpm run e2e:smoke
 
-      - name: Run Read-only E2E Tests
+      - name: Run read-only E2E tests
         run: pnpm run e2e:readonly
 
-      - name: Upload Playwright Artifacts
+      - name: Run mutation E2E tests
+        run: pnpm run e2e:mutation
+
+      - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:

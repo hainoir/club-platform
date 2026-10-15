@@ -61,14 +61,14 @@ stateDiagram-v2
 ```
 
 - `hooks/useDuty.ts` 负责组合排班、签到、代班、请假和钥匙交接等值班子域钩子。
-- SQL 文件是状态流转的最终事实来源，尤其是 `database/key_and_leave_schema.sql`、`database/update_swap_status.sql` 和 `database/fix_duty_hall_permissions.sql`。
+- `supabase/migrations/` 是状态流转的最终事实来源，尤其是函数迁移里的代班/请假 RPC 和 RLS 迁移里的可见性策略。
 - 界面层应反映数据库状态机，而不是自行发明一套脱离后端的客户端生命周期。
 
 ## 验证覆盖面
 
 - 单元断言覆盖日期、值班时间、请假和自习时长等行为。
 - Playwright 测试覆盖鉴权、值班流程、仪表盘签到、成员搜索、自习、通知、设置和活动报名。
-- 持续集成会运行 lint、typecheck、build、smoke E2E 和完整 E2E。
+- 持续集成把 lint、typecheck、单元测试、build 与 E2E 分成两个并行 job。E2E 连本地 Supabase，并包含写入用例。
 
 ## 相关文档
 
