@@ -93,14 +93,14 @@ isOneToOne: false
                   ]
                 },"duty_sign_in_admin_events": {
                   Row: {
-                    "action": string,"actor_member_id": string,"created_at": string,"duty_log_id": string | null,"id": string,"reason": string,"sign_in_time": string | null,"target_member_id": string | null
+                    "action": string,"actor_member_id": string | null,"actor_session_user": string | null,"actor_uid": string | null,"created_at": string,"duty_log_id": string | null,"id": string,"reason": string,"row_snapshot": Json | null,"sign_in_time": string | null,"target_member_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "action": string,"actor_member_id": string,"created_at"?: string,"duty_log_id"?: string | null,"id"?: string,"reason": string,"sign_in_time"?: string | null,"target_member_id"?: string | null
+                    "action": string,"actor_member_id"?: string | null,"actor_session_user"?: string | null,"actor_uid"?: string | null,"created_at"?: string,"duty_log_id"?: string | null,"id"?: string,"reason": string,"row_snapshot"?: Json | null,"sign_in_time"?: string | null,"target_member_id"?: string | null
                   }
                   Update: {
-                    "action"?: string,"actor_member_id"?: string,"created_at"?: string,"duty_log_id"?: string | null,"id"?: string,"reason"?: string,"sign_in_time"?: string | null,"target_member_id"?: string | null
+                    "action"?: string,"actor_member_id"?: string | null,"actor_session_user"?: string | null,"actor_uid"?: string | null,"created_at"?: string,"duty_log_id"?: string | null,"id"?: string,"reason"?: string,"row_snapshot"?: Json | null,"sign_in_time"?: string | null,"target_member_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -108,12 +108,6 @@ isOneToOne: false
       columns: ["actor_member_id"]
 isOneToOne: false
       referencedRelation: "members"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "duty_sign_in_admin_events_duty_log_id_fkey"
-      columns: ["duty_log_id"]
-isOneToOne: false
-      referencedRelation: "duty_logs"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "duty_sign_in_admin_events_target_member_id_fkey"
@@ -306,6 +300,9 @@ isOneToOne: false
                            },
 "current_member_id":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"delete_duty_sign_in":
+{ Args: { "p_log_id": string,"p_reason": string }; Returns: undefined
                            },
 "duty_sign_in_instant":
 { Args: Record<PropertyKey, never>; Returns: string

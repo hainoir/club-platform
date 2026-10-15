@@ -11,6 +11,7 @@
 - `mark_duty_sign_in_invalid(p_log_id uuid, p_reason text)`
 - `admin_backfill_duty_sign_in(p_member_id uuid, p_sign_in_time timestamptz, p_reason text)`
 - `update_studio_geofence(p_latitude double precision, p_longitude double precision, p_radius_meters double precision, p_max_accuracy_meters double precision, p_reason text)`
+- `delete_duty_sign_in(p_log_id uuid, p_reason text)`
 
 ## 验证顺序
 
@@ -37,7 +38,8 @@ where n.nspname = 'public'
     'current_member_id',
     'mark_duty_sign_in_invalid',
     'admin_backfill_duty_sign_in',
-    'update_studio_geofence'
+    'update_studio_geofence',
+    'delete_duty_sign_in'
   );
 ```
 
@@ -54,7 +56,8 @@ where specific_schema = 'public'
     'current_member_id',
     'mark_duty_sign_in_invalid',
     'admin_backfill_duty_sign_in',
-    'update_studio_geofence'
+    'update_studio_geofence',
+    'delete_duty_sign_in'
   );
 ```
 
@@ -72,7 +75,8 @@ where specific_schema = 'public'
     'current_member_id',
     'mark_duty_sign_in_invalid',
     'admin_backfill_duty_sign_in',
-    'update_studio_geofence'
+    'update_studio_geofence',
+    'delete_duty_sign_in'
   )
 order by routine_name, grantee;
 ```

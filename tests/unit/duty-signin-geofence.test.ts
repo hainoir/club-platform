@@ -106,6 +106,10 @@ function enforcementSql() {
     return readFileSync(path.join(process.cwd(), 'supabase/migrations/20261015092000_duty_sign_in_enforcement.sql'), 'utf8')
 }
 
+function deleteAuditSql() {
+    return readFileSync(path.join(process.cwd(), 'supabase/migrations/20261015120000_duty_sign_in_delete_audit.sql'), 'utf8')
+}
+
 async function setClock(db: PGlite, instant: string) {
     await db.query(`SELECT set_config('duty.sign_in_at', $1, false)`, [instant])
 }
@@ -276,8 +280,10 @@ test('the enforcement migration sorts after the geofence migration', () => {
         .sort()
     const geofence = files.findIndex((name) => name.startsWith('20261015083723_'))
     const enforcement = files.indexOf('20261015092000_duty_sign_in_enforcement.sql')
+    const deleteAudit = files.indexOf('20261015120000_duty_sign_in_delete_audit.sql')
     assert.ok(geofence >= 0)
     assert.ok(enforcement > geofence)
+    assert.ok(deleteAudit > enforcement)
 })
 
 test('duty sign-in enforces the shift window, column lock, and fence grants', { timeout: 120_000 }, async () => {
@@ -459,6 +465,155 @@ test('duty sign-in enforces the shift window, column lock, and fence grants', { 
             )
             assert.ok(found.rows[0]?.ok, `missing ${signature}`)
         }
+    } finally {
+        await db.close()
+    }
+})
+
+test('duty log deletes are audited and authenticated cannot delete directly', { timeout: 120_000 }, async () => {
+    const db = new PGlite()
+    try {
+        await db.exec(FIXTURE_SQL)
+        await db.exec(migrationSql())
+        await db.exec(enforcementSql())
+        await db.exec(deleteAuditSql())
+
+        const inserted = await db.query<{ id: string }>(`
+            INSERT INTO public.duty_logs (member_id, location_verified, latitude, longitude, accuracy_meters)
+            VALUES ('${MEMBER_ID}', false, ${STUDIO_LATITUDE}, ${STUDIO_LONGITUDE}, 5)
+            RETURNING id
+        `)
+        const logId = inserted.rows[0]?.id
+        assert.ok(logId)
+        await db.exec(`DELETE FROM public.duty_logs WHERE id = '${logId}'`)
+        assert.equal(await logCount(db), 0)
+
+        const direct = await db.query<{
+            reason: string
+            actor_session_user: string
+            duty_log_id: string
+            snapshot_id: string
+            snapshot_member: string
+            snapshot_latitude: string
+        }>(`
+            SELECT
+              reason,
+              actor_session_user,
+              duty_log_id::text,
+              row_snapshot->>'id' AS snapshot_id,
+              row_snapshot->>'member_id' AS snapshot_member,
+              row_snapshot->>'latitude' AS snapshot_latitude
+            FROM public.duty_sign_in_admin_events
+            WHERE action = 'delete'
+        `)
+        assert.equal(direct.rows.length, 1)
+        assert.equal(direct.rows[0]?.reason, 'direct delete')
+        assert.equal(direct.rows[0]?.actor_session_user, 'postgres')
+        assert.equal(direct.rows[0]?.duty_log_id, logId)
+        assert.equal(direct.rows[0]?.snapshot_id, logId)
+        assert.equal(direct.rows[0]?.snapshot_member, MEMBER_ID)
+        assert.ok(direct.rows[0]?.snapshot_latitude)
+
+        await db.exec(`
+            CREATE OR REPLACE FUNCTION auth.uid()
+            RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
+            CREATE OR REPLACE FUNCTION auth.jwt()
+            RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::jsonb $$;
+        `)
+        const anonymous = await db.query<{ id: string }>(`
+            INSERT INTO public.duty_logs (member_id, location_verified, latitude, longitude, accuracy_meters)
+            VALUES ('${MEMBER_ID}', false, ${STUDIO_LATITUDE}, ${STUDIO_LONGITUDE}, 5)
+            RETURNING id
+        `)
+        await db.exec(`DELETE FROM public.duty_logs WHERE id = '${anonymous.rows[0]?.id}'`)
+        const unsigned = await db.query<{ actor_member_id: string | null; actor_uid: string | null }>(`
+            SELECT actor_member_id::text, actor_uid::text
+            FROM public.duty_sign_in_admin_events
+            WHERE duty_log_id = '${anonymous.rows[0]?.id}'
+        `)
+        assert.equal(unsigned.rows[0]?.actor_member_id ?? null, null)
+        assert.equal(unsigned.rows[0]?.actor_uid ?? null, null)
+
+        await db.exec(`
+            CREATE OR REPLACE FUNCTION auth.uid()
+            RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT '${MEMBER_ID}'::uuid $$;
+            CREATE OR REPLACE FUNCTION auth.jwt()
+            RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{"email":"member@example.com"}'::jsonb $$;
+        `)
+        await db.exec(`UPDATE public.members SET role = '干事' WHERE id = '${MEMBER_ID}'`)
+        const kept = await db.query<{ id: string }>(`
+            INSERT INTO public.duty_logs (member_id, location_verified, latitude, longitude, accuracy_meters)
+            VALUES ('${MEMBER_ID}', false, ${STUDIO_LATITUDE}, ${STUDIO_LONGITUDE}, 5)
+            RETURNING id
+        `)
+        await expectDatabaseError(
+            () => db.query(
+                `SELECT public.delete_duty_sign_in($1::uuid, $2::text)`,
+                [kept.rows[0]?.id, '干事不能删']
+            ),
+            'not_admin'
+        )
+        assert.equal(await logCount(db), 1)
+
+        await db.exec(`UPDATE public.members SET role = '主席' WHERE id = '${MEMBER_ID}'`)
+        await expectDatabaseError(
+            () => db.query(
+                `SELECT public.delete_duty_sign_in($1::uuid, $2::text)`,
+                ['00000000-0000-4000-8000-000000000099', '不存在的记录']
+            ),
+            'log_not_found'
+        )
+        await expectDatabaseError(
+            () => db.query(
+                `SELECT public.delete_duty_sign_in($1::uuid, $2::text)`,
+                [kept.rows[0]?.id, '   ']
+            ),
+            'reason_required'
+        )
+        await db.query(
+            `SELECT public.delete_duty_sign_in($1::uuid, $2::text)`,
+            [kept.rows[0]?.id, '误删这条签到']
+        )
+        assert.equal(await logCount(db), 0)
+        const audited = await db.query<{
+            reason: string
+            actor_member_id: string
+            actor_uid: string
+        }>(`
+            SELECT reason, actor_member_id::text, actor_uid::text
+            FROM public.duty_sign_in_admin_events
+            WHERE action = 'delete' AND duty_log_id = '${kept.rows[0]?.id}'
+        `)
+        assert.equal(audited.rows.length, 1)
+        assert.equal(audited.rows[0]?.reason, '误删这条签到')
+        assert.equal(audited.rows[0]?.actor_member_id, MEMBER_ID)
+        assert.equal(audited.rows[0]?.actor_uid, MEMBER_ID)
+
+        const another = await db.query<{ id: string }>(`
+            INSERT INTO public.duty_logs (member_id, location_verified, latitude, longitude, accuracy_meters)
+            VALUES ('${MEMBER_ID}', false, ${STUDIO_LATITUDE}, ${STUDIO_LONGITUDE}, 5)
+            RETURNING id
+        `)
+        await db.exec(`SET ROLE authenticated`)
+        try {
+            await expectDatabaseError(
+                () => db.exec(`DELETE FROM public.duty_logs WHERE id = '${another.rows[0]?.id}'`),
+                'permission denied'
+            )
+        } finally {
+            await db.exec(`RESET ROLE`)
+        }
+        assert.equal(await logCount(db), 1)
+
+        await db.exec(`DELETE FROM public.members WHERE id = '${MEMBER_ID}'`)
+        const cascaded = await db.query<{ snapshot_member: string; actor_member_id: string | null }>(`
+            SELECT row_snapshot->>'member_id' AS snapshot_member, actor_member_id::text
+            FROM public.duty_sign_in_admin_events
+            WHERE duty_log_id = '${another.rows[0]?.id}'
+        `)
+        assert.equal(cascaded.rows[0]?.snapshot_member, MEMBER_ID)
+        assert.equal(cascaded.rows[0]?.actor_member_id ?? null, null)
+        assert.equal(await logCount(db), 0)
     } finally {
         await db.close()
     }

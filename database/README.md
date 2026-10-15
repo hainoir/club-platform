@@ -13,4 +13,4 @@
 
 不要对已经手工建表的生产库直接 `supabase db push` 这组基线迁移。做法见 `supabase/README.md`。
 
-围栏之后的增量只有 `supabase/migrations/20261015092000_duty_sign_in_enforcement.sql`（节次窗口、签到列锁、作废与补签审计、围栏只读）。`database/` 不再保留它的副本。
+围栏之后的增量在 `supabase/migrations/`：`20261015092000_duty_sign_in_enforcement.sql`（节次窗口、签到列锁、作废与补签审计、围栏只读），然后是 `20261015120000_duty_sign_in_delete_audit.sql`（删除签到必须留审计）。`database/` 不再保留 SQL 副本。
