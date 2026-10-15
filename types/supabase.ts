@@ -53,14 +53,14 @@ isOneToOne: false
                   ]
                 },"duty_logs": {
                   Row: {
-                    "device_info": string | null,"id": string,"location_verified": boolean | null,"member_id": string,"sign_in_date": string,"sign_in_time": string,"week_number": number | null
+                    "accuracy_meters": number | null,"device_info": string | null,"distance_meters": number | null,"id": string,"latitude": number | null,"location_verified": boolean | null,"longitude": number | null,"member_id": string,"sign_in_date": string,"sign_in_time": string,"week_number": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "device_info"?: string | null,"id"?: string,"location_verified"?: boolean | null,"member_id": string,"sign_in_date"?: string,"sign_in_time"?: string,"week_number"?: number | null
+                    "accuracy_meters"?: number | null,"device_info"?: string | null,"distance_meters"?: number | null,"id"?: string,"latitude"?: number | null,"location_verified"?: boolean | null,"longitude"?: number | null,"member_id": string,"sign_in_date"?: string,"sign_in_time"?: string,"week_number"?: number | null
                   }
                   Update: {
-                    "device_info"?: string | null,"id"?: string,"location_verified"?: boolean | null,"member_id"?: string,"sign_in_date"?: string,"sign_in_time"?: string,"week_number"?: number | null
+                    "accuracy_meters"?: number | null,"device_info"?: string | null,"distance_meters"?: number | null,"id"?: string,"latitude"?: number | null,"location_verified"?: boolean | null,"longitude"?: number | null,"member_id"?: string,"sign_in_date"?: string,"sign_in_time"?: string,"week_number"?: number | null
                   }
                   Relationships: [
                     {
@@ -197,6 +197,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"studio_geofence": {
+                  Row: {
+                    "id": boolean,"latitude": number,"longitude": number,"max_accuracy_meters": number,"radius_meters": number,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "id"?: boolean,"latitude": number,"longitude": number,"max_accuracy_meters": number,"radius_meters": number,"updated_at"?: string
+                  }
+                  Update: {
+                    "id"?: boolean,"latitude"?: number,"longitude"?: number,"max_accuracy_meters"?: number,"radius_meters"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"studio_sessions": {
                   Row: {
                     "ended_at": string | null,"id": string,"is_active": boolean,"member_id": string,"started_at": string
@@ -237,6 +251,9 @@ isOneToOne: false
                            },
 "return_duty_swap_to_hall":
 { Args: { "p_swap_id": string }; Returns: undefined
+                           },
+"submit_duty_sign_in":
+{ Args: { "p_accuracy": number,"p_device_info"?: string,"p_latitude": number,"p_longitude": number }; Returns: string
                            },
 "volunteer_for_duty_swap":
 { Args: { "p_swap_id": string }; Returns: undefined

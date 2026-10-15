@@ -4,6 +4,9 @@ import {
     type LocationErrorReason,
 } from "../shared/geolocation.ts"
 
+// 仅用于签到按钮的交互提示。权威围栏在 public.studio_geofence，
+// 由 supabase/migrations/20261015083723_duty_signin_geofence.sql 初始化并在插入 duty_logs 时强制执行。
+// 更换工作室时两边要一起改，否则浏览器会放行随后被数据库拒绝的坐标。
 const DEFAULT_STUDIO_COORDS = {
     lat: 39.181074,
     lng: 117.12138,
@@ -85,8 +88,62 @@ function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2
     return earthRadiusMeters * c
 }
 
+export function getStudioLocationHintConfig() {
+    return {
+        latitude: STUDIO_COORDS.lat,
+        longitude: STUDIO_COORDS.lng,
+        radiusMeters: MAX_VALID_RADIUS_METERS,
+        maxAccuracyMeters: MAX_GEO_ACCURACY_METERS,
+    }
+}
+
 export function isStudioLocationValidationError(error: unknown): error is StudioLocationValidationError {
     return error instanceof StudioLocationValidationError
+}
+
+/**
+ * 浏览器侧围栏判断。调用方拿到的通过结果只说明可以继续请求服务器，
+ * 数据库触发器会用 studio_geofence 再判一次。
+ */
+export function assessStudioLocationFix(input: {
+    latitude: number
+    longitude: number
+    accuracy: number
+}): StudioLocationValidationResult {
+    const latitude = Number(input.latitude)
+    const longitude = Number(input.longitude)
+    const hint = getStudioLocationHintConfig()
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        throw new StudioLocationValidationError("invalid_coordinates")
+    }
+
+    const accuracy = Number(input.accuracy)
+
+    if (!Number.isFinite(accuracy) || accuracy < 0) {
+        throw new StudioLocationValidationError("invalid_accuracy")
+    }
+
+    if (accuracy > hint.maxAccuracyMeters) {
+        throw new StudioLocationValidationError("insufficient_accuracy", {
+            accuracyMeters: accuracy,
+        })
+    }
+
+    const distanceMeters = getDistanceFromLatLonInM(latitude, longitude, hint.latitude, hint.longitude)
+
+    if (distanceMeters > hint.radiusMeters) {
+        throw new StudioLocationValidationError("out_of_range", {
+            distanceMeters,
+        })
+    }
+
+    return {
+        latitude,
+        longitude,
+        accuracy,
+        distanceMeters,
+    }
 }
 
 export function isStudioLocationValidationFailure(error: unknown): boolean {
@@ -101,39 +158,11 @@ export async function validateStudioLocation(): Promise<StudioLocationValidation
         throw new StudioLocationValidationError("empty_payload")
     }
 
-    const latitude = Number(position.coords.latitude)
-    const longitude = Number(position.coords.longitude)
-
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-        throw new StudioLocationValidationError("invalid_coordinates")
-    }
-
-    const accuracy = Number(position.coords.accuracy)
-
-    if (!Number.isFinite(accuracy)) {
-        throw new StudioLocationValidationError("invalid_accuracy")
-    }
-
-    if (accuracy > MAX_GEO_ACCURACY_METERS) {
-        throw new StudioLocationValidationError("insufficient_accuracy", {
-            accuracyMeters: accuracy,
-        })
-    }
-
-    const distanceMeters = getDistanceFromLatLonInM(latitude, longitude, STUDIO_COORDS.lat, STUDIO_COORDS.lng)
-
-    if (distanceMeters > MAX_VALID_RADIUS_METERS) {
-        throw new StudioLocationValidationError("out_of_range", {
-            distanceMeters,
-        })
-    }
-
-    return {
-        latitude,
-        longitude,
-        accuracy,
-        distanceMeters,
-    }
+    return assessStudioLocationFix({
+        latitude: Number(position.coords.latitude),
+        longitude: Number(position.coords.longitude),
+        accuracy: Number(position.coords.accuracy),
+    })
 }
 
 export function getStudioLocationErrorMessage(error: unknown): string {

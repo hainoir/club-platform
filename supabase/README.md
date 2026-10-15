@@ -7,9 +7,10 @@ Schema、RLS、函数和 RPC 的事实来源是 `supabase/migrations/`。`supaba
 | 文件 | 内容 |
 | --- | --- |
 | `*_core_tables.sql` | `members`、`events`、`event_attendees`、值班/请假/钥匙/自习表，以及 `events` 存储桶 |
-| `*_functions_and_triggers.sql` | 注册触发器、签到日期、请假到期，以及全部客户端 RPC |
-| `*_rls_policies.sql` | 最终 RLS。后来脚本替换掉的策略只保留最终版本；只追加、未删除的 v2 策略与原策略同时保留 |
-| `*_privileges.sql` | 撤销 `PUBLIC` / `anon` 对安全定义函数的执行权限，只把客户端 RPC 授给 `authenticated` |
+| `*_functions_and_triggers.sql` | 注册触发器、签到日期、请假到期，以及除签到以外的客户端 RPC |
+| `*_rls_policies.sql` | 最终 RLS。后来脚本替换掉的策略只保留最终版本；只追加、未删除的 v2 策略与原策略同时保留。签到插入策略会在下一条迁移里删除 |
+| `*_privileges.sql` | 撤销 `PUBLIC` / `anon` 对安全定义函数的执行权限，只把当时已有的客户端 RPC 授给 `authenticated` |
+| `20261015083723_duty_signin_geofence.sql` | 原 `database/duty_signin_geofence.sql` 全文。`studio_geofence`、插入触发器、`submit_duty_sign_in`，并撤销 `duty_logs` 的直接 INSERT |
 
 代班 RPC（`accept_duty_swap`、`volunteer_for_duty_swap`、`return_duty_swap_to_hall`）只定义一次，内容与原先 `database/update_swap_status.sql` 的最终版本一致，并包含关联请假的批准。
 
@@ -43,7 +44,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key from supabase status>
 | 管理员 | `e2e.admin@club.local` | `e2e-admin-pass` | 主席 |
 | 钥匙接收人 | `e2e.receiver@club.local` | `e2e-receiver-pass` | 干事 |
 
-另外会插入一条尚未开始的活动，让报名用例有数据可点。
+另外会插入一条尚未开始的活动，让报名用例有数据可点。签到围栏坐标在迁移里的 `studio_geofence` 行，种子不再写一份。签到错误用例只在成员处于当前节次时才会点击按钮；没有排班时它们会跳过，避免在节次窗口里卡在浏览器定位超时上。
 
 ## 生成类型
 
@@ -67,26 +68,12 @@ supabase migration repair --status applied 20261015080916
 supabase migration repair --status applied 20261015080917
 supabase migration repair --status applied 20261015080918
 supabase migration repair --status applied 20261015080919
+supabase migration repair --status applied 20261015083723
 ```
+
+生产项目 `qpdbjizsccvebfqozmal` 的 `supabase_migrations.schema_migrations` 里已经有一行：`version = 20261015083723`，`name = duty_signin_geofence`。那是通过 Supabase API 应用的，不是这四条基线。仓库里的围栏文件使用同一个版本号，所以第五条命令把 CLI 历史对齐到这条已有记录，而不会再执行一遍 SQL。前四条版本目前不在该表里，需要标记为已应用。不要另建一个新的 `duty_signin_geofence` 时间戳，否则 `db push` 会再跑一次围栏脚本。
 
 3. 之后的 schema 变更用 `supabase migration new <name>` 追加新文件，再用 `supabase db push` 推到远端。
-
-## 吸收后续的 `database/duty_signin_geofence.sql`
-
-如果 `database/duty_signin_geofence.sql` 在这组基线之后合入（例如 PR #16），不要把它并进上面四条基线，也不要改 `*_privileges.sql`。把它变成下一条迁移：
-
-```bash
-supabase migration new duty_signin_geofence
-```
-
-把 `database/duty_signin_geofence.sql` 的全文原样贴进新生成的 `supabase/migrations/<timestamp>_duty_signin_geofence.sql`。该文件已经是幂等的，依赖本基线里的 `duty_logs` 和策略名 `允许自己提交打卡`。它会：
-
-- 创建 `studio_geofence`，并插入一条默认坐标（冲突时跳过）
-- 在 `duty_logs` 上添加 `BEFORE INSERT` 触发器函数 `enforce_duty_sign_in_geofence`（不授予客户端执行）
-- 创建 `submit_duty_sign_in(double precision, double precision, double precision, text)`，只授予 `authenticated`
-- 删除插入策略 `允许自己提交打卡`，并撤销 `PUBLIC` / `anon` / `authenticated` 对 `duty_logs` 的直接 `INSERT`
-
-`*_privileges.sql` 先于该文件执行，不会覆盖它自己的 `GRANT` / `REVOKE`。合入后可以从 Git 历史删除那份松散 SQL。
 
 ## 校验
 
@@ -94,7 +81,8 @@ supabase migration new duty_signin_geofence
 
 - `duty_swaps.status` 只接受 `pending`、`accepted`、`approved`、`rejected`。
 - `accept_duty_swap`、`volunteer_for_duty_swap`、`return_duty_swap_to_hall`、`approve_duty_leave`、`confirm_key_transfer`、`expire_studio_sessions` 存在，`authenticated` 可执行，`anon` 与 `PUBLIC` 不可执行。
-- `handle_new_user`、`sync_duty_sign_in_date` 和请假到期触发器函数不能被 `anon` 或 `authenticated` 直接执行。
+- `handle_new_user`、`sync_duty_sign_in_date`、`enforce_duty_sign_in_geofence` 和请假到期触发器函数不能被 `anon` 或 `authenticated` 直接执行。
+- `submit_duty_sign_in(double precision, double precision, double precision, text)` 存在，只授予 `authenticated`。`studio_geofence` 有且只有一行。`anon` 与 `authenticated` 不能直接 `INSERT` `duty_logs`。
 - `event_attendees_event_email_unique` 与 `duty_logs_member_sign_in_date_unique` 存在。
 - `duty_leaves.leave_date`、`duty_leaves.expires_at`、`duty_swaps.leave_id`、`duty_compensations.compensation_date` 存在且非空。
 - 公开的 `events` 桶没有 `Public Access` 或 `events_bucket_read` 这类宽泛 SELECT 策略。
