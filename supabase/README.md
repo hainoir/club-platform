@@ -11,6 +11,7 @@ Schema、RLS、函数和 RPC 的事实来源是 `supabase/migrations/`。`supaba
 | `*_rls_policies.sql` | 最终 RLS。后来脚本替换掉的策略只保留最终版本；只追加、未删除的 v2 策略与原策略同时保留。签到插入策略会在下一条迁移里删除 |
 | `*_privileges.sql` | 撤销 `PUBLIC` / `anon` 对安全定义函数的执行权限，只把当时已有的客户端 RPC 授给 `authenticated` |
 | `20261015083723_duty_signin_geofence.sql` | 原 `database/duty_signin_geofence.sql` 全文。`studio_geofence`、插入触发器、`submit_duty_sign_in`，并撤销 `duty_logs` 的直接 INSERT |
+| `20261015092000_duty_sign_in_enforcement.sql` | 签到节次窗口、列锁、作废与补签审计，以及围栏只读。这一条是基线之后的增量，托管库需要实际执行 |
 
 代班 RPC（`accept_duty_swap`、`volunteer_for_duty_swap`、`return_duty_swap_to_hall`）只定义一次，内容与原先 `database/update_swap_status.sql` 的最终版本一致，并包含关联请假的批准。
 
@@ -73,7 +74,7 @@ supabase migration repair --status applied 20261015083723
 
 生产项目 `qpdbjizsccvebfqozmal` 的 `supabase_migrations.schema_migrations` 里已经有一行：`version = 20261015083723`，`name = duty_signin_geofence`。那是通过 Supabase API 应用的，不是这四条基线。仓库里的围栏文件使用同一个版本号，所以第五条命令把 CLI 历史对齐到这条已有记录，而不会再执行一遍 SQL。前四条版本目前不在该表里，需要标记为已应用。不要另建一个新的 `duty_signin_geofence` 时间戳，否则 `db push` 会再跑一次围栏脚本。
 
-3. 之后的 schema 变更用 `supabase migration new <name>` 追加新文件，再用 `supabase db push` 推到远端。
+3. 之后的 schema 变更用 `supabase migration new <name>` 追加新文件，再用 `supabase db push` 推到远端。`20261015092000_duty_sign_in_enforcement.sql` 就是第一条这样的增量：基线用上面的 `migration repair` 标成已应用之后，`supabase db push` 只会执行这一条。也可以把该文件全文贴进 SQL Editor 执行一次，成功后再 `supabase migration repair --status applied 20261015092000`。在 SQL 真正跑过之前不要只做 repair，否则远端会缺节次窗口和围栏只读。不要对生产库 `db push` 前面五条基线。
 
 ## 校验
 
@@ -82,7 +83,10 @@ supabase migration repair --status applied 20261015083723
 - `duty_swaps.status` 只接受 `pending`、`accepted`、`approved`、`rejected`。
 - `accept_duty_swap`、`volunteer_for_duty_swap`、`return_duty_swap_to_hall`、`approve_duty_leave`、`confirm_key_transfer`、`expire_studio_sessions` 存在，`authenticated` 可执行，`anon` 与 `PUBLIC` 不可执行。
 - `handle_new_user`、`sync_duty_sign_in_date`、`enforce_duty_sign_in_geofence` 和请假到期触发器函数不能被 `anon` 或 `authenticated` 直接执行。
-- `submit_duty_sign_in(double precision, double precision, double precision, text)` 存在，只授予 `authenticated`。`studio_geofence` 有且只有一行。`anon` 与 `authenticated` 不能直接 `INSERT` `duty_logs`。
+- `submit_duty_sign_in(double precision, double precision, double precision, text)` 存在，只授予 `authenticated`。节次外、未排班和公共假日分别抛出 `outside_shift_window`、`not_rostered`、`holiday`。
+- `studio_geofence` 有且只有一行。`authenticated` 只有 SELECT。改围栏走 `update_studio_geofence`，半径 20–200 米，精度上限 30–200 米，并写入 `studio_geofence_audits`。
+- `anon` 与 `authenticated` 不能直接 `INSERT` 或 `UPDATE` `duty_logs`。作废走 `mark_duty_sign_in_invalid`，补签走 `admin_backfill_duty_sign_in`，两者写入 `duty_sign_in_admin_events`。
+- `current_member_id()` 与 `is_current_admin()` 存在，且只授予 `authenticated`。
 - `event_attendees_event_email_unique` 与 `duty_logs_member_sign_in_date_unique` 存在。
 - `duty_leaves.leave_date`、`duty_leaves.expires_at`、`duty_swaps.leave_id`、`duty_compensations.compensation_date` 存在且非空。
 - 公开的 `events` 桶没有 `Public Access` 或 `events_bucket_read` 这类宽泛 SELECT 策略。

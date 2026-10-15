@@ -91,6 +91,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"duty_sign_in_admin_events": {
+                  Row: {
+                    "action": string,"actor_member_id": string,"created_at": string,"duty_log_id": string | null,"id": string,"reason": string,"sign_in_time": string | null,"target_member_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "action": string,"actor_member_id": string,"created_at"?: string,"duty_log_id"?: string | null,"id"?: string,"reason": string,"sign_in_time"?: string | null,"target_member_id"?: string | null
+                  }
+                  Update: {
+                    "action"?: string,"actor_member_id"?: string,"created_at"?: string,"duty_log_id"?: string | null,"id"?: string,"reason"?: string,"sign_in_time"?: string | null,"target_member_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "duty_sign_in_admin_events_actor_member_id_fkey"
+      columns: ["actor_member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "duty_sign_in_admin_events_duty_log_id_fkey"
+      columns: ["duty_log_id"]
+isOneToOne: false
+      referencedRelation: "duty_logs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "duty_sign_in_admin_events_target_member_id_fkey"
+      columns: ["target_member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"duty_swaps": {
                   Row: {
                     "created_at": string,"id": string,"leave_id": string | null,"original_day": number,"original_period": number,"requester_id": string,"status": string | null,"target_day": number | null,"target_id": string | null,"target_period": number | null
@@ -211,6 +243,26 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"studio_geofence_audits": {
+                  Row: {
+                    "actor_member_id": string,"created_at": string,"id": string,"latitude": number,"longitude": number,"max_accuracy_meters": number,"previous_latitude": number | null,"previous_longitude": number | null,"previous_max_accuracy_meters": number | null,"previous_radius_meters": number | null,"radius_meters": number,"reason": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "actor_member_id": string,"created_at"?: string,"id"?: string,"latitude": number,"longitude": number,"max_accuracy_meters": number,"previous_latitude"?: number | null,"previous_longitude"?: number | null,"previous_max_accuracy_meters"?: number | null,"previous_radius_meters"?: number | null,"radius_meters": number,"reason": string
+                  }
+                  Update: {
+                    "actor_member_id"?: string,"created_at"?: string,"id"?: string,"latitude"?: number,"longitude"?: number,"max_accuracy_meters"?: number,"previous_latitude"?: number | null,"previous_longitude"?: number | null,"previous_max_accuracy_meters"?: number | null,"previous_radius_meters"?: number | null,"radius_meters"?: number,"reason"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "studio_geofence_audits_actor_member_id_fkey"
+      columns: ["actor_member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"studio_sessions": {
                   Row: {
                     "ended_at": string | null,"id": string,"is_active": boolean,"member_id": string,"started_at": string
@@ -240,20 +292,47 @@ isOneToOne: false
             "accept_duty_swap":
 { Args: { "p_acceptor_id": string,"p_swap_id": string }; Returns: undefined
                            },
+"admin_backfill_duty_sign_in":
+{ Args: { "p_member_id": string,"p_reason": string,"p_sign_in_time": string }; Returns: string
+                           },
 "approve_duty_leave":
 { Args: { "p_leave_id": string }; Returns: undefined
+                           },
+"assert_duty_admin":
+{ Args: { "p_reason": string }; Returns: string
                            },
 "confirm_key_transfer":
 { Args: { "p_confirmer_id": string,"p_transfer_id": string }; Returns: undefined
                            },
+"current_member_id":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"duty_sign_in_instant":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"evaluate_duty_sign_in_window":
+{ Args: { "p_at": string,"p_ignore_leave"?: boolean,"p_member_id": string }; Returns: string
+                           },
 "expire_studio_sessions":
 { Args: { "p_now"?: string }; Returns: number
+                           },
+"is_china_public_holiday":
+{ Args: { "p_date": string }; Returns: boolean
+                           },
+"is_current_admin":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"mark_duty_sign_in_invalid":
+{ Args: { "p_log_id": string,"p_reason": string }; Returns: undefined
                            },
 "return_duty_swap_to_hall":
 { Args: { "p_swap_id": string }; Returns: undefined
                            },
 "submit_duty_sign_in":
 { Args: { "p_accuracy": number,"p_device_info"?: string,"p_latitude": number,"p_longitude": number }; Returns: string
+                           },
+"update_studio_geofence":
+{ Args: { "p_latitude": number,"p_longitude": number,"p_max_accuracy_meters": number,"p_radius_meters": number,"p_reason": string }; Returns: undefined
                            },
 "volunteer_for_duty_swap":
 { Args: { "p_swap_id": string }; Returns: undefined

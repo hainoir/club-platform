@@ -16,27 +16,43 @@ export type QueryResult = {
 
 export type DutyCall = {
     table: string
-    method: 'select' | 'insert' | 'delete' | 'eq'
+    method: 'select' | 'insert' | 'delete' | 'eq' | 'gte'
     payload?: unknown
     column?: string
     value?: unknown
 }
 
+const SEEDED_GEOFENCE = {
+    id: true,
+    latitude: 39.181074,
+    longitude: 117.12138,
+    radius_meters: 50,
+    max_accuracy_meters: 100,
+}
+
 interface CreateDutySupabaseOptions {
     rpc?: (name: string, args: Record<string, unknown>) => Promise<QueryResult>
     results?: Partial<Record<string, QueryResult>>
+    memberId?: string
 }
 
 export function createDutySupabase(options: CreateDutySupabaseOptions = {}) {
     const calls: DutyCall[] = []
     const rpc = vi.fn(async (name: string, args?: Record<string, unknown>) => {
+        if (name === 'current_member_id') {
+            return { data: options.memberId ?? 'member-1', error: null }
+        }
         if (options.rpc) return options.rpc(name, args ?? {})
         return { data: null, error: null }
     })
 
     function from(table: string) {
         const result = options.results?.[table] ?? {
-            data: table === 'duty_logs' ? [] : { id: 'leave-1' },
+            data: table === 'duty_logs'
+                ? []
+                : table === 'studio_geofence'
+                    ? SEEDED_GEOFENCE
+                    : { id: 'leave-1' },
             error: null,
         }
         const query = {
@@ -56,10 +72,17 @@ export function createDutySupabase(options: CreateDutySupabaseOptions = {}) {
                 calls.push({ table, method: 'eq', column, value })
                 return query
             },
-            gte() {
+            gte(column: string, value: unknown) {
+                calls.push({ table, method: 'gte', column, value })
+                return query
+            },
+            gt() {
                 return query
             },
             limit() {
+                return Promise.resolve(result)
+            },
+            maybeSingle() {
                 return Promise.resolve(result)
             },
             returns() {
