@@ -6,6 +6,7 @@
 
 - `approve_duty_leave(p_leave_id uuid)`
 - `expire_studio_sessions(p_now timestamptz default now())`
+- `submit_duty_sign_in(p_latitude double precision, p_longitude double precision, p_accuracy double precision, p_device_info text)`
 
 ## 验证顺序
 
@@ -25,7 +26,7 @@ select
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('approve_duty_leave', 'expire_studio_sessions');
+  and p.proname in ('approve_duty_leave', 'expire_studio_sessions', 'submit_duty_sign_in');
 ```
 
 ```sql
@@ -34,7 +35,7 @@ select
   security_type
 from information_schema.routines
 where specific_schema = 'public'
-  and routine_name in ('approve_duty_leave', 'expire_studio_sessions');
+  and routine_name in ('approve_duty_leave', 'expire_studio_sessions', 'submit_duty_sign_in');
 ```
 
 ```sql
@@ -44,7 +45,7 @@ select
   privilege_type
 from information_schema.routine_privileges
 where specific_schema = 'public'
-  and routine_name in ('approve_duty_leave', 'expire_studio_sessions')
+  and routine_name in ('approve_duty_leave', 'expire_studio_sessions', 'submit_duty_sign_in')
 order by routine_name, grantee;
 ```
 

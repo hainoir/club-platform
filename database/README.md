@@ -21,7 +21,8 @@
 6. `database/update_swap_status.sql`
 7. `database/add_signin_and_rsvp_constraints.sql`（必需的加固：签到去重与 RSVP 唯一性）
 8. `database/fix_duty_hall_permissions.sql`（值班大厅的角色/邮箱兼容性加固）
-9. `database/security_linter_hardening.sql`（针对函数授权与公开存储列举的 Supabase 数据库检查器加固）
+9. `database/duty_signin_geofence.sql`（签到地理围栏：权威配置、插入触发器、`submit_duty_sign_in`，并关闭 duty_logs 直写）
+10. `database/security_linter_hardening.sql`（针对函数授权与公开存储列举的 Supabase 数据库检查器加固）
 
 ## 增量升级顺序（已有环境）
 
@@ -33,6 +34,7 @@
 6. 只有在你改动了成员或活动相关策略时，才重新应用 `database/rls_policies.sql`。
 7. 当自习在场清理行为有变化时，重新应用 `database/studio_sessions_schema.sql`。
 8. 任何会重建 `SECURITY DEFINER` 函数或存储策略的 SQL 变更之后，都要补跑 `database/security_linter_hardening.sql`。
+9. `database/duty_signin_geofence.sql`（给已有环境补上签到围栏；重复执行不会覆盖已经改过的 `studio_geofence` 行）。执行后再跑一次 `database/security_linter_hardening.sql`。
 
 ## 回滚说明（安全加固）
 
@@ -64,6 +66,8 @@ GRANT EXECUTE ON FUNCTION public.confirm_key_transfer(uuid, uuid) TO public;
 - 函数定义必须包含：`SECURITY DEFINER SET search_path = public, pg_temp`。
 - `event_attendees_event_email_unique` 必须存在，以保证每个活动/邮箱只有一条 RSVP 记录（大小写不敏感）。
 - `duty_logs_member_sign_in_date_unique` 必须存在，以阻止同一天重复签到。
+- `public.studio_geofence` 必须有且只有一行；`submit_duty_sign_in(double precision, double precision, double precision, text)` 只授予 `authenticated`。
+- `duty_logs` 不允许 `anon` / `authenticated` 直接 INSERT。缺少坐标、精度过差或超出半径的插入必须失败，并且 `location_verified` 只能由触发器写成 true。
 - `duty_swaps.leave_id` 必须存在；执行数据库脚本不得把当前 `duty_leaves.status='pending'` 的审批请求批量改为 `approved`。
 - `duty_leaves` 的 `pending` 行仅对本人和管理员可见；已批准记录对所有人保持可见。
 - `duty_compensations.compensation_date` 必须存在，并且历史数据已完成回填。

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { resolveCurrentDutyAvailability } from "../../lib/duty/duty-sign-in.ts"
+import { DutySignInError, getDutySignInErrorMessage, resolveCurrentDutyAvailability } from "../../lib/duty/duty-sign-in.ts"
 
 function withTimeZone<T>(tz: string, fn: () => T): T {
     const previous = process.env.TZ
@@ -48,6 +48,31 @@ test("all members stay disabled outside sign-in periods", () => {
         canSignInNow: false,
         disabledReason: "not_in_period",
     })
+})
+
+test("server geofence rejections are shown from the database hint", () => {
+    const outOfRange = {
+        hint: "out_of_range",
+        details: "111.2",
+        message: "当前位置距离工作室约 111 米，超出允许范围。",
+    }
+
+    assert.equal(
+        getDutySignInErrorMessage(new DutySignInError("location", outOfRange.message, outOfRange)),
+        "当前位置距离工作室约 111 米，超出允许范围。"
+    )
+    assert.equal(
+        getDutySignInErrorMessage({ hint: "insufficient_accuracy", details: "180.4" }),
+        "当前定位精度约 180 米，请移动到开阔区域后重试。"
+    )
+    assert.equal(
+        getDutySignInErrorMessage({ hint: "geofence_unconfigured" }),
+        "工作室地理围栏尚未配置，请联系管理员。"
+    )
+    assert.equal(
+        getDutySignInErrorMessage({ hint: "invalid_coordinates" }),
+        "定位坐标无效，请稍后重试。"
+    )
 })
 
 test("assigned members stay disabled on public holidays", () => {

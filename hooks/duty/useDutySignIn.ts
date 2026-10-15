@@ -15,7 +15,8 @@ export function useDutySignIn({ supabase, user, toast, ensureActiveSession }: Du
     const lastSignInAttemptAtRef = useRef(0);
 
     // 【学习注释：签到流程与定位防作弊】
-    // 这里保留交互状态和提示，定位校验、重复检查和写库统一收敛到 lib/duty-sign-in。
+    // 这里保留交互状态和提示。浏览器定位只做提前提示，重复检查和写库在 lib/duty-sign-in，
+    // 围栏是否通过由数据库 RPC 决定。
     const performSignIn = useCallback(async () => {
         if (!user) return;
         if (isSigningIn) return;
