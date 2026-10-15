@@ -44,11 +44,19 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_reason text := nullif(btrim(current_setting('duty.delete_reason', true)), '');
+  v_session text := session_user;
+  v_role text := nullif(current_setting('role', true), '');
 BEGIN
   -- 管理员函数会在同一事务里写入原因。没有原因的删除来自表所有者或
   -- service_role 的直接 DELETE，仍然要留下快照。
   IF v_reason IS NULL THEN
     v_reason := 'direct delete';
+  END IF;
+
+  -- SECURITY DEFINER 里的 current_user 是函数所有者。SET ROLE 留在 role
+  -- 配置里，所以 service_role 这类直接删除仍能和登录用户区分开。
+  IF v_role IS NOT NULL AND v_role <> 'none' AND v_role IS DISTINCT FROM v_session THEN
+    v_session := v_session || ' as ' || v_role;
   END IF;
 
   BEGIN
@@ -67,7 +75,7 @@ BEGIN
       'delete',
       public.current_member_id(),
       auth.uid(),
-      session_user,
+      v_session,
       OLD.id,
       OLD.member_id,
       OLD.sign_in_time,
@@ -93,7 +101,7 @@ BEGIN
         'delete',
         NULL,
         auth.uid(),
-        session_user,
+        v_session,
         OLD.id,
         NULL,
         OLD.sign_in_time,
@@ -148,5 +156,15 @@ DROP POLICY IF EXISTS "仅允许管理员删除打卡记录" ON public.duty_logs
 REVOKE DELETE ON TABLE public.duty_logs FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON FUNCTION public.audit_duty_sign_in_delete() FROM PUBLIC, anon, authenticated;
+
+-- 触发器函数是 SECURITY DEFINER，但调用方仍需要 EXECUTE 才能让删除发生。
+-- service_role 在托管库里通常已有默认授权；这里再授一次，避免直接删除被拒。
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    GRANT EXECUTE ON FUNCTION public.audit_duty_sign_in_delete() TO service_role;
+  END IF;
+END
+$$;
 REVOKE ALL ON FUNCTION public.delete_duty_sign_in(uuid, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.delete_duty_sign_in(uuid, text) TO authenticated;
