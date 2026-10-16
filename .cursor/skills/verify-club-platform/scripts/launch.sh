@@ -81,6 +81,8 @@ E2E_ADMIN_EMAIL=e2e.admin@club.local
 E2E_ADMIN_PASSWORD=e2e-admin-pass
 E2E_KEY_RECEIVER_EMAIL=e2e.receiver@club.local
 E2E_KEY_RECEIVER_PASSWORD=e2e-receiver-pass
+E2E_SELF_STUDY_EMAIL=e2e.study@club.local
+E2E_SELF_STUDY_PASSWORD=e2e-study-pass
 EOF
 printf '%s\n' "$DB_URL" >"$DB_URL_FILE"
 chmod 600 "$ROOT/.env.local" "$DB_URL_FILE" "$RUN_DIR/supabase.env"
