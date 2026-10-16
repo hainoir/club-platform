@@ -654,6 +654,7 @@ test('local seed clock controls sign-in time and stays out of migrations', { tim
         await db.exec(FIXTURE_SQL)
         await db.exec(migrationSql())
         await db.exec(enforcementSql())
+        await db.exec(storedInstantSql())
         const production = await db.query<{ def: string }>(
             `SELECT pg_get_functiondef('public.duty_sign_in_instant()'::regprocedure) AS def`
         )
