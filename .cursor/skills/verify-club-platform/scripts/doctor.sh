@@ -33,6 +33,14 @@ else
   else
     bad "pid ${LISTENER_PID} is not next-server"
   fi
+  if [[ -r "/proc/${LISTENER_PID}/environ" ]]; then
+    env_blob=$(tr '\0' '\n' <"/proc/${LISTENER_PID}/environ")
+    if [[ "$env_blob" == *"VERIFY_DUTY_CLOCK_FILE="* && "$env_blob" == *"freeze-duty-clock.cjs"* ]]; then
+      note "clock: next Date starts at scripts/duty-clock.txt"
+    else
+      bad "next process is missing the local duty clock preload"
+    fi
+  fi
 fi
 
 if curl -fsS "$APP_URL/login" | grep -q '技术中心签到系统'; then
@@ -44,10 +52,11 @@ fi
 if [[ -f "$DB_URL_FILE" ]]; then
   fence=$(psql_query "select count(*) from public.studio_geofence" || true)
   member=$(psql_query "select count(*) from auth.users where email = 'e2e.member@club.local'" || true)
-  if [[ "$fence" == "1" && "$member" == "1" ]]; then
-    note "db: studio_geofence=1 seeded member=1"
+  clock_rows=$(psql_query "select count(*) from public.duty_sign_in_clock" || true)
+  if [[ "$fence" == "1" && "$member" == "1" && "$clock_rows" == "0" ]]; then
+    note "db: studio_geofence=1 seeded member=1 duty clock empty"
   else
-    bad "db check failed (studio_geofence=${fence:-missing} member=${member:-missing})"
+    bad "db check failed (studio_geofence=${fence:-missing} member=${member:-missing} duty_sign_in_clock=${clock_rows:-missing})"
   fi
   api_code=$(curl -s -o /dev/null -w '%{http_code}' "${APP_URL}/api/auth/session" || true)
   note "session route: HTTP ${api_code}"

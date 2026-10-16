@@ -15,7 +15,7 @@ Read this index, then use one feature file as the recipe. Launch and doctor from
 - Log in with `#email`, `#password`, and `form button[type="submit"]`, or call `loginWithPassword` from `tests/e2e/helpers/auth.ts`.
 - Prefer role names and the test id `notification-trigger`.
 - Geolocation is `context.grantPermissions(['geolocation'])` and `context.setGeolocation`. No `addInitScript` stub.
-- Browser time is `page.clock.setFixedTime` before navigation. Postgres `now()` stays the machine clock.
+- Browser time is `page.clock.setFixedTime` before navigation. The duty sign-in recipe also sets the local `duty_sign_in_clock` row and starts Next through `freeze-duty-clock.cjs`. Other recipes leave that table empty, so Postgres stays on `now()`.
 - Proof screenshots and SQL dumps go to `.verification-artifacts/evidence/<feature>/`.
 - Cleanup does not delete that directory.
 

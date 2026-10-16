@@ -49,6 +49,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key from supabase status>
 
 另外会插入一条尚未开始的活动，让报名用例有数据可点。签到围栏坐标在迁移里的 `studio_geofence` 行，种子不再写一份。签到错误用例只在成员处于当前节次时才会点击按钮；没有排班时它们会跳过，避免在节次窗口里卡在浏览器定位超时上。
 
+种子文件末尾还有一段本地签到时钟。`public.duty_sign_in_clock` 没有行时，`duty_sign_in_instant()` 仍然返回 `now()`，签到行的时间戳也仍由原来的触发器逻辑决定。验证脚本用数据库超级用户写入一个上海班次时刻后，本地 RPC 按那一时刻判断窗口，并且本地的 `sync_duty_sign_in_date()` 把同一时刻写入 `sign_in_time`。`duty_logs.sign_in_time` 的列默认值是 `now()`，迁移里的触发器会保留这个默认值，所以只改判断函数的话，落库时间仍是机器时间。跑完脚本会删掉时钟行。`authenticated` 和 `anon` 没有这张表的权限。这段 SQL 只存在于 `supabase/seed.sql`，不在 `supabase/migrations` 里，托管库不会执行。不要把它抄进迁移。
+
 ## 生成类型
 
 本地栈启动后：

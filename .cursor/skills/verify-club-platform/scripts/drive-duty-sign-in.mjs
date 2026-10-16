@@ -39,27 +39,38 @@ function psql(sql) {
   return query.stdout.trim()
 }
 
+const clockFile = path.join(here, 'duty-clock.txt')
+
+function readPinnedInstant() {
+  const raw = fs.readFileSync(clockFile, 'utf8').trim()
+  if (!/^\d{4}-\d{2}-\d{2}T08:30:00\+08:00$/.test(raw)) {
+    throw new Error(`duty-clock.txt must be a Shanghai 08:30 slot, YYYY-MM-DDT08:30:00+08:00, got ${raw}`)
+  }
+  return raw
+}
+
+function weekdayOfDateKey(dateKey) {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+}
+
+function setDutyClock(iso) {
+  psql(
+    `insert into public.duty_sign_in_clock (id, clock_at) values (true, timestamptz '${iso}') on conflict (id) do update set clock_at = excluded.clock_at`
+  )
+}
+
+function clearDutyClock() {
+  psql('delete from public.duty_sign_in_clock')
+}
+
+function dutyInstantText() {
+  return psql("select to_char(timezone('Asia/Shanghai', public.duty_sign_in_instant()), 'YYYY-MM-DD HH24:MI:SS')")
+}
+
 function writeResult() {
   fs.mkdirSync(evidence, { recursive: true })
   fs.writeFileSync(path.join(evidence, 'result.json'), JSON.stringify(result, null, 2))
-}
-
-function classWindow(period) {
-  const windows = {
-    1: [8 * 60, 9 * 60 + 35],
-    2: [10 * 60 + 5, 11 * 60 + 40],
-    3: [13 * 60 + 30, 15 * 60 + 5],
-    4: [15 * 60 + 35, 17 * 60 + 10],
-  }
-  return windows[period]
-}
-
-function dbWindow(minutes) {
-  if (minutes >= 7 * 60 + 30 && minutes <= 9 * 60 + 35) return 1
-  if (minutes >= 9 * 60 + 35 && minutes <= 11 * 60 + 40) return 2
-  if (minutes >= 13 * 60 && minutes <= 15 * 60 + 5) return 3
-  if (minutes >= 15 * 60 + 5 && minutes <= 17 * 60 + 10) return 4
-  return 0
 }
 
 function shanghaiInstant(dateKey, hour, minute) {
@@ -143,6 +154,7 @@ async function clickSignIn(page) {
 
 const browser = await chromium.launch({ headless: true })
 let exitCode = 1
+let clockActive = false
 
 try {
   fs.mkdirSync(evidence, { recursive: true })
@@ -150,16 +162,26 @@ try {
     throw new Error('Run launch.sh and doctor.sh before drive-duty-sign-in.mjs')
   }
 
-  const clockRow = psql(
-    "select to_char(timezone('Asia/Shanghai', now()), 'YYYY-MM-DD') || '|' || to_char(timezone('Asia/Shanghai', now()), 'HH24:MI:SS') || '|' || extract(isodow from timezone('Asia/Shanghai', now()))::int"
+  const pinnedInstant = readPinnedInstant()
+  const dateKey = pinnedInstant.slice(0, 10)
+  const dow = weekdayOfDateKey(dateKey)
+  const outsideInstant = `${dateKey}T12:10:00+08:00`
+  const wallClock = psql(
+    "select to_char(timezone('Asia/Shanghai', now()), 'YYYY-MM-DD HH24:MI:SS')"
   )
-  const [dateKey, timeText, dowText] = clockRow.split('|')
-  const dow = Number(dowText)
-  const [hourText, minuteText] = timeText.split(':')
-  const dbMinutes = Number(hourText) * 60 + Number(minuteText)
-  const dbPeriod = dbWindow(dbMinutes)
-  result.postgresShanghai = { dateKey, timeText, dow, dbPeriod }
-  fs.writeFileSync(path.join(evidence, 'postgres-clock.txt'), clockRow + '\n')
+  setDutyClock(pinnedInstant)
+  clockActive = true
+  const instantText = dutyInstantText()
+  result.clocks = { pinnedInstant, wallClock, dutySignInInstant: instantText, dow }
+  fs.writeFileSync(
+    path.join(evidence, 'postgres-clock.txt'),
+    `wall_now=${wallClock}\nduty_sign_in_instant=${instantText}\npinned=${pinnedInstant}\n`
+  )
+  if (instantText !== `${dateKey} 08:30:00`) {
+    record('duty-clock', 'fail', `duty_sign_in_instant is ${instantText}, expected ${dateKey} 08:30:00.`)
+    throw new Error('stop')
+  }
+  record('duty-clock', 'pass', `Local clock is ${instantText}. Wall clock in Shanghai is ${wallClock}.`)
 
   const fenceRow = psql(
     'select latitude || \',\' || longitude || \',\' || radius_meters || \',\' || max_accuracy_meters from public.studio_geofence where id'
@@ -231,7 +253,7 @@ try {
   }
 
   if (dow < 1 || dow > 5) {
-    record('assign-roster', 'fail', `Shanghai weekday is ${dow}. The duty table only has Monday through Friday.`)
+    record('assign-roster', 'fail', `${dateKey} is weekday ${dow}. The duty table only has Monday through Friday.`)
     throw new Error('stop')
   }
 
@@ -285,6 +307,37 @@ try {
     throw new Error('stop')
   }
 
+  setDutyClock(outsideInstant)
+  const outsideInstantText = dutyInstantText()
+  const outsideWindow = await openMember(browser, shanghaiInstant(dateKey, 8, 30), {
+    latitude,
+    longitude,
+    accuracy: 10,
+  })
+  const outsideWindowText = await clickSignIn(outsideWindow.page)
+  await shot(outsideWindow.page, 'outside-window.png')
+  await outsideWindow.context.close()
+  const outsideWindowLogs = psql(
+    `select count(*) from public.duty_logs d join public.members m on m.id = d.member_id where m.email = '${memberEmail}'`
+  )
+  const outsideWindowRejected =
+    outsideInstantText === `${dateKey} 12:10:00` &&
+    /当前不在值班签到时段/.test(outsideWindowText) &&
+    outsideWindowLogs === '0'
+  record(
+    'outside-window',
+    outsideWindowRejected ? 'pass' : 'fail',
+    outsideWindowRejected
+      ? `RPC rejected ${outsideInstantText} and duty_logs stayed empty.`
+      : `instant=${outsideInstantText} logs=${outsideWindowLogs}`
+  )
+  setDutyClock(pinnedInstant)
+  if (dutyInstantText() !== `${dateKey} 08:30:00`) {
+    record('duty-clock-restored', 'fail', `duty_sign_in_instant is ${dutyInstantText()} after the outside-window step.`)
+    throw new Error('stop')
+  }
+  if (!outsideWindowRejected) throw new Error('stop')
+
   const outside = await openMember(browser, shanghaiInstant(dateKey, 8, 30), {
     latitude: latitude + (radiusMeters + 500) / 111320,
     longitude,
@@ -328,18 +381,17 @@ try {
   await shot(inside.page, 'inside-fence.png')
   await inside.context.close()
   const logDump = psql(
-    `select coalesce(sign_in_date::text,'') || '|' || coalesce(location_verified::text,'') || '|' || coalesce(latitude::text,'') || '|' || coalesce(longitude::text,'') || '|' || coalesce(distance_meters::text,'') from public.duty_logs d join public.members m on m.id = d.member_id where m.email = '${memberEmail}'`
+    `select coalesce(sign_in_date::text,'') || '|' || coalesce(location_verified::text,'') || '|' || coalesce(latitude::text,'') || '|' || coalesce(longitude::text,'') || '|' || coalesce(distance_meters::text,'') || '|' || coalesce(to_char(timezone('Asia/Shanghai', sign_in_time), 'HH24:MI'), '') from public.duty_logs d join public.members m on m.id = d.member_id where m.email = '${memberEmail}'`
   )
   fs.writeFileSync(path.join(evidence, 'duty-logs.txt'), (logDump || '(no rows)') + '\n')
 
   if (/已完成位置验证并记录到值班考勤/.test(insideText) && logDump) {
-    const [signInDate, verified, rowLat, rowLng] = logDump.split('|')
-    const shanghaiDate = psql("select timezone('Asia/Shanghai', now())::date::text")
-    const dateOk = signInDate === shanghaiDate && verified === 'true'
+    const [signInDate, verified, rowLat, rowLng, distanceMeters, signInMinute] = logDump.split('|')
+    const dateOk = signInDate === dateKey && verified === 'true' && signInMinute === '08:30' && distanceMeters === '0'
     record(
       'inside-fence',
       dateOk ? 'pass' : 'fail',
-      `row date=${signInDate} verified=${verified} lat=${rowLat} lng=${rowLng} shanghai=${shanghaiDate}`
+      `row date=${signInDate} time=${signInMinute} verified=${verified} distance=${distanceMeters} lat=${rowLat} lng=${rowLng} pinned=${dateKey}`
     )
     const again = await openMember(browser, shanghaiInstant(dateKey, 8, 30), {
       latitude,
@@ -354,12 +406,12 @@ try {
     )
     const once = againButton.name === '今日已签到' && rowCount === '1'
     record('one-per-day', once ? 'pass' : 'fail', `button=${againButton.name} rows=${rowCount}`)
-    record('shanghai-date', dateOk ? 'pass' : 'fail', `sign_in_date=${signInDate} shanghai_today=${shanghaiDate}`)
+    record('shanghai-date', dateOk ? 'pass' : 'fail', `sign_in_date=${signInDate} pinned=${dateKey} time=${signInMinute}`)
   } else if (/当前不在值班签到时段/.test(insideText) && !logDump) {
     record(
       'inside-fence',
       'fail',
-      `Postgres time ${timeText} is period ${dbPeriod}. The browser clock was 08:30 and the RPC rejected outside_shift_window. No duty_logs row.`
+      `Browser and local duty clock were ${dateKey} 08:30 and the RPC still returned outside_shift_window. No duty_logs row.`
     )
     record('one-per-day', 'fail', 'No first row, so a second sign-in was not attempted.')
     record('shanghai-date', 'fail', 'No duty_logs row, so sign_in_date was not observed.')
@@ -376,6 +428,14 @@ try {
   }
   exitCode = result.steps.some((step) => step.name === 'harness') ? 1 : 2
 } finally {
+  if (clockActive) {
+    try {
+      clearDutyClock()
+    } catch (error) {
+      record('duty-clock-cleared', 'fail', error instanceof Error ? error.message : String(error))
+      exitCode = 1
+    }
+  }
   await browser.close()
   writeResult()
 }

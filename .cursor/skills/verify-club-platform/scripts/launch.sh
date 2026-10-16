@@ -86,6 +86,16 @@ printf '%s\n' "$DB_URL" >"$DB_URL_FILE"
 chmod 600 "$ROOT/.env.local" "$DB_URL_FILE" "$RUN_DIR/supabase.env"
 
 pnpm exec next build
+
+# Shift this Next process onto the verification slot. The preload is local to
+# this command. The app bundle does not read VERIFY_DUTY_CLOCK_FILE.
+DUTY_CLOCK_FILE="$HERE/duty-clock.txt"
+[[ -f "$DUTY_CLOCK_FILE" ]] || die "Missing ${DUTY_CLOCK_FILE}"
+export VERIFY_DUTY_CLOCK_FILE="$DUTY_CLOCK_FILE"
+case "${NODE_OPTIONS:-}" in
+  *freeze-duty-clock.cjs*) ;;
+  *) export NODE_OPTIONS="--require ${HERE}/freeze-duty-clock.cjs${NODE_OPTIONS:+ ${NODE_OPTIONS}}" ;;
+esac
 nohup pnpm exec next start --hostname 127.0.0.1 --port "$APP_PORT" >>"$EVIDENCE_DIR/next.log" 2>&1 < /dev/null &
 next_pid=$!
 
@@ -108,8 +118,10 @@ done
 
 fence_count=$(psql_query "select count(*) from public.studio_geofence")
 member_count=$(psql_query "select count(*) from auth.users where email = 'e2e.member@club.local'")
+clock_count=$(psql_query "select count(*) from public.duty_sign_in_clock")
 [[ "$fence_count" == "1" ]] || die "studio_geofence row count is ${fence_count}, expected 1."
 [[ "$member_count" == "1" ]] || die "Seeded member is missing from auth.users."
+[[ "$clock_count" == "0" ]] || die "duty_sign_in_clock should start empty, found ${clock_count}."
 
 cat >"$STATE_FILE" <<EOF
 STARTED_SUPABASE=1
