@@ -16,7 +16,7 @@ A rostered member, inside the studio fence and inside a class period, presses `�
 ## How to get to it (user POV)
 
 - Sign in as the member and stay on `我的工作台`.
-- The card title is `值班考勤打卡`.
+- The card title is `值班考勤打卡`. Once `studio_geofence` loads, the description contains `工作室 <radius> 米` for that row's `radius_meters`. Before the read finishes, the same sentence says `工作室范围内` and does not invent a radius.
 - The button is enabled only inside your rostered class period, on a weekday that is not a public holiday.
 - Press `立即验证定位并签到`. The label becomes `正在验证定位...`, then a toast reports success or failure.
 

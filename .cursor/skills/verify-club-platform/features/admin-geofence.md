@@ -39,5 +39,5 @@ Do not call `update_studio_geofence` from SQL. A direct RPC call is not the sett
 - `authenticated` can `select` `studio_geofence` and cannot `update` the table. The old admin update policy was dropped in `20261015092000_duty_sign_in_enforcement.sql`.
 - The roles that see the tab are the same set `is_current_admin()` uses: `admin`, `管理员`, `主席`, `执行主席`, `副主席`, and `部长`. The seeded admin is `主席`. The seeded member is `干事`.
 - Out of bounds errors from the RPC are `围栏半径必须在 20 到 200 米之间。` (`radius_out_of_bounds`) and `精度上限必须在 30 到 200 米之间。` (`accuracy_out_of_bounds`). The form shows those strings for its own check, and it shows `error.message` when the RPC rejects the save.
-- The sign-in card still says `工作室 50 米`. That sentence is copy, not the live radius.
+- The sign-in card reads `studio_geofence.radius_meters` and shows `工作室 <radius> 米`. While that read is in flight, or if it fails, the sentence omits the number: `系统设定的工作室范围内`. It does not keep a hardcoded 50.
 - The toast disappears after 3 seconds. Assert the status text `围栏已更新`, not only the toast.

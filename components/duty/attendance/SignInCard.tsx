@@ -8,6 +8,16 @@ interface SignInCardProps {
     hasSignedInToday?: boolean;
     isInDutyPeriod?: boolean;
     disabledReason?: 'not_in_period' | 'not_assigned' | 'holiday' | null;
+    /** Live `studio_geofence.radius_meters`. Omit it while that row is still loading. */
+    radiusMeters?: number | null;
+}
+
+function formatSignInRadiusMeters(radiusMeters: number | null | undefined): string | null {
+    if (typeof radiusMeters !== 'number' || !Number.isFinite(radiusMeters) || radiusMeters <= 0) {
+        return null;
+    }
+    const rounded = Math.round(radiusMeters * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
 export function SignInCard({
@@ -16,7 +26,9 @@ export function SignInCard({
     hasSignedInToday = false,
     isInDutyPeriod = true,
     disabledReason = null,
+    radiusMeters = null,
 }: SignInCardProps) {
+    const radiusLabel = formatSignInRadiusMeters(radiusMeters);
     const buttonDisabled = isSigningIn || !isInDutyPeriod;
     const disabledButtonText =
         disabledReason === 'holiday'
@@ -39,7 +51,9 @@ export function SignInCard({
                     值班考勤打卡
                 </CardTitle>
                 <CardDescription>
-                    基于地理边界验证。请确保您已身处系统设定的<strong>工作室 50 米</strong>范围内。
+                    基于地理边界验证。请确保您已身处系统设定的
+                    {radiusLabel ? <strong>工作室 {radiusLabel} 米</strong> : '工作室'}
+                    范围内。
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col justify-center">
