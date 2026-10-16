@@ -110,6 +110,10 @@ function deleteAuditSql() {
     return readFileSync(path.join(process.cwd(), 'supabase/migrations/20261015120000_duty_sign_in_delete_audit.sql'), 'utf8')
 }
 
+function storedInstantSql() {
+    return readFileSync(path.join(process.cwd(), 'supabase/migrations/20261016020000_duty_sign_in_stores_evaluation_instant.sql'), 'utf8')
+}
+
 async function setClock(db: PGlite, instant: string) {
     await db.query(`SELECT set_config('duty.sign_in_at', $1, false)`, [instant])
 }
@@ -154,6 +158,7 @@ test('duty check-in geofence cannot be bypassed in the database', { timeout: 120
         await db.exec(FIXTURE_SQL)
         await db.exec(migrationSql())
         await db.exec(enforcementSql())
+        await db.exec(storedInstantSql())
         const sessionUser = await db.query<{ session_user: string }>(`SELECT session_user`)
         assert.equal(sessionUser.rows[0]?.session_user, 'postgres')
         await prepareThursdayShift(db)
@@ -281,9 +286,11 @@ test('the enforcement migration sorts after the geofence migration', () => {
     const geofence = files.findIndex((name) => name.startsWith('20261015083723_'))
     const enforcement = files.indexOf('20261015092000_duty_sign_in_enforcement.sql')
     const deleteAudit = files.indexOf('20261015120000_duty_sign_in_delete_audit.sql')
+    const storedInstant = files.indexOf('20261016020000_duty_sign_in_stores_evaluation_instant.sql')
     assert.ok(geofence >= 0)
     assert.ok(enforcement > geofence)
     assert.ok(deleteAudit > enforcement)
+    assert.ok(storedInstant > deleteAudit)
 })
 
 test('duty sign-in enforces the shift window, column lock, and fence grants', { timeout: 120_000 }, async () => {
@@ -292,6 +299,7 @@ test('duty sign-in enforces the shift window, column lock, and fence grants', { 
         await db.exec(FIXTURE_SQL)
         await db.exec(migrationSql())
         await db.exec(enforcementSql())
+        await db.exec(storedInstantSql())
         await prepareThursdayShift(db)
 
         await setClock(db, '2026-05-01 02:30:00+00')
@@ -342,6 +350,14 @@ test('duty sign-in enforces the shift window, column lock, and fence grants', { 
         assert.equal(await logCount(db), 0)
 
         assert.equal(await signIn(db, STUDIO_LATITUDE, STUDIO_LONGITUDE, 5), 'signed_in')
+        const stamped = await db.query<{ sign_in_date: string; matches_clock: boolean }>(`
+            SELECT
+              sign_in_date::text,
+              sign_in_time = timestamptz '2026-10-15 02:30:00+00' AS matches_clock
+            FROM public.duty_logs
+        `)
+        assert.equal(stamped.rows[0]?.sign_in_date, '2026-10-15')
+        assert.equal(stamped.rows[0]?.matches_clock, true)
         await expectDatabaseError(
             () => db.exec(`UPDATE public.duty_logs SET latitude = latitude + 0.0001`),
             'sign_in_columns_locked'
@@ -476,6 +492,7 @@ test('duty log deletes are audited and authenticated cannot delete directly', { 
         await db.exec(FIXTURE_SQL)
         await db.exec(migrationSql())
         await db.exec(enforcementSql())
+        await db.exec(storedInstantSql())
         await db.exec(deleteAuditSql())
 
         const inserted = await db.query<{ id: string }>(`
