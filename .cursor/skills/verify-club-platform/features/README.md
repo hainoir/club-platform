@@ -7,7 +7,7 @@ Read this index, then use one feature file as the recipe. Launch and doctor from
 - App at `http://127.0.0.1:3001` after `scripts/launch.sh`.
 - `scripts/doctor.sh` exits 0.
 - Seeded member, admin, and key receiver from `supabase/seed.sql`.
-- No `duty_rosters` rows until an admin assigns one in the duty table.
+- `E2E 成员` already has 第二节 Monday through Friday. Monday 第一大节 is empty. `E2E 自习` has no roster. Do not treat a zero `duty_rosters` count as the seed.
 - One `studio_geofence` row. Read it. Do not hard-code the radius for a proof.
 
 ## Driving conventions
