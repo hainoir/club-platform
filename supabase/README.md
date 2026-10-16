@@ -13,6 +13,7 @@ Schema、RLS、函数和 RPC 的事实来源是 `supabase/migrations/`。`supaba
 | `20261015083723_duty_signin_geofence.sql` | 原 `database/duty_signin_geofence.sql` 全文。`studio_geofence`、插入触发器、`submit_duty_sign_in`，并撤销 `duty_logs` 的直接 INSERT |
 | `20261015092000_duty_sign_in_enforcement.sql` | 签到节次窗口、列锁、作废与补签审计，以及围栏只读。这一条是基线之后的增量，托管库需要实际执行 |
 | `20261015120000_duty_sign_in_delete_audit.sql` | 收回 `duty_logs` 的 DELETE。管理员用 `delete_duty_sign_in` 删除并写原因；直接删除仍由触发器写入 `duty_sign_in_admin_events` 快照 |
+| `20261016020000_duty_sign_in_stores_evaluation_instant.sql` | `submit_duty_sign_in` 把 `duty_sign_in_instant()` 写入 `sign_in_time`。登录会话仍是 `now()`。测试钉住的时刻和落库的上海日期因此是同一个时刻 |
 
 代班 RPC（`accept_duty_swap`、`volunteer_for_duty_swap`、`return_duty_swap_to_hall`）只定义一次，内容与原先 `database/update_swap_status.sql` 的最终版本一致，并包含关联请假的批准。
 
@@ -75,7 +76,7 @@ supabase migration repair --status applied 20261015083723
 
 生产项目 `qpdbjizsccvebfqozmal` 的 `supabase_migrations.schema_migrations` 里已经有一行：`version = 20261015083723`，`name = duty_signin_geofence`。那是通过 Supabase API 应用的，不是这四条基线。仓库里的围栏文件使用同一个版本号，所以第五条命令把 CLI 历史对齐到这条已有记录，而不会再执行一遍 SQL。前四条版本目前不在该表里，需要标记为已应用。不要另建一个新的 `duty_signin_geofence` 时间戳，否则 `db push` 会再跑一次围栏脚本。
 
-3. 之后的 schema 变更用 `supabase migration new <name>` 追加新文件，再用 `supabase db push` 推到远端。`20261015092000_duty_sign_in_enforcement.sql` 已在生产执行。下一条增量是 `20261015120000_duty_sign_in_delete_audit.sql`：把该文件全文贴进 SQL Editor 执行一次，成功后再 `supabase migration repair --status applied 20261015120000`。在 SQL 真正跑过之前不要只做 repair。不要对生产库 `db push` 前面的基线，也不要重放已经执行过的 `20261015092000`。
+3. 之后的 schema 变更用 `supabase migration new <name>` 追加新文件，再用 `supabase db push` 推到远端。`20261015092000_duty_sign_in_enforcement.sql` 已在生产执行。下一条增量是 `20261015120000_duty_sign_in_delete_audit.sql`：把该文件全文贴进 SQL Editor 执行一次，成功后再 `supabase migration repair --status applied 20261015120000`。在 SQL 真正跑过之前不要只做 repair。其后是 `20261016020000_duty_sign_in_stores_evaluation_instant.sql`，同样先执行全文再 `supabase migration repair --status applied 20261016020000`。不要对生产库 `db push` 前面的基线，也不要重放已经执行过的 `20261015092000`。
 
 ## 校验
 
