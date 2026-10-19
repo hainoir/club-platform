@@ -102,6 +102,15 @@ select public._seed_auth_user(
   'E2E 接收人'
 );
 
+-- No duty_rosters. Self-study specs use this account so they stay eligible
+-- after the member below is rostered.
+select public._seed_auth_user(
+  '55555555-5555-4555-8555-555555555555',
+  'e2e.study@club.local',
+  'e2e-study-pass',
+  'E2E 自习'
+);
+
 update public.members
 set role = '主席'
 where id = '22222222-2222-4222-8222-222222222222';
@@ -128,6 +137,15 @@ values (
 );
 
 drop function public._seed_auth_user(uuid, text, text, text);
+
+-- E2E 成员 stands 第二节 (period 2, 10:05–11:40 Asia/Shanghai) Monday through Friday.
+-- Playwright pins the browser Date to 10:30 on the real Shanghai date so the
+-- dashboard button is enabled after that slot has ended. Monday 第一大节
+-- (day_of_week 1, period 1) stays empty for auth-lock-reload.
+-- This insert does not write duty_sign_in_clock. RPCs keep using now().
+insert into public.duty_rosters (member_id, day_of_week, period, has_key)
+select '11111111-1111-4111-8111-111111111111', day, 2, false
+from generate_series(1, 5) as day;
 
 -- BEGIN verify-local-duty-clock
 -- Local and CI databases only. `supabase db reset` runs this file after migrations.

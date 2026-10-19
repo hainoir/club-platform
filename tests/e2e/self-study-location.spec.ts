@@ -3,6 +3,12 @@ import { expect, test, type Locator } from '@playwright/test'
 
 import type { Database } from '../../types/supabase'
 import { gotoProtectedPath, loginWithPassword } from './helpers/auth'
+import {
+    grantStudioGeolocation,
+    inaccurateStudioFix,
+    insideStudioFix,
+    readLiveStudioGeofence,
+} from './helpers/geolocation'
 
 type AppSupabaseClient = SupabaseClient<Database>
 
@@ -20,7 +26,7 @@ interface MemberIdentity {
 const DASHBOARD_TITLE = '我的工作台'
 const SELF_STUDY_BUTTON_TEXT = '我在工作室自习'
 const LOCATION_DENIED_REGEX = /定位权限被拒绝|无法完成位置验证/
-const LOCATION_ACCURACY_REGEX = /当前定位精度约\s*200\s*米/
+const LOCATION_FEEDBACK_TIMEOUT_MS = 3_000
 
 function getSupabaseEnv() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -168,31 +174,8 @@ test.describe('Self-study location gating', () => {
         let client: AuthedFixtureClient | null = null
 
         try {
-            await page.addInitScript(() => {
-                const mockGeo = {
-                    getCurrentPosition: (success: (position: unknown) => void) => {
-                        success({
-                            coords: {
-                                latitude: 39.181074,
-                                longitude: 117.12138,
-                                accuracy: 1,
-                                altitude: null,
-                                altitudeAccuracy: null,
-                                heading: null,
-                                speed: null,
-                            },
-                            timestamp: Date.now(),
-                        })
-                    },
-                    watchPosition: () => 0,
-                    clearWatch: () => undefined,
-                }
-
-                Object.defineProperty(navigator, 'geolocation', {
-                    configurable: true,
-                    value: mockGeo,
-                })
-            })
+            const fence = await readLiveStudioGeofence()
+            await grantStudioGeolocation(page.context(), insideStudioFix(fence))
 
             let hasActiveStudy = false
             let postRequests = 0
@@ -253,7 +236,7 @@ test.describe('Self-study location gating', () => {
             memberId = setup.member.id
 
             await setup.selfStudyButton.click()
-            await expect.poll(() => postRequests, { timeout: 15_000, intervals: [100, 250, 500] }).toBe(1)
+            await expect.poll(() => postRequests, { timeout: 5_000, intervals: [100, 250, 500] }).toBe(1)
 
             const studyBadge = page.locator('span').filter({ hasText: new RegExp(`${escapeRegex(expectedName)}\\s*自习`) }).first()
             await expect(studyBadge).toBeVisible({ timeout: 15_000 })
@@ -266,27 +249,6 @@ test.describe('Self-study location gating', () => {
         let client: AuthedFixtureClient | null = null
 
         try {
-            await page.addInitScript(() => {
-                const mockGeo = {
-                    getCurrentPosition: (_success: unknown, error?: (e: unknown) => void) => {
-                        error?.({
-                            code: 1,
-                            message: 'Permission denied',
-                            PERMISSION_DENIED: 1,
-                            POSITION_UNAVAILABLE: 2,
-                            TIMEOUT: 3,
-                        })
-                    },
-                    watchPosition: () => 0,
-                    clearWatch: () => undefined,
-                }
-
-                Object.defineProperty(navigator, 'geolocation', {
-                    configurable: true,
-                    value: mockGeo,
-                })
-            })
-
             let postRequests = 0
 
             await page.route('**/rest/v1/duty_logs*', async (route, request) => {
@@ -328,8 +290,7 @@ test.describe('Self-study location gating', () => {
             client = setup.client
 
             await setup.selfStudyButton.click()
-            await expect(page.getByText(LOCATION_DENIED_REGEX)).toBeVisible({ timeout: 15_000 })
-            await page.waitForTimeout(500)
+            await expect(page.getByText(LOCATION_DENIED_REGEX)).toBeVisible({ timeout: LOCATION_FEEDBACK_TIMEOUT_MS })
             expect(postRequests).toBe(0)
         } finally {
             await signOutQuietly(client)
@@ -340,31 +301,9 @@ test.describe('Self-study location gating', () => {
         let client: AuthedFixtureClient | null = null
 
         try {
-            await page.addInitScript(() => {
-                const mockGeo = {
-                    getCurrentPosition: (success: (position: unknown) => void) => {
-                        success({
-                            coords: {
-                                latitude: 39.181074,
-                                longitude: 117.12138,
-                                accuracy: 200,
-                                altitude: null,
-                                altitudeAccuracy: null,
-                                heading: null,
-                                speed: null,
-                            },
-                            timestamp: Date.now(),
-                        })
-                    },
-                    watchPosition: () => 0,
-                    clearWatch: () => undefined,
-                }
-
-                Object.defineProperty(navigator, 'geolocation', {
-                    configurable: true,
-                    value: mockGeo,
-                })
-            })
+            const fence = await readLiveStudioGeofence()
+            const fix = inaccurateStudioFix(fence)
+            await grantStudioGeolocation(page.context(), fix)
 
             let postRequests = 0
 
@@ -407,8 +346,9 @@ test.describe('Self-study location gating', () => {
             client = setup.client
 
             await setup.selfStudyButton.click()
-            await expect(page.getByText(LOCATION_ACCURACY_REGEX)).toBeVisible({ timeout: 15_000 })
-            await page.waitForTimeout(500)
+            await expect(page.getByText(new RegExp(`当前定位精度约\\s*${fix.accuracy}\\s*米`))).toBeVisible({
+                timeout: LOCATION_FEEDBACK_TIMEOUT_MS,
+            })
             expect(postRequests).toBe(0)
         } finally {
             await signOutQuietly(client)

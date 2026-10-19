@@ -46,8 +46,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key from supabase status>
 | 成员 | `e2e.member@club.local` | `e2e-member-pass` | 干事 |
 | 管理员 | `e2e.admin@club.local` | `e2e-admin-pass` | 主席 |
 | 钥匙接收人 | `e2e.receiver@club.local` | `e2e-receiver-pass` | 干事 |
+| 自习 | `e2e.study@club.local` | `e2e-study-pass` | 干事 |
 
-另外会插入一条尚未开始的活动，让报名用例有数据可点。签到围栏坐标在迁移里的 `studio_geofence` 行，种子不再写一份。签到错误用例只在成员处于当前节次时才会点击按钮；没有排班时它们会跳过，避免在节次窗口里卡在浏览器定位超时上。
+另外会插入一条尚未开始的活动，让报名用例有数据可点。签到围栏坐标在迁移里的 `studio_geofence` 行，种子不再写一份。
+
+`E2E 成员` 在周一到周五的第二节（`day_of_week` 1–5，`period` 2，上海时间 10:05–11:40）各有一条 `duty_rosters`。周一第一大节留空，给 `auth-lock-reload` 指派和移除。`E2E 自习` 没有排班，自习用例用这个账号。种子不写入 `duty_logs`，也不写入 `duty_sign_in_clock`。
+
+签到错误用例把浏览器 `Date` 钉在当天上海时间 10:30，不改产品超时，也不钉数据库时钟。周末、公共假日，以及上海时间 09:41 之前（钉住的时刻会超过 1 小时登录会话）会跳过。定位用 Playwright 的 `grantPermissions` 和 `setGeolocation`，读当前 `studio_geofence`。权限拒绝不授予定位。空定位结果无法用 `setGeolocation` 造出来，那一条仍替换 `getCurrentPosition`。
 
 种子文件末尾还有一段本地签到时钟。`public.duty_sign_in_clock` 没有行时，`duty_sign_in_instant()` 仍然返回 `now()`，签到行的时间戳也仍由原来的触发器逻辑决定。验证脚本用数据库超级用户写入一个上海班次时刻后，本地 RPC 按那一时刻判断窗口，并且本地的 `sync_duty_sign_in_date()` 把同一时刻写入 `sign_in_time`。`duty_logs.sign_in_time` 的列默认值是 `now()`，迁移里的触发器会保留这个默认值，所以只改判断函数的话，落库时间仍是机器时间。跑完脚本会删掉时钟行。`authenticated` 和 `anon` 没有这张表的权限。这段 SQL 只存在于 `supabase/seed.sql`，不在 `supabase/migrations` 里，托管库不会执行。不要把它抄进迁移。
 
