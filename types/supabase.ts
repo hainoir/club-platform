@@ -283,6 +283,9 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
+            "get_studio_study_leaderboard":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
             "get_event_attendee_counts":
 { Args: Record<PropertyKey, never>; Returns: { "attendee_count": number,"event_id": string }[]
                            },
