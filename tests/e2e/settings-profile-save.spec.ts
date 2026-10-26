@@ -1,15 +1,26 @@
 import { expect, test, type Page } from '@playwright/test'
-import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
+import { gotoProtectedPath, loginWithPassword } from './helpers/auth'
 
-type SaveFeedback = 'success' | 'failure' | 'timeout'
+const SEEDED_MEMBER_EMAIL = 'E2E_MEMBER_EMAIL'
+const SEEDED_MEMBER_PASSWORD = 'E2E_MEMBER_PASSWORD'
+const SEEDED_MEMBER_NAME = 'E2E ÊàêÂëò'
 
-async function waitForProfileSaveFeedback(page: Page, timeoutMs = 10_000): Promise<SaveFeedback> {
+function requireSeededMemberCredentials(): { email: string; password: string } {
+    const email = process.env[SEEDED_MEMBER_EMAIL]
+    const password = process.env[SEEDED_MEMBER_PASSWORD]
+    if (!email || !password) {
+        throw new Error(`Missing ${SEEDED_MEMBER_EMAIL} or ${SEEDED_MEMBER_PASSWORD}; run against the seeded E2E database`)
+    }
+    return { email, password }
+}
+
+async function waitForProfileSaveFeedback(page: Page, timeoutMs = 10_000): Promise<'success' | 'failure' | 'timeout'> {
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
-        if ((await page.getByText(/◊ ¡œ“—±£¥Ê/).count()) > 0) {
+        if (await page.getByText('ËµÑÊñôÂ∑≤‰øùÂ≠ò', { exact: true }).count()) {
             return 'success'
         }
-        if ((await page.getByText(/±£¥Ê ß∞‹/).count()) > 0) {
+        if (await page.getByText('‰øùÂ≠òÂ§±Ë¥•', { exact: true }).count()) {
             return 'failure'
         }
         await new Promise((resolve) => setTimeout(resolve, 250))
@@ -19,38 +30,30 @@ async function waitForProfileSaveFeedback(page: Page, timeoutMs = 10_000): Promi
 
 test('settings profile save shows success feedback', async ({ page }) => {
     test.setTimeout(60_000)
-    const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
+    const credentials = requireSeededMemberCredentials()
 
-    await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
+    await loginWithPassword(page, credentials.email, credentials.password)
     await gotoProtectedPath(page, '/settings#account')
 
     const nameInput = page.locator('#profile-name')
-    test.skip((await nameInput.count()) === 0, 'Profile form is not available for current account')
-
+    const saveButton = page.getByRole('button', { name: '‰øùÂ≠òËµÑÊñô', exact: true })
     await expect(nameInput).toBeVisible()
-    const originalName = (await nameInput.inputValue()).trim()
-    const baseName = originalName.length >= 2 ? originalName : '≤‚ ‘≥…‘±'
-    const updatedName = `${baseName}-e2e`
-
-    const saveButton = page.locator('button').filter({ hasText: /±£¥Ê◊ ¡œ|±£¥Ê÷–/ }).last()
-    test.skip((await saveButton.count()) === 0, 'Save button is not available for current account state')
-
-    await nameInput.fill(updatedName)
     await expect(saveButton).toBeVisible()
-    await saveButton.click()
-    const firstFeedback = await waitForProfileSaveFeedback(page)
-    test.skip(firstFeedback !== 'success', 'Profile save feedback not stable in current env')
+    await expect(nameInput).toHaveValue(SEEDED_MEMBER_NAME)
 
-    // ª÷∏¥‘≠ º÷µ£¨±‹√‚Œ€»æ≥…‘± ˝æ›°£
+    const updatedName = `${SEEDED_MEMBER_NAME}-e2e`
+    await nameInput.fill(updatedName)
+    await saveButton.click()
+    expect(await waitForProfileSaveFeedback(page)).toBe('success')
+
     await gotoProtectedPath(page, '/settings#account')
     const restoredNameInput = page.locator('#profile-name')
-    const restoredSaveButton = page.locator('button').filter({ hasText: /±£¥Ê◊ ¡œ|±£¥Ê÷–/ }).last()
-    test.skip((await restoredSaveButton.count()) === 0, 'Save button is not available after reopening settings')
+    const restoredSaveButton = page.getByRole('button', { name: '‰øùÂ≠òËµÑÊñô', exact: true })
     await expect(restoredNameInput).toBeVisible()
     await expect(restoredSaveButton).toBeVisible()
-    await restoredNameInput.fill(baseName)
-    await restoredSaveButton.click()
-    const secondFeedback = await waitForProfileSaveFeedback(page)
-    test.skip(secondFeedback !== 'success', 'Profile save feedback not stable in current env')
-})
+    await expect(restoredNameInput).toHaveValue(updatedName)
 
+    await restoredNameInput.fill(SEEDED_MEMBER_NAME)
+    await restoredSaveButton.click()
+    expect(await waitForProfileSaveFeedback(page)).toBe('success')
+})

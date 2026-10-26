@@ -57,7 +57,7 @@ export function useSelfStudyActions({
             const fence = await loadStudioGeofence(supabase);
             await validateStudioLocation(fence);
 
-            const { error } = await supabase.from('studio_sessions').insert({ member_id: user.id });
+            const { error } = await supabase.rpc('start_studio_session');
             if (error) throw error;
 
             toast({ title: '自习已开始', description: '已记录你在工作室自习。' });
@@ -84,10 +84,9 @@ export function useSelfStudyActions({
 
             const mySession = studioMembers.find((member) => member.id === user.id && member.type === 'study');
             if (mySession) {
-                const { error } = await supabase
-                    .from('studio_sessions')
-                    .update({ is_active: false, ended_at: new Date().toISOString() })
-                    .eq('id', mySession.sessionId);
+                const { error } = await supabase.rpc('end_studio_session', {
+                    p_session_id: mySession.sessionId,
+                });
                 if (error) throw error;
             }
 

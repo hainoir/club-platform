@@ -37,16 +37,20 @@ export function useEvents(initialEvents: Event[]) {
     }
 
     const normalizedUserEmail = (user?.email || '').trim().toLowerCase();
+    const isCurrentUserAttendee = (event: Event) => event.attendeesList?.some((attendee) => (
+        (user?.id && attendee.member_id === user.id)
+        || (!!attendee.user_email && attendee.user_email.toLowerCase() === normalizedUserEmail)
+    ));
 
     const upcomingEvents = events.filter(e => {
         if (isEventEnded(e)) return false;
-        if (viewMode === "enrolled" && (!normalizedUserEmail || !e.attendeesList?.some(a => a.user_email?.toLowerCase() === normalizedUserEmail))) return false;
+        if (viewMode === "enrolled" && !isCurrentUserAttendee(e)) return false;
         return true;
     });
 
     const endedEvents = events.filter(e => {
         if (!isEventEnded(e)) return false;
-        if (viewMode === "enrolled" && (!normalizedUserEmail || !e.attendeesList?.some(a => a.user_email?.toLowerCase() === normalizedUserEmail))) return false;
+        if (viewMode === "enrolled" && !isCurrentUserAttendee(e)) return false;
         return true;
     }).sort((a, b) => {
         const timeA = new Date(a.rawEndTime || a.rawDate || 0).getTime();

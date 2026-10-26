@@ -178,7 +178,7 @@ test.describe('Self-study location gating', () => {
             await grantStudioGeolocation(page.context(), insideStudioFix(fence))
 
             let hasActiveStudy = false
-            let postRequests = 0
+            let startSessionRequests = 0
             let expectedName = ''
             let memberId = ''
 
@@ -191,6 +191,20 @@ test.describe('Self-study location gating', () => {
                     status: 200,
                     contentType: 'application/json',
                     body: '[]',
+                })
+            })
+
+            await page.route('**/rest/v1/rpc/start_studio_session', async (route, request) => {
+                if (request.method() !== 'POST') {
+                    await route.continue()
+                    return
+                }
+                startSessionRequests += 1
+                hasActiveStudy = true
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify('00000000-0000-0000-0000-000000000031'),
                 })
             })
 
@@ -216,17 +230,6 @@ test.describe('Self-study location gating', () => {
                     return
                 }
 
-                if (request.method() === 'POST') {
-                    postRequests += 1
-                    hasActiveStudy = true
-                    await route.fulfill({
-                        status: 201,
-                        contentType: 'application/json',
-                        body: '[]',
-                    })
-                    return
-                }
-
                 await route.continue()
             })
 
@@ -236,7 +239,7 @@ test.describe('Self-study location gating', () => {
             memberId = setup.member.id
 
             await setup.selfStudyButton.click()
-            await expect.poll(() => postRequests, { timeout: 5_000, intervals: [100, 250, 500] }).toBe(1)
+            await expect.poll(() => startSessionRequests, { timeout: 5_000, intervals: [100, 250, 500] }).toBe(1)
 
             const studyBadge = page.locator('span').filter({ hasText: new RegExp(`${escapeRegex(expectedName)}\\s*自习`) }).first()
             await expect(studyBadge).toBeVisible({ timeout: 15_000 })
@@ -249,7 +252,7 @@ test.describe('Self-study location gating', () => {
         let client: AuthedFixtureClient | null = null
 
         try {
-            let postRequests = 0
+            let startSessionRequests = 0
 
             await page.route('**/rest/v1/duty_logs*', async (route, request) => {
                 if (request.method() !== 'GET') {
@@ -263,20 +266,23 @@ test.describe('Self-study location gating', () => {
                 })
             })
 
+            await page.route('**/rest/v1/rpc/start_studio_session', async (route, request) => {
+                if (request.method() !== 'POST') {
+                    await route.continue()
+                    return
+                }
+                startSessionRequests += 1
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify('00000000-0000-0000-0000-000000000099'),
+                })
+            })
+
             await page.route('**/rest/v1/studio_sessions*', async (route, request) => {
                 if (request.method() === 'GET') {
                     await route.fulfill({
                         status: 200,
-                        contentType: 'application/json',
-                        body: '[]',
-                    })
-                    return
-                }
-
-                if (request.method() === 'POST') {
-                    postRequests += 1
-                    await route.fulfill({
-                        status: 201,
                         contentType: 'application/json',
                         body: '[]',
                     })
@@ -291,7 +297,7 @@ test.describe('Self-study location gating', () => {
 
             await setup.selfStudyButton.click()
             await expect(page.getByText(LOCATION_DENIED_REGEX)).toBeVisible({ timeout: LOCATION_FEEDBACK_TIMEOUT_MS })
-            expect(postRequests).toBe(0)
+            expect(startSessionRequests).toBe(0)
         } finally {
             await signOutQuietly(client)
         }
@@ -305,7 +311,7 @@ test.describe('Self-study location gating', () => {
             const fix = inaccurateStudioFix(fence)
             await grantStudioGeolocation(page.context(), fix)
 
-            let postRequests = 0
+            let startSessionRequests = 0
 
             await page.route('**/rest/v1/duty_logs*', async (route, request) => {
                 if (request.method() !== 'GET') {
@@ -319,20 +325,23 @@ test.describe('Self-study location gating', () => {
                 })
             })
 
+            await page.route('**/rest/v1/rpc/start_studio_session', async (route, request) => {
+                if (request.method() !== 'POST') {
+                    await route.continue()
+                    return
+                }
+                startSessionRequests += 1
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify('00000000-0000-0000-0000-000000000099'),
+                })
+            })
+
             await page.route('**/rest/v1/studio_sessions*', async (route, request) => {
                 if (request.method() === 'GET') {
                     await route.fulfill({
                         status: 200,
-                        contentType: 'application/json',
-                        body: '[]',
-                    })
-                    return
-                }
-
-                if (request.method() === 'POST') {
-                    postRequests += 1
-                    await route.fulfill({
-                        status: 201,
                         contentType: 'application/json',
                         body: '[]',
                     })
@@ -349,7 +358,7 @@ test.describe('Self-study location gating', () => {
             await expect(page.getByText(new RegExp(`当前定位精度约\\s*${fix.accuracy}\\s*米`))).toBeVisible({
                 timeout: LOCATION_FEEDBACK_TIMEOUT_MS,
             })
-            expect(postRequests).toBe(0)
+            expect(startSessionRequests).toBe(0)
         } finally {
             await signOutQuietly(client)
         }
