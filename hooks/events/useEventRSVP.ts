@@ -77,6 +77,11 @@ export function useEventRSVP(
                 router.refresh()
                 return
             }
+            if (pError.hint === 'rsvp_deadline' || pError.message?.includes('RSVP deadline')) {
+                toast({ title: "报名截止", description: `「${event.title}」已停止报名。`, variant: "destructive" })
+                router.refresh()
+                return
+            }
             toast({ title: "操作失败", description: pError.message || (error as Error).message || "无法完成请求，请稍后重试。", variant: "destructive" })
         }
     }
