@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: quality-build-placeholder
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
 
@@ -77,7 +77,7 @@ jobs:
       PLAYWRIGHT_WEB_SERVER_COMMAND: pnpm exec next start --port 3001
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
 
