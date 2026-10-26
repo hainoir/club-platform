@@ -1,8 +1,18 @@
 import { createClient } from '@/utils/supabase/server';
 import EventsClient, { Event } from '@/components/events/EventsClient';
+import { isAdminRole } from '@/lib/app-user';
+import { resolveAppUser } from '@/utils/supabase/resolve-app-user';
+import { formatEventDateTime } from '@/lib/events/event-time';
 
 export default async function EventsPage() {
     const supabase = await createClient();
+
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const appUser = await resolveAppUser(supabase, authUser)
+    const isAdmin = isAdminRole(appUser?.role)
+    const attendeeFields = isAdmin
+        ? 'event_attendees(id, member_id, user_name, user_email, is_attended)'
+        : 'event_attendees(id, member_id, user_name, is_attended)'
 
     // 【系统学习：服务端数据拉取与外键连表】
     // 在服务端组件中直接连接数据库，获取全部活动记录。
@@ -10,8 +20,12 @@ export default async function EventsPage() {
     // 在取活动的同时，把与之关联的报名名单一并“连表查询”出来一次性拿给前端。
     const { data: eventsData, error } = await supabase
         .from('events')
-        .select('*, event_attendees(id, user_name, user_email, is_attended)')
+        .select(`*, ${attendeeFields}`)
         .order('event_date', { ascending: true }); // 按活动时间升序排列，即最早发生的排在上边
+
+    const { data: attendeeCounts, error: countsError } = await supabase.rpc('get_event_attendee_counts')
+    if (countsError) console.error("获取活动报名人数失败:", countsError)
+    const countByEventId = new Map((attendeeCounts || []).map((row) => [row.event_id, row.attendee_count]))
 
     if (error) {
         console.error("获取活动数据失败:", error);
@@ -27,15 +41,15 @@ export default async function EventsPage() {
 
         // 第一步容错处理：确保原生日期数据合法，再转化为贴合国内阅读习惯的中文序列字符串
         if (!isNaN(dateObj.getTime())) {
-            dateStr = dateObj.toLocaleDateString("zh-CN", { year: 'numeric', month: 'long', day: 'numeric' });
-            timeStr = dateObj.toLocaleTimeString("zh-CN", { hour: '2-digit', minute: '2-digit' });
+            dateStr = formatEventDateTime(e.event_date, { year: 'numeric', month: 'long', day: 'numeric' });
+            timeStr = formatEventDateTime(e.event_date, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
         }
 
         let endTimeStr = undefined;
         if (e.end_time) {
             const endObj = new Date(e.end_time);
             if (!isNaN(endObj.getTime())) {
-                endTimeStr = endObj.toLocaleTimeString("zh-CN", { hour: '2-digit', minute: '2-digit' });
+                endTimeStr = formatEventDateTime(e.end_time, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
             }
         }
 
@@ -59,7 +73,7 @@ export default async function EventsPage() {
             location: e.location || "待定",
             isOnline: isOnline,
             description: e.description || "暂无描述",
-            attendees: attendeesList.length,
+            attendees: Number(countByEventId.get(String(e.id)) || 0),
             attendeesList: attendeesList,
             type: determinedType,
             coverUrl: e.cover_url || undefined

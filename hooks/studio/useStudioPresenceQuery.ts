@@ -75,7 +75,7 @@ export function useStudioPresenceQuery(supabase: SupabaseBrowserClient, rosters:
             // 【学习注释：先让数据库做过期收口，再读活跃会话】
             // 过期判断依赖统一时间口径，放在 RPC 中比前端逐条修表更稳。
             const { error: expireError } = await runWithTimeout<PostgrestSingleResult<number>>(async (signal) =>
-                await supabase.rpc('expire_studio_sessions', { p_now: new Date().toISOString() }).abortSignal(signal)
+                await supabase.rpc('expire_studio_sessions').abortSignal(signal)
             );
 
             if (expireError) throw expireError;

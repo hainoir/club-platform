@@ -89,48 +89,18 @@ export function ProfileTab({
 
             if (authError) throw authError
 
-            let memberSyncWarning = false
-            const { data: existingMember, error: lookupError } = await supabase
+            const { error: memberError } = await supabase
                 .from("members")
-                .select("id")
-                .eq("id", profile.id)
-                .maybeSingle()
-
-            if (lookupError && lookupError.code !== "PGRST116") {
-                throw lookupError
-            }
-
-            if (!existingMember) {
-                const { error: insertError } = await supabase.from("members").insert({
-                    id: profile.id,
-                    email: profile.email,
+                .update({
                     name: safeName,
-                    role: profile.role || DEFAULT_MEMBER_ROLE,
                     department: safeDepartment,
                     grade: safeGrade || null,
                     student_id: safeStudentId || null,
-                    status: "active",
-                    join_date: new Date().toISOString().slice(0, 10),
                 })
-
-                if (insertError) {
-                    memberSyncWarning = true
-                }
-            } else {
-                const { error: updateError } = await supabase
-                    .from("members")
-                    .update({
-                        name: safeName,
-                        department: safeDepartment,
-                        grade: safeGrade || null,
-                        student_id: safeStudentId || null,
-                    })
-                    .eq("id", profile.id)
-
-                if (updateError) {
-                    memberSyncWarning = true
-                }
-            }
+                .eq("id", profile.id)
+                .select("id")
+                .single()
+            if (memberError) throw memberError
 
             if (currentUser) {
                 setUser({ ...currentUser, name: safeName })
@@ -138,9 +108,7 @@ export function ProfileTab({
 
             toast({
                 title: "资料已保存",
-                description: memberSyncWarning
-                    ? "账号资料已更新；成员表同步受权限限制，已保留你本次修改。"
-                    : "账号资料与成员信息已同步更新。",
+                description: "账号资料与成员信息已同步更新。",
             })
         } catch (error: unknown) {
             toast({
@@ -231,7 +199,7 @@ export function ProfileTab({
 
                         <div className="flex items-center justify-between gap-3">
                             <p className="text-xs text-muted-foreground">
-                                保存后会同步到账号元数据；若成员表权限受限，将保留本地账号侧修改。
+                                保存后会同步到成员信息和账号元数据。
                             </p>
                             <Button onClick={onSaveProfile} disabled={isSavingProfile} className="gap-2 shrink-0">
                                 <Save className="h-4 w-4" />

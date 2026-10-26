@@ -151,14 +151,14 @@ isOneToOne: false
                   ]
                 },"event_attendees": {
                   Row: {
-                    "created_at": string,"event_id": string,"id": string,"is_attended": boolean,"user_email": string,"user_name": string
+                    "created_at": string,"event_id": string,"id": string,"is_attended": boolean,"member_id": string | null,"user_email": string,"user_name": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"event_id": string,"id"?: string,"is_attended"?: boolean,"user_email": string,"user_name": string
+                    "created_at"?: string,"event_id": string,"id"?: string,"is_attended"?: boolean,"member_id"?: string | null,"user_email": string,"user_name": string
                   }
                   Update: {
-                    "created_at"?: string,"event_id"?: string,"id"?: string,"is_attended"?: boolean,"user_email"?: string,"user_name"?: string
+                    "created_at"?: string,"event_id"?: string,"id"?: string,"is_attended"?: boolean,"member_id"?: string | null,"user_email"?: string,"user_name"?: string
                   }
                   Relationships: [
                     {
@@ -283,6 +283,12 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
+            "get_studio_study_leaderboard":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+            "get_event_attendee_counts":
+{ Args: Record<PropertyKey, never>; Returns: { "attendee_count": number,"event_id": string }[]
+                           },
             "accept_duty_swap":
 { Args: { "p_acceptor_id": string,"p_swap_id": string }; Returns: undefined
                            },
@@ -311,7 +317,10 @@ isOneToOne: false
 { Args: { "p_at": string,"p_ignore_leave"?: boolean,"p_member_id": string }; Returns: string
                            },
 "expire_studio_sessions":
-{ Args: { "p_now"?: string }; Returns: number
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"end_studio_session":
+{ Args: { "p_session_id": string }; Returns: undefined
                            },
 "is_china_public_holiday":
 { Args: { "p_date": string }; Returns: boolean
@@ -327,6 +336,9 @@ isOneToOne: false
                            },
 "submit_duty_sign_in":
 { Args: { "p_accuracy": number,"p_device_info"?: string,"p_latitude": number,"p_longitude": number }; Returns: string
+                           },
+"start_studio_session":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "update_studio_geofence":
 { Args: { "p_latitude": number,"p_longitude": number,"p_max_accuracy_meters": number,"p_radius_meters": number,"p_reason": string }; Returns: undefined
