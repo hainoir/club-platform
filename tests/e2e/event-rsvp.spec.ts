@@ -1,5 +1,19 @@
-﻿import { expect, test } from '@playwright/test'
-import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
+import { expect, test } from '@playwright/test'
+import { gotoProtectedPath, loginWithPassword } from './helpers/auth'
+
+const SEEDED_MEMBER_EMAIL = 'E2E_MEMBER_EMAIL'
+const SEEDED_MEMBER_PASSWORD = 'E2E_MEMBER_PASSWORD'
+const SEEDED_EVENT_ID = '44444444-4444-4444-8444-444444444444'
+const SEEDED_EVENT_TITLE = 'CI 报名活动'
+
+function requireSeededMemberCredentials(): { email: string; password: string } {
+    const email = process.env[SEEDED_MEMBER_EMAIL]
+    const password = process.env[SEEDED_MEMBER_PASSWORD]
+    if (!email || !password) {
+        throw new Error(`Missing ${SEEDED_MEMBER_EMAIL} or ${SEEDED_MEMBER_PASSWORD}; run against the seeded E2E database`)
+    }
+    return { email, password }
+}
 
 async function waitForWriteMethod(
     getMethod: () => 'POST' | 'DELETE' | null,
@@ -16,27 +30,24 @@ async function waitForWriteMethod(
     return null
 }
 
-test('event RSVP toggle smoke', async ({ page }) => {
-    const env = requireEnv(['E2E_MEMBER_EMAIL', 'E2E_MEMBER_PASSWORD'])
+test('seeded event RSVP can be toggled', async ({ page }) => {
+    const credentials = requireSeededMemberCredentials()
 
-    await loginWithPassword(page, env.E2E_MEMBER_EMAIL, env.E2E_MEMBER_PASSWORD)
+    await loginWithPassword(page, credentials.email, credentials.password)
     await gotoProtectedPath(page, '/events')
-
-    const candidateCard = page
-        .locator('div.flex.flex-col.overflow-hidden')
-        .filter({ has: page.getByRole('button', { name: /立即报名|取消报名/ }) })
-        .first()
-    test.skip((await candidateCard.count()) === 0, 'No RSVP-ready events found')
-
-    const cardTitle = ((await candidateCard.getByRole('heading').first().textContent()) || '').trim()
-    test.skip(cardTitle.length === 0, 'No stable target event title for RSVP smoke')
 
     const targetCard = page
         .locator('div.flex.flex-col.overflow-hidden')
-        .filter({ has: page.getByRole('heading', { name: cardTitle, exact: true }) })
+        .filter({ has: page.getByRole('heading', { name: SEEDED_EVENT_TITLE, exact: true }) })
         .first()
+    await expect(targetCard).toHaveCount(1)
+    await expect(targetCard.getByRole('link', { name: SEEDED_EVENT_TITLE, exact: true })).toHaveAttribute(
+        'href',
+        `/events/${SEEDED_EVENT_ID}`
+    )
+
     const rsvpButton = targetCard.getByRole('button', { name: /立即报名|取消报名/ }).first()
-    test.skip((await rsvpButton.count()) === 0, 'No RSVP action found on target event card')
+    await expect(rsvpButton).toHaveCount(1)
 
     let attendeeWriteMethod: 'POST' | 'DELETE' | null = null
     await page.route('**/rest/v1/event_attendees*', async (route, request) => {
@@ -54,8 +65,12 @@ test('event RSVP toggle smoke', async ({ page }) => {
     await rsvpButton.click()
 
     const observedMethod = await waitForWriteMethod(() => attendeeWriteMethod)
-    test.skip(!observedMethod, 'event_attendees write not observed under current env')
-
     expect(observedMethod).toBe(expectedMethod)
-    await expect.poll(async () => ((await rsvpButton.textContent()) || '').trim(), { timeout: 15_000 }).toContain(expectedLabel)
+    await expect(rsvpButton).toHaveText(expectedLabel)
+
+    attendeeWriteMethod = null
+    await rsvpButton.click()
+    const reverseMethod = await waitForWriteMethod(() => attendeeWriteMethod)
+    expect(reverseMethod).toBe(expectedMethod === 'POST' ? 'DELETE' : 'POST')
+    await expect(rsvpButton).toHaveText(before)
 })

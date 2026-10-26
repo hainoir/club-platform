@@ -14,6 +14,7 @@ import {
 } from "@/lib/duty/duty-sign-in"
 import { useSupabase } from "@/hooks/shared/useSupabase"
 import { useProtectedAction } from "@/hooks/shared/useProtectedAction"
+import { loadStudioGeofence } from "@/lib/studio/studio-location"
 
 /**
  * 【学习注释：仪表盘签到入口的客户端职责】
@@ -40,6 +41,7 @@ export function DashboardSignInWidget({
     const [hasSignedInToday, setHasSignedInToday] = React.useState(initialHasSignedInToday)
     const [isInDutyPeriod, setIsInDutyPeriod] = React.useState(false)
     const [disabledReason, setDisabledReason] = React.useState<DisabledReason>("not_in_period")
+    const [radiusMeters, setRadiusMeters] = React.useState<number | null>(null)
     const lastSignInAttemptAtRef = React.useRef(0)
 
     const assignedPeriods = React.useMemo(
@@ -60,6 +62,20 @@ export function DashboardSignInWidget({
         const timer = window.setInterval(refreshSignInState, 60_000)
         return () => window.clearInterval(timer)
     }, [refreshSignInState])
+
+    React.useEffect(() => {
+        let cancelled = false
+        loadStudioGeofence(supabase)
+            .then((fence) => {
+                if (!cancelled) setRadiusMeters(fence.radiusMeters)
+            })
+            .catch(() => {
+                if (!cancelled) setRadiusMeters(null)
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [supabase])
 
     // 【学习注释：签到写入前的三层防线】
     // 先做点击节流，再查当天是否已签到，最后才进入定位与写库流程。
@@ -129,6 +145,7 @@ export function DashboardSignInWidget({
             hasSignedInToday={hasSignedInToday}
             isInDutyPeriod={isInDutyPeriod}
             disabledReason={disabledReason}
+            radiusMeters={radiusMeters}
         />
     )
 }

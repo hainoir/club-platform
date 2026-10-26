@@ -125,6 +125,23 @@ async function resolveMemberIdentity(client: AuthedFixtureClient, fallbackEmail:
     return findMemberByEmail(client.supabase, fallbackEmail)
 }
 
+async function endActiveSessions(supabase: AppSupabaseClient, memberId: string): Promise<void> {
+    const { data: sessions, error: lookupError } = await supabase
+        .from('studio_sessions')
+        .select('id')
+        .eq('member_id', memberId)
+        .eq('is_active', true)
+
+    if (lookupError) {
+        throw new Error('Unable to inspect active self-study sessions: ' + lookupError.message)
+    }
+
+    for (const session of sessions ?? []) {
+        const { error } = await supabase.rpc('end_studio_session', { p_session_id: session.id })
+        if (error) throw new Error('Unable to clear active self-study session: ' + error.message)
+    }
+}
+
 test.describe('Self-study name display', () => {
     test.setTimeout(90_000)
 
@@ -152,15 +169,7 @@ test.describe('Self-study name display', () => {
 
             test.skip((rosterCount || 0) > 0, 'This test requires a member account with no duty_rosters assignments')
 
-            const { error: endSessionError } = await client.supabase
-                .from('studio_sessions')
-                .update({ is_active: false, ended_at: new Date().toISOString() })
-                .eq('member_id', member.id)
-                .eq('is_active', true)
-
-            if (endSessionError) {
-                throw new Error('Unable to clear active self-study sessions: ' + endSessionError.message)
-            }
+            await endActiveSessions(client.supabase, member.id)
 
             const expectedName = (member.name || '').trim() || member.email || account.email
             const expectedStudyText = new RegExp(`${escapeRegex(expectedName)}\\s*${STUDY_LABEL}`)
@@ -200,11 +209,7 @@ test.describe('Self-study name display', () => {
             await expect(dashboardStudyBadge).toBeVisible()
         } finally {
             if (client && memberId) {
-                await client.supabase
-                    .from('studio_sessions')
-                    .update({ is_active: false, ended_at: new Date().toISOString() })
-                    .eq('member_id', memberId)
-                    .eq('is_active', true)
+                await endActiveSessions(client.supabase, memberId)
             }
             await signOutQuietly(client)
         }

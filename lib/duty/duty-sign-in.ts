@@ -1,8 +1,9 @@
 import { isChinaPublicHoliday } from "./china-public-holidays.ts"
-import { toDutyDateTimeParts } from "./duty-time.ts"
+import { getDutyNow, toDutyDateTimeParts } from "./duty-time.ts"
 import {
     getStudioLocationErrorMessage,
     isStudioLocationValidationFailure,
+    loadStudioGeofence,
     validateStudioLocation,
 } from "../studio/studio-location.ts"
 
@@ -81,31 +82,49 @@ export async function submitDutySignIn(options: {
     memberId: string
     deviceInfo?: string
 }): Promise<DutySignInResult> {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // memberId 是调用方手里的登录用户 id，不能拿来判断今天有没有签到。
+    // 成员档案可能和 auth.uid() 不是同一行，以 current_member_id() 为准。
+    void options.memberId
 
+    let resolvedMemberId: string | null = null
     try {
-        // 【学习注释：先做最便宜的重复签到预检】
-        // 能在写库前直接拦住明显重复请求，减少无意义的定位校验和唯一键冲突。
-        const { data: existingLogs, error: existingError } = await options.supabase
-            .from("duty_logs")
-            .select("id")
-            .eq("member_id", options.memberId)
-            .gte("sign_in_time", today.toISOString())
-            .limit(1)
-
-        if (!existingError && !!existingLogs && existingLogs.length > 0) {
-            return "already_signed_in"
+        const { data, error } = await options.supabase.rpc("current_member_id")
+        if (error) {
+            console.warn("Failed to resolve current member:", error)
+        } else if (typeof data === "string" && data.length > 0) {
+            resolvedMemberId = data
+        } else {
+            throw new DutySignInError("write", "未找到当前成员档案，请联系管理员。")
         }
     } catch (error) {
-        console.warn("Failed to pre-check duty logs:", error)
+        if (error instanceof DutySignInError) throw error
+        console.warn("Failed to resolve current member:", error)
+    }
+
+    if (resolvedMemberId) {
+        try {
+            const todayKey = getDutyNow().dateKey
+            const { data: existingLogs, error: existingError } = await options.supabase
+                .from("duty_logs")
+                .select("id")
+                .eq("member_id", resolvedMemberId)
+                .eq("sign_in_date", todayKey)
+                .limit(1)
+
+            if (!existingError && !!existingLogs && existingLogs.length > 0) {
+                return "already_signed_in"
+            }
+        } catch (error) {
+            console.warn("Failed to pre-check duty logs:", error)
+        }
     }
 
     let location: Awaited<ReturnType<typeof validateStudioLocation>>
     try {
-        // 浏览器判断只用来提前提示。真正能否写入由 submit_duty_sign_in 和
-        // duty_logs 上的围栏触发器决定，客户端不能再直接插入签到行。
-        location = await validateStudioLocation()
+        // 浏览器判断只用来提前提示。圆心和半径来自 studio_geofence，
+        // 真正能否写入由 submit_duty_sign_in 和 duty_logs 上的围栏触发器决定。
+        const fence = await loadStudioGeofence(options.supabase)
+        location = await validateStudioLocation(fence)
     } catch (error) {
         throw new DutySignInError("location", getStudioLocationErrorMessage(error), error)
     }
@@ -169,6 +188,12 @@ function describeGeofenceRejection(error: unknown): string | null {
             return "定位精度异常，请稍后重试。"
         case "geofence_unconfigured":
             return "工作室地理围栏尚未配置，请联系管理员。"
+        case "holiday":
+            return "今日为公共假日，不记录值班签到。"
+        case "outside_shift_window":
+            return "当前不在值班签到时段。"
+        case "not_rostered":
+            return "当前节次没有你的排班，不能签到。"
         default:
             return null
     }

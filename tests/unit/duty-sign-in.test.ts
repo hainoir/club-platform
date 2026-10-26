@@ -73,6 +73,18 @@ test("server geofence rejections are shown from the database hint", () => {
         getDutySignInErrorMessage({ hint: "invalid_coordinates" }),
         "定位坐标无效，请稍后重试。"
     )
+    assert.equal(
+        getDutySignInErrorMessage({ hint: "holiday" }),
+        "今日为公共假日，不记录值班签到。"
+    )
+    assert.equal(
+        getDutySignInErrorMessage({ hint: "outside_shift_window" }),
+        "当前不在值班签到时段。"
+    )
+    assert.equal(
+        getDutySignInErrorMessage({ hint: "not_rostered" }),
+        "当前节次没有你的排班，不能签到。"
+    )
 })
 
 test("assigned members stay disabled on public holidays", () => {
