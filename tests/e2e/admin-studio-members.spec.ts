@@ -40,7 +40,8 @@ test.describe('Admin studio members controls', () => {
             }
 
             const body = request.postDataJSON()
-            expect(typeof body.p_now).toBe('string')
+            // Production RPC no longer accepts a client clock.
+            expect(body == null || body.p_now === undefined).toBe(true)
 
             await route.fulfill({
                 status: 200,

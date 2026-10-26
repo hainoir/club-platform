@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Supabase 负责抛出认证事件，这里只做统一收口：把事件重新折叠成一次 `initAuth`。
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (event) => {
+        } = supabase.auth.onAuthStateChange((event) => {
             if (event === "SIGNED_OUT") {
                 setUser(null)
                 setInitialized(true)
@@ -116,7 +116,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
-                await initAuth()
+                // initialize() emits these while it still holds the auth lock and
+                // before initializePromise resolves. Waiting on getSession here
+                // waits on that promise, so the lock stays held.
+                setTimeout(() => {
+                    void initAuth()
+                }, 0)
             }
         })
 

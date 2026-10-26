@@ -21,23 +21,25 @@ export async function getDutyScheduleNotifications({
     const nowMinutes = dutyNow.minutes
     const todayDow = dutyNow.dayOfWeek
     const todayDateKey = dutyNow.dateKey
-    const todayStart = new Date(now)
-    todayStart.setHours(0, 0, 0, 0)
+    const resolvedMember = await supabase.rpc("current_member_id")
+    const memberId = typeof resolvedMember.data === "string" && resolvedMember.data.length > 0
+        ? resolvedMember.data
+        : user.id
 
     const [myRostersResult, myApprovedLeavesResult, todaySignInsResult] = await Promise.all([
-        supabase.from("duty_rosters").select("id, member_id, day_of_week, period").eq("member_id", user.id),
+        supabase.from("duty_rosters").select("id, member_id, day_of_week, period").eq("member_id", memberId),
         supabase
             .from("duty_leaves")
             .select("id, member_id, day_of_week, period, leave_date, expires_at, status")
-            .eq("member_id", user.id)
+            .eq("member_id", memberId)
             .eq("status", "approved")
             .gt("expires_at", now.toISOString()),
         supabase
             .from("duty_logs")
             .select("sign_in_time")
-            .eq("member_id", user.id)
+            .eq("member_id", memberId)
             .eq("location_verified", true)
-            .gte("sign_in_time", todayStart.toISOString()),
+            .eq("sign_in_date", todayDateKey),
     ])
 
     const items: AppNotification[] = []
