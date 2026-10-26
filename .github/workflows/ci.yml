@@ -71,6 +71,8 @@ jobs:
       E2E_ADMIN_PASSWORD: e2e-admin-pass
       E2E_KEY_RECEIVER_EMAIL: e2e.receiver@club.local
       E2E_KEY_RECEIVER_PASSWORD: e2e-receiver-pass
+      E2E_SELF_STUDY_EMAIL: e2e.study@club.local
+      E2E_SELF_STUDY_PASSWORD: e2e-study-pass
       # The job builds once with the local keys. Playwright should only start the server.
       PLAYWRIGHT_WEB_SERVER_COMMAND: pnpm exec next start --port 3001
 

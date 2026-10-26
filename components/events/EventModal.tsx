@@ -104,7 +104,8 @@ export function EventModal({
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="cover">活动封面海报 (可选)</Label>
-                            <Input id="cover" name="cover" type="file" accept="image/*" className="cursor-pointer file:text-muted-foreground" />
+                            <Input id="cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp" className="cursor-pointer file:text-muted-foreground" />
+                            <p className="text-xs text-muted-foreground">支持 JPG、PNG、WebP，最大 5 MB。</p>
                             {editingEvent?.coverUrl && <p className="text-xs text-muted-foreground">保留为空以使用原海报。</p>}
                         </div>
                         <div className="grid gap-2">

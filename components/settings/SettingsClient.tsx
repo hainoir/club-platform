@@ -6,14 +6,16 @@ import { useTheme } from "next-themes"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSupabase } from "@/hooks/shared/useSupabase"
 import { useToast } from "@/components/ui/toast-simple"
+import { isAdminRole } from "@/lib/app-user"
 import { usePreferencesStore } from "@/store/usePreferencesStore"
 import { useUserStore } from "@/store/useUserStore"
 
 import { AppearanceTab } from "./AppearanceTab"
+import { GeofenceTab } from "./GeofenceTab"
 import { NotificationTab } from "./NotificationTab"
 import { ProfileTab } from "./ProfileTab"
 import { SecurityTab } from "./SecurityTab"
-import { TAB_VALUES, type SettingsProfile, type TabValue } from "./settings-types"
+import { GEOFENCE_TAB, TAB_VALUES, type SettingsProfile, type TabValue } from "./settings-types"
 
 export type { SettingsProfile } from "./settings-types"
 
@@ -30,22 +32,28 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
     const setInterfacePreference = usePreferencesStore((s) => s.setInterfacePreference)
     const resetPreferences = usePreferencesStore((s) => s.resetPreferences)
 
+    const canEditGeofence = isAdminRole(profile?.role)
     const [activeTab, setActiveTab] = React.useState<TabValue>("notifications")
 
     React.useEffect(() => {
         if (typeof window === "undefined") return
 
         const syncFromHash = () => {
-            const hash = window.location.hash.replace("#", "") as TabValue
-            if (TAB_VALUES.includes(hash)) {
-                setActiveTab(hash)
+            const hash = window.location.hash.replace("#", "")
+            const allowed: readonly string[] = canEditGeofence ? [...TAB_VALUES, GEOFENCE_TAB] : TAB_VALUES
+            if (allowed.includes(hash)) {
+                setActiveTab(hash as TabValue)
+                return
+            }
+            if (hash === GEOFENCE_TAB) {
+                setActiveTab("notifications")
             }
         }
 
         syncFromHash()
         window.addEventListener("hashchange", syncFromHash)
         return () => window.removeEventListener("hashchange", syncFromHash)
-    }, [])
+    }, [canEditGeofence])
 
     const onTabChange = (value: string) => {
         const nextTab = value as TabValue
@@ -64,11 +72,12 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
             </div>
 
             <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-4">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+                <TabsList className={`grid w-full grid-cols-2 h-auto ${canEditGeofence ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
                     <TabsTrigger value="notifications" id="notifications">通知提醒</TabsTrigger>
                     <TabsTrigger value="interface">界面偏好</TabsTrigger>
                     <TabsTrigger value="account">账号资料</TabsTrigger>
                     <TabsTrigger value="security">安全设置</TabsTrigger>
+                    {canEditGeofence ? <TabsTrigger value={GEOFENCE_TAB}>工作室围栏</TabsTrigger> : null}
                 </TabsList>
 
                 <TabsContent value="notifications" className="space-y-4">
@@ -102,6 +111,12 @@ export default function SettingsClient({ profile }: { profile: SettingsProfile |
                 <TabsContent value="security" className="space-y-4">
                     <SecurityTab supabase={supabase} toast={toast} />
                 </TabsContent>
+
+                {canEditGeofence ? (
+                    <TabsContent value={GEOFENCE_TAB} className="space-y-4">
+                        <GeofenceTab supabase={supabase} toast={toast} />
+                    </TabsContent>
+                ) : null}
             </Tabs>
         </div>
     )
