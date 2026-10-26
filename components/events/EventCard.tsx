@@ -15,6 +15,7 @@ interface EventCardProps {
     event: Event
     isEnded: boolean
     isAdmin: boolean
+    currentUserId?: string
     currentUserEmail?: string
     onEdit: (event: Event) => void
     onDelete: (id: string, title: string) => void
@@ -26,6 +27,7 @@ export function EventCard({
     event,
     isEnded,
     isAdmin,
+    currentUserId,
     currentUserEmail,
     onEdit,
     onDelete,
@@ -33,7 +35,10 @@ export function EventCard({
     onRSVP
 }: EventCardProps) {
     const normalizedCurrentUserEmail = (currentUserEmail || '').trim().toLowerCase()
-    const isRSVPd = !!normalizedCurrentUserEmail && event.attendeesList?.some(a => a.user_email?.toLowerCase() === normalizedCurrentUserEmail)
+    const isRSVPd = event.attendeesList?.some(a => (
+        (!!currentUserId && a.member_id === currentUserId)
+        || (!!normalizedCurrentUserEmail && !!a.user_email && a.user_email.toLowerCase() === normalizedCurrentUserEmail)
+    ))
 
     return (
         <Card className={cn(

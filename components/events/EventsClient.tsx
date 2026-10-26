@@ -12,7 +12,8 @@ import { AttendeesModal } from "@/components/events/AttendeesModal"
 
 export type Attendee = {
     id: string
-    user_email: string
+    member_id?: string | null
+    user_email?: string
     user_name: string
     is_attended?: boolean
 }
@@ -69,6 +70,7 @@ export default function EventsClient({ initialEvents }: EventsClientProps) {
             event={event}
             isEnded={isEnded}
             isAdmin={isAdminRole(user?.role)}
+            currentUserId={user?.id}
             currentUserEmail={user?.email}
             onEdit={openEdit}
             onDelete={handleDelete}

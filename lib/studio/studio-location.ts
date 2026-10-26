@@ -1,42 +1,30 @@
+import type { SupabaseClient } from "@supabase/supabase-js"
+
+import type { Database } from "@/types/supabase"
+
 import {
     getCurrentPositionWithFallback,
     getLocationErrorReason,
     type LocationErrorReason,
 } from "../shared/geolocation.ts"
 
-// 仅用于签到按钮的交互提示。权威围栏在 public.studio_geofence，
-// 由 supabase/migrations/20261015083723_duty_signin_geofence.sql 初始化并在插入 duty_logs 时强制执行。
-// 更换工作室时两边要一起改，否则浏览器会放行随后被数据库拒绝的坐标。
-const DEFAULT_STUDIO_COORDS = {
-    lat: 39.181074,
-    lng: 117.12138,
+// 与 supabase/migrations/20261015083723_duty_signin_geofence.sql 种下的初始行相同，只给纯函数测试用。
+// 签到和自习必须读取 public.studio_geofence，环境变量不再参与判断。
+const BUILTIN_STUDIO_GEOFENCE = {
+    latitude: 39.181074,
+    longitude: 117.12138,
+    radiusMeters: 50,
+    maxAccuracyMeters: 100,
 }
-
-const DEFAULT_MAX_VALID_RADIUS_METERS = 50
-const DEFAULT_MAX_GEO_ACCURACY_METERS = 100
 
 export const STUDIO_LOCATION_ACTION_COOLDOWN_MS = 5000
 
-function parseClientNumber(value: string | undefined, fallback: number): number {
-    if (!value) return fallback
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : fallback
+export interface StudioGeofenceConfig {
+    latitude: number
+    longitude: number
+    radiusMeters: number
+    maxAccuracyMeters: number
 }
-
-const STUDIO_COORDS = {
-    lat: parseClientNumber(process.env.NEXT_PUBLIC_STUDIO_LAT, DEFAULT_STUDIO_COORDS.lat),
-    lng: parseClientNumber(process.env.NEXT_PUBLIC_STUDIO_LNG, DEFAULT_STUDIO_COORDS.lng),
-}
-
-const MAX_VALID_RADIUS_METERS = parseClientNumber(
-    process.env.NEXT_PUBLIC_STUDIO_RADIUS_METERS,
-    DEFAULT_MAX_VALID_RADIUS_METERS
-)
-
-const MAX_GEO_ACCURACY_METERS = parseClientNumber(
-    process.env.NEXT_PUBLIC_STUDIO_MAX_GEO_ACCURACY_METERS,
-    DEFAULT_MAX_GEO_ACCURACY_METERS
-)
 
 export type StudioLocationValidationErrorReason =
     | LocationErrorReason
@@ -45,6 +33,7 @@ export type StudioLocationValidationErrorReason =
     | "invalid_accuracy"
     | "insufficient_accuracy"
     | "out_of_range"
+    | "geofence_unconfigured"
 
 export interface StudioLocationValidationResult {
     latitude: number
@@ -88,13 +77,34 @@ function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2
     return earthRadiusMeters * c
 }
 
-export function getStudioLocationHintConfig() {
-    return {
-        latitude: STUDIO_COORDS.lat,
-        longitude: STUDIO_COORDS.lng,
-        radiusMeters: MAX_VALID_RADIUS_METERS,
-        maxAccuracyMeters: MAX_GEO_ACCURACY_METERS,
+export function getStudioLocationHintConfig(): StudioGeofenceConfig {
+    return { ...BUILTIN_STUDIO_GEOFENCE }
+}
+
+export async function loadStudioGeofence(
+    supabase: SupabaseClient<Database>,
+): Promise<StudioGeofenceConfig> {
+    const { data, error } = await supabase
+        .from("studio_geofence")
+        .select("latitude, longitude, radius_meters, max_accuracy_meters")
+        .eq("id", true)
+        .maybeSingle()
+
+    const latitude = Number(data?.latitude)
+    const longitude = Number(data?.longitude)
+    const radiusMeters = Number(data?.radius_meters)
+    const maxAccuracyMeters = Number(data?.max_accuracy_meters)
+    if (
+        error
+        || !Number.isFinite(latitude)
+        || !Number.isFinite(longitude)
+        || !Number.isFinite(radiusMeters)
+        || !Number.isFinite(maxAccuracyMeters)
+    ) {
+        throw new StudioLocationValidationError("geofence_unconfigured")
     }
+
+    return { latitude, longitude, radiusMeters, maxAccuracyMeters }
 }
 
 export function isStudioLocationValidationError(error: unknown): error is StudioLocationValidationError {
@@ -105,14 +115,17 @@ export function isStudioLocationValidationError(error: unknown): error is Studio
  * 浏览器侧围栏判断。调用方拿到的通过结果只说明可以继续请求服务器，
  * 数据库触发器会用 studio_geofence 再判一次。
  */
-export function assessStudioLocationFix(input: {
-    latitude: number
-    longitude: number
-    accuracy: number
-}): StudioLocationValidationResult {
+export function assessStudioLocationFix(
+    input: {
+        latitude: number
+        longitude: number
+        accuracy: number
+    },
+    fence: StudioGeofenceConfig = getStudioLocationHintConfig(),
+): StudioLocationValidationResult {
     const latitude = Number(input.latitude)
     const longitude = Number(input.longitude)
-    const hint = getStudioLocationHintConfig()
+    const hint = fence
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
         throw new StudioLocationValidationError("invalid_coordinates")
@@ -151,7 +164,9 @@ export function isStudioLocationValidationFailure(error: unknown): boolean {
     return getLocationErrorReason(error) !== "unknown"
 }
 
-export async function validateStudioLocation(): Promise<StudioLocationValidationResult> {
+export async function validateStudioLocation(
+    fence: StudioGeofenceConfig,
+): Promise<StudioLocationValidationResult> {
     const position = await getCurrentPositionWithFallback()
 
     if (!position || !position.coords) {
@@ -162,12 +177,14 @@ export async function validateStudioLocation(): Promise<StudioLocationValidation
         latitude: Number(position.coords.latitude),
         longitude: Number(position.coords.longitude),
         accuracy: Number(position.coords.accuracy),
-    })
+    }, fence)
 }
 
 export function getStudioLocationErrorMessage(error: unknown): string {
     if (isStudioLocationValidationError(error)) {
         switch (error.reason) {
+            case "geofence_unconfigured":
+                return "工作室地理围栏尚未配置，请联系管理员。"
             case "empty_payload":
                 return "未获取到有效定位信息，请检查设备定位服务后重试。"
             case "invalid_coordinates":
