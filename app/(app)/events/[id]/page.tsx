@@ -4,9 +4,13 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CalendarIcon, MapPin, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { EventDetailActions } from "@/components/events/EventDetailActions"
+import type { Event } from "@/components/events/EventsClient"
+import { formatEventDateTime } from "@/lib/events/event-time"
+import { resolveAppUser } from "@/utils/supabase/resolve-app-user"
 
-// 增量静态再生成：该页面在服务端缓存 60 秒
-export const revalidate = 60
+// RSVP state is user-specific, so this page must render against the current session.
+export const dynamic = 'force-dynamic'
 
 interface EventPageProps {
     params: Promise<{ id: string }>
@@ -26,16 +30,55 @@ export default async function EventPage({ params }: EventPageProps) {
         notFound()
     }
 
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const appUser = await resolveAppUser(supabase, authUser)
+    const { data: memberAttendee } = appUser?.id
+        ? await supabase
+            .from('event_attendees')
+            .select('id, member_id, user_name, user_email')
+            .eq('event_id', id)
+            .eq('member_id', appUser.id)
+            .maybeSingle()
+        : { data: null }
+    const { data: legacyAttendee } = !memberAttendee && appUser?.email
+        ? await supabase
+            .from('event_attendees')
+            .select('id, member_id, user_name, user_email')
+            .eq('event_id', id)
+            .is('member_id', null)
+            .ilike('user_email', appUser.email)
+            .maybeSingle()
+        : { data: null }
+    const currentAttendee = memberAttendee || legacyAttendee
+
     // 格式化日期
-    const formattedDate = new Date(event.event_date).toLocaleDateString('zh-CN', {
+    const formattedDate = formatEventDateTime(event.event_date, {
         year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
     })
-    const formattedTime = new Date(event.event_date).toLocaleTimeString('zh-CN', {
-        hour: '2-digit', minute: '2-digit'
+    const formattedTime = formatEventDateTime(event.event_date, {
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
     })
-    const formattedEndTime = event.end_time ? new Date(event.end_time).toLocaleTimeString('zh-CN', {
-        hour: '2-digit', minute: '2-digit'
+    const formattedEndTime = event.end_time ? formatEventDateTime(event.end_time, {
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
     }) : null
+
+    const detailEvent: Event = {
+        id: String(event.id),
+        title: event.title,
+        date: formattedDate,
+        time: formattedTime,
+        endTime: formattedEndTime || undefined,
+        rawDate: event.event_date,
+        rawEndTime: event.end_time,
+        location: event.location || "待定",
+        isOnline: event.is_online,
+        description: event.description || "",
+        attendees: 0,
+        attendeesList: currentAttendee ? [currentAttendee] : [],
+        type: event.type || "讲座",
+        coverUrl: event.cover_url || undefined,
+    }
+    const isEnded = new Date(event.end_time || event.event_date).getTime() < Date.now()
 
     return (
         <div className="max-w-4xl mx-auto py-8 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -74,6 +117,9 @@ export default async function EventPage({ params }: EventPageProps) {
                             <MapPin className="h-5 w-5 text-indigo-500" />
                             <span className="font-medium">{event.location}</span>
                         </div>
+                    </div>
+                    <div className="mt-5">
+                        <EventDetailActions event={detailEvent} initialIsRSVPd={!!currentAttendee} isEnded={isEnded} />
                     </div>
                 </div>
 
