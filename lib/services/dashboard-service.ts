@@ -7,7 +7,7 @@ import {
 } from "@/lib/duty/duty-time"
 import { filterRostersForDutyAvailability } from "@/lib/duty/duty-leaves"
 import { isDutyRequiredDate } from "@/lib/duty/china-public-holidays"
-import { buildStudioStudyLeaderboard } from "@/lib/studio/studio-time"
+import type { StudioStudyLeaderboard } from "@/lib/studio/studio-time"
 import type { SimpleMember } from "@/components/duty/roster/DutyTable"
 import type { RosterWithMember } from "@/hooks/useDuty"
 import type { Database } from "@/types/supabase"
@@ -17,10 +17,6 @@ import { PERIOD_START_MINUTES } from "@/lib/duty/duty-constants"
 
 type DutyLeaveSlot = Pick<Database["public"]["Tables"]["duty_leaves"]["Row"], "id" | "member_id" | "day_of_week" | "period" | "leave_date" | "expires_at" | "status">
 type DutyLogSummary = Pick<Database["public"]["Tables"]["duty_logs"]["Row"], "member_id" | "sign_in_time" | "sign_in_date" | "location_verified">
-type StudioSessionWithMember = Pick<Database["public"]["Tables"]["studio_sessions"]["Row"], "member_id" | "started_at" | "ended_at" | "is_active"> & {
-    member: Pick<Database["public"]["Tables"]["members"]["Row"], "name"> | null
-}
-
 type SupabaseListResult<T> = {
     data: T[] | null
     error: { message: string } | null
@@ -51,7 +47,7 @@ export interface DashboardAggregatedData {
 }
 
 export interface StudioDashboardData {
-    studioStudyLeaderboard: ReturnType<typeof buildStudioStudyLeaderboard>
+    studioStudyLeaderboard: StudioStudyLeaderboard
 }
 
 /**
@@ -209,17 +205,21 @@ export async function getAggregatedDashboardData(): Promise<DashboardAggregatedD
 
 export async function getStudioDashboardData(): Promise<StudioDashboardData> {
     const supabase = await createClient()
-    const now = new Date()
 
-    // 【学习注释：自习统计和首页签到链路分离】
-    // 仪表盘只消费排行榜结果，具体统计口径继续留在 service/lib 层维护。
-    const studioSessionsResult = await supabase
-        .from("studio_sessions")
-        .select("member_id, started_at, ended_at, is_active, member:members(name)")
-        .returns<StudioSessionWithMember[]>()
+    // 【学习注释：排行榜在数据库聚合】
+    // RPC 只返回仪表盘需要的窗口结果，避免把完整历史自习记录传到 Node 再聚合。
+    // 时间窗口用数据库 statement_timestamp()，不接受客户端时钟。
+    const { data, error } = await supabase.rpc("get_studio_study_leaderboard")
 
-    const studioSessions = unwrapSupabaseList("studio sessions", studioSessionsResult)
-    const studioStudyLeaderboard = buildStudioStudyLeaderboard(studioSessions, now)
+    if (error) {
+        throw new Error(`studio leaderboard: ${error.message}`)
+    }
+
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        throw new Error("studio leaderboard: invalid RPC response")
+    }
+
+    const studioStudyLeaderboard = data as unknown as StudioStudyLeaderboard
 
     return {
         studioStudyLeaderboard,
