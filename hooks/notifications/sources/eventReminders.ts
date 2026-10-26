@@ -17,7 +17,7 @@ export async function getEventReminderNotifications({
     const enrolledEventsResult = await supabase
         .from("event_attendees")
         .select("id, event:events!event_attendees_event_id_fkey(id, title, event_date)")
-        .eq("user_email", user.email)
+        .eq("member_id", user.id)
 
     const items: AppNotification[] = []
 
