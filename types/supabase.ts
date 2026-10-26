@@ -151,14 +151,14 @@ isOneToOne: false
                   ]
                 },"event_attendees": {
                   Row: {
-                    "created_at": string,"event_id": string,"id": string,"is_attended": boolean,"user_email": string,"user_name": string
+                    "created_at": string,"event_id": string,"id": string,"is_attended": boolean,"member_id": string | null,"user_email": string,"user_name": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"event_id": string,"id"?: string,"is_attended"?: boolean,"user_email": string,"user_name": string
+                    "created_at"?: string,"event_id": string,"id"?: string,"is_attended"?: boolean,"member_id"?: string | null,"user_email": string,"user_name": string
                   }
                   Update: {
-                    "created_at"?: string,"event_id"?: string,"id"?: string,"is_attended"?: boolean,"user_email"?: string,"user_name"?: string
+                    "created_at"?: string,"event_id"?: string,"id"?: string,"is_attended"?: boolean,"member_id"?: string | null,"user_email"?: string,"user_name"?: string
                   }
                   Relationships: [
                     {
@@ -283,6 +283,9 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
+            "get_event_attendee_counts":
+{ Args: Record<PropertyKey, never>; Returns: { "attendee_count": number,"event_id": string }[]
+                           },
             "accept_duty_swap":
 { Args: { "p_acceptor_id": string,"p_swap_id": string }; Returns: undefined
                            },

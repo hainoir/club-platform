@@ -18,71 +18,102 @@ export function useEventRSVP(
     const { user } = useUserStore()
     const { toast } = useToast()
 
-    const handleRSVP = async (event: Event) => {
+    const handleRSVP = async (event: Event): Promise<boolean | null> => {
         if (!user) {
             toast({ title: "请先登录", description: "请登录后再进行活动报名。", variant: "destructive" })
-            return
+            return null
         }
 
         const normalizedEmail = (user.email || "").trim().toLowerCase()
         if (!normalizedEmail) {
             toast({ title: "报名失败", description: "当前账号未关联邮箱，无法报名。", variant: "destructive" })
-            return
+            return null
         }
 
-        const isAlreadyRSVPd = event.attendeesList?.some((a) => a.user_email?.toLowerCase() === normalizedEmail)
+        const isAlreadyRSVPd = event.attendeesList?.some((a) => (
+            (a.member_id && a.member_id === user.id)
+            || (!!a.user_email && a.user_email.toLowerCase() === normalizedEmail)
+        ))
+        const currentAttendee = event.attendeesList?.find((a) => (
+            (a.member_id && a.member_id === user.id)
+            || (!!a.user_email && a.user_email.toLowerCase() === normalizedEmail)
+        ))
 
         try {
-            if (!(await requireActiveSession())) return
+            if (!(await requireActiveSession())) return null
             if (isAlreadyRSVPd) {
-                const { error } = await supabase
+                let deleteQuery = supabase
                     .from('event_attendees')
                     .delete()
                     .eq('event_id', event.id)
-                    .ilike('user_email', normalizedEmail)
+                if (currentAttendee?.id && currentAttendee.id !== 'current') {
+                    deleteQuery = deleteQuery.eq('id', currentAttendee.id)
+                } else {
+                    deleteQuery = deleteQuery.eq('member_id', user.id)
+                }
+                const { error } = await deleteQuery
 
                 if (error) throw error
                 toast({ title: "已取消报名", description: `已退出「${event.title}」。` })
+                router.refresh()
+                return false
             } else {
                 const { data: existing, error: checkError } = await supabase
                     .from('event_attendees')
                     .select('id')
                     .eq('event_id', event.id)
-                    .ilike('user_email', normalizedEmail)
+                    .eq('member_id', user.id)
                     .limit(1)
 
                 if (checkError) throw checkError
                 if (existing && existing.length > 0) {
                     toast({ title: "已报名", description: `您已报名「${event.title}」，无需重复操作。` })
                     router.refresh()
-                    return
+                    return null
+                }
+
+                const { data: legacyExisting, error: legacyCheckError } = await supabase
+                    .from('event_attendees')
+                    .select('id')
+                    .eq('event_id', event.id)
+                    .is('member_id', null)
+                    .ilike('user_email', normalizedEmail)
+                    .limit(1)
+                if (legacyCheckError) throw legacyCheckError
+                if (legacyExisting && legacyExisting.length > 0) {
+                    toast({ title: "已报名", description: `您已报名「${event.title}」，无需重复操作。` })
+                    router.refresh()
+                    return null
                 }
 
                 const { error } = await supabase
                     .from('event_attendees')
                     .insert([{
                         event_id: event.id,
+                        member_id: user.id,
                         user_email: normalizedEmail,
                         user_name: user.name || "匿名成员"
                     }])
 
                 if (error) throw error
                 toast({ title: "报名成功", description: `已成功加入「${event.title}」。` })
+                router.refresh()
+                return true
             }
-            router.refresh()
         } catch (error: unknown) {
             const pError = error as PostgrestError & { code?: string }
             if (pError.code === '23505') {
                 toast({ title: "已报名", description: `「${event.title}」的重复报名请求已被拦截。` })
                 router.refresh()
-                return
+                return null
             }
             if (pError.hint === 'rsvp_deadline' || pError.message?.includes('RSVP deadline')) {
                 toast({ title: "报名截止", description: `「${event.title}」已停止报名。`, variant: "destructive" })
                 router.refresh()
-                return
+                return null
             }
             toast({ title: "操作失败", description: pError.message || (error as Error).message || "无法完成请求，请稍后重试。", variant: "destructive" })
+            return null
         }
     }
 
