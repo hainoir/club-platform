@@ -15,7 +15,7 @@ For adversarial review of **this PR's diff only**. Goal: catch what can go wrong
 Edits on these paths are **High**. A docs-only change inside these trees can still be Low. Do not class them as Medium.
 
 - `supabase/migrations/**`, `database/**`
-- `middleware.ts`, `utils/supabase/**`, `app/api/auth/**`, auth/session helpers under `lib/` / `utils/`
+- `middleware.ts`, `utils/supabase/**`, `app/api/auth/**`
 - `.github/workflows/**`
 - `.env*`, any secret or service-role usage
 - Production project `qpdbjizsccvebfqozmal` (apply / restore / pause) — **kir must approve**; Grok Bot does not change it
@@ -46,7 +46,7 @@ Touching auth/duty/studio/events/RLS: also run the relevant Playwright subset (`
 | Risk | Examples | Gate |
 |------|----------|------|
 | Low | docs, copy, additive behind a flag | bot verify + adversarial review green → may merge |
-| Medium | ordinary product UI/API, excluding auth/session routes, middleware, workflows, secrets, and migrations | kir sees evidence (commands, review summary) |
-| High | prod Supabase, auth/session routes, middleware, secrets, CI workflows, migrations | kir must explicitly approve |
+| Medium | ordinary product UI/API, excluding the Sensitive paths list: prod Supabase, auth/session routes (`app/api/auth/**`), middleware, `utils/supabase/**`, secrets, CI workflows, migrations, and `database/**` | kir sees evidence (commands, review summary) |
+| High | prod Supabase, auth/session routes (`app/api/auth/**`), middleware, `utils/supabase/**`, secrets, CI workflows, migrations, and `database/**` | kir must explicitly approve |
 
 Bot approval never counts as kir's.
