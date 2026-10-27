@@ -10,10 +10,12 @@ For adversarial review of **this PR's diff only**. Goal: catch what can go wrong
 - **CI / deps**: workflow secrets exposed; lockfile drift; Dependabot major that breaks build.
 - **Docs**: instructions that lie about commands, env, or deploy steps.
 
-## Sensitive paths (always treat as medium/high)
+## Sensitive paths (High by default — kir must explicitly approve)
+
+Edits on these paths are **High**. A docs-only change inside these trees can still be Low. Do not class them as Medium.
 
 - `supabase/migrations/**`, `database/**`
-- `middleware.ts`, `lib/**/supabase*`, auth/session helpers under `lib/` / `utils/`
+- `middleware.ts`, `utils/supabase/**`, `app/api/auth/**`, auth/session helpers under `lib/` / `utils/`
 - `.github/workflows/**`
 - `.env*`, any secret or service-role usage
 - Production project `qpdbjizsccvebfqozmal` (apply / restore / pause) — **kir must approve**; Grok Bot does not change it
@@ -44,7 +46,7 @@ Touching auth/duty/studio/events/RLS: also run the relevant Playwright subset (`
 | Risk | Examples | Gate |
 |------|----------|------|
 | Low | docs, copy, additive behind a flag | bot verify + adversarial review green → may merge |
-| Medium | ordinary product UI/API | kir sees evidence (commands, review summary) |
-| High | prod Supabase, auth, secrets, CI workflows | kir must explicitly approve |
+| Medium | ordinary product UI/API, excluding auth/session routes, middleware, workflows, secrets, and migrations | kir sees evidence (commands, review summary) |
+| High | prod Supabase, auth/session routes, middleware, secrets, CI workflows, migrations | kir must explicitly approve |
 
 Bot approval never counts as kir's.
