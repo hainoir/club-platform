@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { getNextDutyLeaveDateKey } from '../../../lib/duty/duty-time'
 import type { Database } from '../../../types/supabase'
+import { E2E_DUTY_SLOT } from './duty-slot'
 type AppSupabaseClient = SupabaseClient<Database>
 interface MemberIdentity {
     id: string
@@ -16,6 +18,13 @@ interface AcceptedSwapFixture {
 interface PendingKeyTransferFixture {
     transferId: string
     note: string
+    cleanup: () => Promise<void>
+}
+interface PendingDirectLeaveFixture {
+    leaveId: string
+    reason: string
+    memberName: string
+    leaveDate: string
     cleanup: () => Promise<void>
 }
 function getSupabaseEnv() {
@@ -51,6 +60,53 @@ async function findMemberByEmail(supabase: AppSupabaseClient, email: string): Pr
         throw new Error('Unable to resolve member by email: ' + email)
     }
     return data
+}
+export async function createPendingDirectLeaveFixtureForMember(
+    memberEmail: string,
+    memberPassword: string
+): Promise<PendingDirectLeaveFixture> {
+    const supabase = await createAuthedClient(memberEmail, memberPassword)
+    try {
+        const member = await findMemberByEmail(supabase, memberEmail)
+        const dayOfWeek = 1
+        const period = E2E_DUTY_SLOT.period
+        const leaveDate = getNextDutyLeaveDateKey(dayOfWeek, period)
+        const reason = 'E2E-LEAVE-APPROVE-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8)
+        const { data, error } = await supabase
+            .from('duty_leaves')
+            .insert({
+                member_id: member.id,
+                day_of_week: dayOfWeek,
+                period,
+                leave_date: leaveDate,
+                reason,
+                status: 'pending',
+            })
+            .select('id')
+            .single()
+        if (error || !data) {
+            throw new Error(
+                `Unable to create pending direct leave for ${memberEmail} on ${leaveDate} (day ${dayOfWeek}, period ${period}); check member roster and RLS: ${error?.message || 'unknown error'}`
+            )
+        }
+        const cleanup = async () => {
+            try {
+                await supabase.from('duty_leaves').delete().eq('id', data.id)
+            } finally {
+                await supabase.auth.signOut()
+            }
+        }
+        return {
+            leaveId: data.id,
+            reason,
+            memberName: member.name || member.email || memberEmail,
+            leaveDate,
+            cleanup,
+        }
+    } catch (error) {
+        await supabase.auth.signOut()
+        throw error
+    }
 }
 export async function createAcceptedSwapFixtureForAdmin(adminEmail: string, adminPassword: string): Promise<AcceptedSwapFixture> {
     const supabase = await createAuthedClient(adminEmail, adminPassword)
