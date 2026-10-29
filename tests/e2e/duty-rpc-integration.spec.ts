@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { expect, test, type Locator } from '@playwright/test'
 import type { Database } from '../../types/supabase'
 import { gotoProtectedPath, loginWithPassword, requireEnv } from './helpers/auth'
+import { createPendingDirectLeaveFixtureForMember } from './helpers/duty-fixtures'
 
 type AppSupabaseClient = SupabaseClient<Database>
 
@@ -205,12 +206,62 @@ async function createPendingKeyTransferFixtureForReceiver(
 
 const SWAP_HALL_REGEX = new RegExp('代班审批')
 const SWAP_HALL_TITLE = '代班审批'
+const LEAVE_REVIEW_TITLE = '请假审批'
 const APPROVE_BUTTON = '批准'
 const KEY_TRANSFER_TITLE = '钥匙交接'
 const KEY_CONFIRM_BUTTON = '确认接收'
 
 test.describe('Duty RPC integration', () => {
     test.setTimeout(60_000)
+
+    test('admin approval triggers approve_duty_leave RPC', async ({ page }) => {
+        const env = requireEnv([
+            'E2E_ADMIN_EMAIL',
+            'E2E_ADMIN_PASSWORD',
+            'E2E_MEMBER_EMAIL',
+            'E2E_MEMBER_PASSWORD',
+        ])
+        const fixture = await createPendingDirectLeaveFixtureForMember(
+            env.E2E_MEMBER_EMAIL,
+            env.E2E_MEMBER_PASSWORD
+        )
+
+        let approvePayload: Record<string, unknown> | null = null
+        try {
+            await page.route('**/rest/v1/rpc/approve_duty_leave', async (route, request) => {
+                if (request.method() !== 'POST') {
+                    await route.continue()
+                    return
+                }
+                approvePayload = request.postDataJSON() as Record<string, unknown>
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: 'null',
+                })
+            })
+
+            await loginWithPassword(page, env.E2E_ADMIN_EMAIL, env.E2E_ADMIN_PASSWORD)
+            await gotoProtectedPath(page, '/duty')
+            await page.getByRole('button', { name: LEAVE_REVIEW_TITLE }).click()
+            const dialog = page.getByRole('dialog', { name: LEAVE_REVIEW_TITLE })
+            await expect(dialog.getByRole('heading', { name: LEAVE_REVIEW_TITLE })).toBeVisible()
+            await expect(dialog.getByRole('heading', { name: '无需代班待审批请假' })).toBeVisible()
+
+            const fixtureRow = dialog
+                .locator('div')
+                .filter({ hasText: fixture.reason })
+                .filter({ has: dialog.getByRole('button', { name: APPROVE_BUTTON }) })
+                .last()
+            const leaveRowVisible = await waitForLocatorVisible(fixtureRow)
+            test.skip(!leaveRowVisible, `Pending direct leave ${fixture.leaveId} not visible under current account/data policy`)
+
+            await fixtureRow.getByRole('button', { name: APPROVE_BUTTON }).click()
+            await expect.poll(() => (approvePayload?.p_leave_id as string | undefined) || '').toBe(fixture.leaveId)
+        } finally {
+            await fixture.cleanup()
+        }
+    })
 
     test('admin approval triggers accept_duty_swap RPC', async ({ page }) => {
         const env = requireEnv([
