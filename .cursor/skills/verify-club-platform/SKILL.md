@@ -5,6 +5,8 @@ description: "Drive the club-platform Next.js App Router UI against a local Supa
 
 # Verify club-platform
 
+PR review and the required verify gate live in `REVIEW.md` and `AGENTS.md` at the repo root. This skill only drives the local stack when that policy says to exercise the app.
+
 The surface is the web app. Seeded accounts, migrations, and Playwright selectors already live in this repo. Drive those. Do not invent a second harness, and do not call `submit_duty_sign_in` or `update_studio_geofence` from SQL to make a journey pass.
 
 Two stacks cannot share this machine. `supabase/config.toml` pins `project_id = "club-platform"` and ports 54320, 54321, 54322, 54323, 54324, and 54327. The app for this skill listens on 3001. If any of those ports are open, or `club-platform` Supabase containers already exist, stop. Do not drive a stack this run did not start.
