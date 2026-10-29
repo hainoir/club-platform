@@ -16,7 +16,7 @@
 
 ### 1. 路由与鉴权链
 
-- `middleware.ts`：页面请求进入鉴权链路，静态资源直接放行。
+- `proxy.ts`：页面请求进入鉴权链路，静态资源直接放行。
 - `utils/supabase/middleware.ts`：统一处理会话续期和受保护路由判断。
 - `app/layout.tsx`：根布局挂载主题、Toast、StoreHydration 和 AuthProvider。
 - `app/(app)/layout.tsx`：受保护业务壳层，服务端先解析用户，再交给客户端路由守卫。
@@ -51,7 +51,7 @@
 
 ### 请求与登录态
 
-1. 浏览器请求进入 `middleware.ts`。
+1. 浏览器请求进入 `proxy.ts`。
 2. Supabase SSR 在中间件里完成用户校验与 Cookie 续期。
 3. 受保护布局在服务端拿到当前用户。
 4. `AppRouteGuard` 与 `AuthProvider` 把用户同步到 Zustand。
