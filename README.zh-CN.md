@@ -91,6 +91,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 ## 验证命令
 
+拉取请求还要按 [REVIEW.md](./REVIEW.md) 做对抗审查和风险门禁，见 [贡献指南](./CONTRIBUTING.md)。
+
 建议按下面顺序执行：
 
 ```bash
@@ -101,7 +103,7 @@ pnpm run e2e:smoke
 pnpm run e2e --reporter=line
 ```
 
-如果只是做代码讲解或文档整理，至少应保证 `lint`、`typecheck` 和 `build` 通过。
+口头讲解、不提拉取请求时，至少应保证 `lint`、`typecheck` 和 `build` 通过。文档类拉取请求仍要跑完贡献指南里的那条命令。
 
 ## 安全与发布前检查
 

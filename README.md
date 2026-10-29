@@ -110,6 +110,8 @@ git ls-files .env.local
 4. 重新运行持续集成。质量检查与 E2E 分两个并行 job；E2E 会在 CI 里启动本地 Supabase，并跑 smoke、只读和写入用例。
 
 ## 质量门禁
+拉取请求的审查规则和风险门禁见 [REVIEW.md](./REVIEW.md) 与 [贡献指南](./CONTRIBUTING.md)。
+
 本地建议执行：
 
 ```bash
