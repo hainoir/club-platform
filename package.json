@@ -14,6 +14,7 @@
     "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
     "test:react": "vitest run",
     "test": "pnpm run test:unit && pnpm run test:react",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "e2e": "playwright test",
     "e2e:smoke": "playwright test tests/e2e/smoke --reporter=line",
     "e2e:readonly": "playwright test tests/e2e/auth-login.spec.ts tests/e2e/auth-refresh-regression.spec.ts tests/e2e/dashboard-signin-entry.spec.ts tests/e2e/duty-flow.spec.ts tests/e2e/members-search-stability.spec.ts tests/e2e/members-table-horizontal-scroll.spec.ts --reporter=line",
