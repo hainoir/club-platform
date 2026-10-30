@@ -112,13 +112,15 @@ git ls-files .env.local
 ## 质量门禁
 拉取请求的审查规则和风险门禁见 [REVIEW.md](./REVIEW.md) 与 [贡献指南](./CONTRIBUTING.md)。
 
-本地建议执行：
+本地需要 **Node.js 22+**（见 `package.json` `engines`）和 pnpm。合并前最小验证：
 
 ```bash
-pnpm run lint
-pnpm run typecheck
-pnpm run test:unit
-pnpm run build
+pnpm verify
+```
+
+等价于 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`。涉及 auth/duty/studio/events/RLS 时再跑对应 Playwright 子集：
+
+```bash
 pnpm run e2e:smoke
 pnpm run e2e:readonly
 ```
