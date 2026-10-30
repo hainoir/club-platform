@@ -14,7 +14,7 @@
 
 ```mermaid
 flowchart LR
-    Browser["浏览器请求"] --> Middleware["middleware.ts"]
+    Browser["浏览器请求"] --> Middleware["proxy.ts"]
     Middleware --> SupabaseSSR["Supabase SSR 客户端"]
     SupabaseSSR --> Auth["auth.getUser 与 Cookie 刷新"]
     Auth --> Protected["受保护路由判定"]
@@ -22,7 +22,7 @@ flowchart LR
     Layout --> Page["App Router 页面"]
 ```
 
-- `middleware.ts` 把会话刷新和受保护路由判断委托给 `utils/supabase/middleware.ts`。
+- `proxy.ts` 把会话刷新和受保护路由判断委托给 `utils/supabase/middleware.ts`。
 - `app/layout.tsx` 保持根布局以服务端方式渲染，并挂载主题、toast、状态仓库回填和鉴权同步等客户端 provider 组件。
 - `AuthProvider` 与 `useUserStore` 负责在服务端请求边界之后，持续对齐浏览器端会话状态。
 

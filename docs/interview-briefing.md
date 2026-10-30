@@ -51,7 +51,7 @@
 
 ## 可以落到代码的证据点
 
-- 鉴权与会话同步：`middleware.ts`、`utils/supabase/middleware.ts`、`components/providers/AuthProvider.tsx`、`components/providers/AppRouteGuard.tsx`
+- 鉴权与会话同步：`proxy.ts`、`utils/supabase/middleware.ts`、`components/providers/AuthProvider.tsx`、`components/providers/AppRouteGuard.tsx`
 - 用户模型映射：`components/auth/LoginForm.tsx`、`utils/supabase/resolve-app-user.ts`、`lib/app-user.ts`
 - 首页聚合：`app/(app)/page.tsx`、`lib/services/dashboard-service.ts`
 - 值班签到：`components/dashboard/DashboardSignInWidget.tsx`、`lib/duty/duty-sign-in.ts`
