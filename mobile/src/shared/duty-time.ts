@@ -1,5 +1,5 @@
-import { isDutyRequiredDate } from "./china-public-holidays"
-import { PERIOD_END_MINUTES } from "./duty-constants"
+import { isDutyRequiredDate } from "./china-public-holidays.ts"
+import { PERIOD_END_MINUTES } from "./duty-constants.ts"
 
 export const DUTY_TIME_ZONE = "Asia/Shanghai"
 

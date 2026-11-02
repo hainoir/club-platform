@@ -9,7 +9,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "check:shared": "node scripts/check-shared-sync.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
