@@ -35,7 +35,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 规则全文在 [REVIEW.md](./REVIEW.md)，代理约定在 [AGENTS.md](./AGENTS.md)。每个拉取请求在标成完成前都要跑下面这条，并把命令和输出贴进 PR 说明：
 
 ```bash
-pnpm lint && pnpm typecheck && pnpm test && pnpm build
+pnpm verify
+# same as: pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 
 改到登录、值班、自习、活动或 RLS 时，再按改动选跑并贴上输出：`pnpm e2e:smoke`、`pnpm e2e:readonly` 或 `pnpm e2e:mutation`。`e2e:mutation` 只对 `supabase db reset` 后的本地库运行。持续集成里的 E2E job 会自己拉起一次性数据库再跑这组用例。只审本 PR 的 diff：敏感路径默认高风险，`Important` 当场修，审查和修复来回最多 3 轮。

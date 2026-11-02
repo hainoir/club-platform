@@ -93,17 +93,20 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 拉取请求还要按 [REVIEW.md](./REVIEW.md) 做对抗审查和风险门禁，见 [贡献指南](./CONTRIBUTING.md)。
 
-建议按下面顺序执行：
+本地需要 **Node.js 22+** 和 pnpm。合并前最小验证：
 
 ```bash
-pnpm run lint
-pnpm run typecheck
-pnpm run build
-pnpm run e2e:smoke
-pnpm run e2e --reporter=line
+pnpm verify
 ```
 
-口头讲解、不提拉取请求时，至少应保证 `lint`、`typecheck` 和 `build` 通过。文档类拉取请求仍要跑完贡献指南里的那条命令。
+等价于 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`。涉及 auth/duty/studio/events/RLS 时再跑：
+
+```bash
+pnpm run e2e:smoke
+pnpm run e2e:readonly
+```
+
+`pnpm run e2e:mutation` 会改审批、报名、签到、自习和资料。请只对 `pnpm run db:reset` 出来的本地库或 CI 里的一次性库运行。
 
 ## 安全与发布前检查
 
