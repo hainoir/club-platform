@@ -63,7 +63,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/react": "^16.3.3",
     "@types/echarts": "^5.0.0",
-    "@types/node": "^20",
+    "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@typescript-eslint/eslint-plugin": "^8.72.0",
