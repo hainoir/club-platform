@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AlertTriangle } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { useSupabase, type SupabaseBrowserClient } from '@/hooks/shared/useSupabase';
 import { useVisibilitySync } from '@/hooks/shared/useVisibilitySync';
 import { extractErrorMessage, runWithTimeout } from '@/lib/shared/client-request';
@@ -20,6 +21,8 @@ import {
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { RosterWithMember } from '@/hooks/useDuty';
 import type { Database } from '@/types/supabase';
+import { isAdminRole, useUserStore } from '@/store/useUserStore';
+import type { BackfillSlot } from './DutySignInAdminSection';
 
 const DAYS_LABEL = ['一', '二', '三', '四', '五'];
 
@@ -39,6 +42,8 @@ async function ensureSession(supabase: SupabaseBrowserClient): Promise<boolean> 
 
 interface AbsentMembersCardProps {
     rosters: RosterWithMember[];
+    refreshKey?: number;
+    onBackfill?: (slot: BackfillSlot) => void;
 }
 
 type DutyLogSignIn = Pick<
@@ -51,8 +56,9 @@ type PostgrestListResult<T> = {
     error: PostgrestError | null;
 };
 
-export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
+export function AbsentMembersCard({ rosters, refreshKey = 0, onBackfill }: AbsentMembersCardProps) {
     const supabase = useSupabase();
+    const { user } = useUserStore();
     const [signedSlotKeys, setSignedSlotKeys] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -93,9 +99,10 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
     }, [supabase]);
 
     useVisibilitySync(fetchSignIns, { intervalMs: 60_000 });
+    useEffect(() => { if (refreshKey > 0) void fetchSignIns(); }, [fetchSignIns, refreshKey]);
 
     const absentMembers = useMemo(() => {
-        const map = new Map<string, { name: string; slots: string[] }>();
+        const map = new Map<string, { name: string; slots: Array<{ label: string; dateKey: string; period: number }> }>();
         const mondayDateKey = getDutyWeekMondayDateKey(new Date());
 
         rosters.forEach((r) => {
@@ -108,9 +115,9 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
             const existing = map.get(r.member_id);
             const slotLabel = `周${DAYS_LABEL[r.day_of_week - 1]}第${r.period}节`;
             if (existing) {
-                existing.slots.push(slotLabel);
+                existing.slots.push({ label: slotLabel, dateKey: slotDateKey, period: r.period });
             } else {
-                map.set(r.member_id, { name: r.member.name, slots: [slotLabel] });
+                map.set(r.member_id, { name: r.member.name, slots: [{ label: slotLabel, dateKey: slotDateKey, period: r.period }] });
             }
         });
 
@@ -133,9 +140,14 @@ export function AbsentMembersCard({ rosters }: AbsentMembersCardProps) {
             ) : (
                 <div className="space-y-1.5">
                     {absentMembers.map((member) => (
-                        <div key={member.id} className="flex items-center justify-between text-xs">
+                        <div key={member.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
                             <span className="font-medium text-orange-700 dark:text-orange-400">{member.name}</span>
-                            <span className="text-muted-foreground">{member.slots.join('、')}</span>
+                            <span className="flex flex-wrap items-center gap-1 text-muted-foreground">
+                                {member.slots.map((slot) => <span key={`${slot.dateKey}-${slot.period}`}>
+                                    {slot.label}
+                                    {onBackfill && isAdminRole(user?.role) ? <Button type="button" size="sm" variant="ghost" className="h-6 px-1 text-xs" onClick={() => onBackfill({ memberId: member.id, dateKey: slot.dateKey, period: slot.period })}>补签</Button> : null}
+                                </span>)}
+                            </span>
                         </div>
                     ))}
                 </div>
