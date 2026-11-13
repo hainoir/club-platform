@@ -5,7 +5,7 @@
 ## 适用范围
 
 - `approve_duty_leave(p_leave_id uuid)`
-- `expire_studio_sessions(p_now timestamptz default now())`
+- `expire_studio_sessions()`：2026-10-26 加固迁移已移除 `p_now` / `timestamptz` 重载；函数使用 `statement_timestamp()`。
 - `submit_duty_sign_in(p_latitude double precision, p_longitude double precision, p_accuracy double precision, p_device_info text)`
 - `current_member_id()`
 - `mark_duty_sign_in_invalid(p_log_id uuid, p_reason text)`
