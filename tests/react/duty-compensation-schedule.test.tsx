@@ -74,4 +74,25 @@ describe('useDutyCompensations', () => {
         await waitFor(() => expect(supabase.calls.some((call) => call.table === 'duty_compensations' && call.method === 'select')).toBe(true));
         expect(supabase.calls.some((call) => call.table === 'duty_compensations' && call.method === 'eq')).toBe(false);
     });
+
+    it('pages through records past the PostgREST cap', async () => {
+        const firstPage = Array.from({ length: 1000 }, (_, i) => compensation(`page-${i}`, '2026-11-16', 1));
+        const secondPage = [compensation('overflow', '2026-11-17', 2, 'approved')];
+        const supabase = createDutySupabase({
+            results: {
+                duty_compensations: [
+                    { data: firstPage, error: null },
+                    { data: secondPage, error: null },
+                ],
+            },
+        });
+        const { result } = renderHook(() => useDutyCompensations(supabase.client, admin));
+
+        await waitFor(() => expect(result.current.compensations).toHaveLength(1001));
+        expect(result.current.compensations.at(-1)?.id).toBe('overflow');
+        expect(supabase.calls.filter((call) => call.method === 'range')).toEqual([
+            { table: 'duty_compensations', method: 'range', value: { from: 0, to: 999 } },
+            { table: 'duty_compensations', method: 'range', value: { from: 1000, to: 1999 } },
+        ]);
+    });
 });

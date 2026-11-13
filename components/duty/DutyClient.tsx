@@ -67,6 +67,21 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
         void refreshCompensations();
     }, [deletePendingLeave, refreshCompensations]);
 
+    const respondToSwapAndRefresh = React.useCallback(async (...args: Parameters<typeof respondToSwap>) => {
+        await respondToSwap(...args);
+        void refreshCompensations();
+    }, [refreshCompensations, respondToSwap]);
+
+    const volunteerForSwapAndRefresh = React.useCallback(async (...args: Parameters<typeof volunteerForSwap>) => {
+        await volunteerForSwap(...args);
+        void refreshCompensations();
+    }, [refreshCompensations, volunteerForSwap]);
+
+    const rejectSwapAndRefresh = React.useCallback(async (...args: Parameters<typeof rejectSwap>) => {
+        await rejectSwap(...args);
+        void refreshCompensations();
+    }, [refreshCompensations, rejectSwap]);
+
     const activeRosters = React.useMemo(
         () => filterRostersForDutyAvailability(rosters, approvedLeaves),
         [rosters, approvedLeaves]
@@ -107,9 +122,9 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                             <SwapModal
                                 swaps={swaps}
                                 refreshSwaps={refreshSwaps}
-                                respondToSwap={respondToSwap}
-                                volunteerForSwap={volunteerForSwap}
-                                rejectSwap={rejectSwap}
+                                respondToSwap={respondToSwapAndRefresh}
+                                volunteerForSwap={volunteerForSwapAndRefresh}
+                                rejectSwap={rejectSwapAndRefresh}
                                 isSwapping={isSwapping}
                                 mode="admin"
                             />
@@ -121,8 +136,8 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                                 submitLeave={submitLeaveAndRefresh}
                                 approvePendingLeave={approveLeaveAndRefresh}
                                 deletePendingLeave={deleteLeaveAndRefresh}
-                                respondToSwap={respondToSwap}
-                                rejectSwap={rejectSwap}
+                                respondToSwap={respondToSwapAndRefresh}
+                                rejectSwap={rejectSwapAndRefresh}
                                 isSwapping={isSwapping}
                                 allMembers={initialMembers}
                                 mode="admin"

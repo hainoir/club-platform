@@ -33,18 +33,37 @@ export function useDutyCompensations(supabase: DutySupabaseClient, user: DutyUse
         }
 
         setIsLoading(true);
-        let query = supabase
-            .from('duty_compensations')
-            .select('id, member_id, compensation_date, day_of_week, period, member:members!duty_compensations_member_id_fkey(name), leave:duty_leaves!duty_compensations_leave_id_fkey(status)');
+        const pageSize = 1000;
+        const rows: CompensationWithDetails[] = [];
+        let offset = 0;
+        let failed = false;
 
-        // RLS controls visibility; members additionally request only their own plans.
-        if (!isAdmin) query = query.eq('member_id', memberId);
+        while (true) {
+            let query = supabase
+                .from('duty_compensations')
+                .select('id, member_id, compensation_date, day_of_week, period, member:members!duty_compensations_member_id_fkey(name), leave:duty_leaves!duty_compensations_leave_id_fkey(status)')
+                .order('compensation_date', { ascending: true })
+                .order('id', { ascending: true })
+                .range(offset, offset + pageSize - 1);
 
-        const { data, error } = await query.returns<CompensationWithDetails[]>();
-        if (currentRequest !== requestId.current) return;
+            // RLS controls visibility; members additionally request only their own plans.
+            if (!isAdmin) query = query.eq('member_id', memberId);
 
-        setHasError(Boolean(error));
-        if (!error) setResult({ scope, rows: data || [] });
+            const { data, error } = await query.returns<CompensationWithDetails[]>();
+            if (currentRequest !== requestId.current) return;
+            if (error) {
+                failed = true;
+                break;
+            }
+            const page = data || [];
+            rows.push(...page);
+            if (page.length < pageSize) break;
+            offset += pageSize;
+            if (offset >= pageSize * 20) break;
+        }
+
+        setHasError(failed);
+        if (!failed) setResult({ scope, rows });
         setIsLoading(false);
     }, [isAdmin, memberId, scope, supabase]);
 
