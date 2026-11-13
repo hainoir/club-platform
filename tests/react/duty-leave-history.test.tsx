@@ -118,6 +118,8 @@ describe('LeaveHistoryCard', () => {
         const calls = supabase.calls.filter((call) => call.table === 'duty_leaves')
         expect(calls.some((call) => call.method === 'select')).toBe(true)
         expect(calls.some((call) => call.method === 'limit' && call.value === 100)).toBe(true)
+        expect(calls.some((call) => call.method === 'order' && call.column === 'created_at')).toBe(true)
+        expect(calls.some((call) => call.method === 'order' && call.column === 'expires_at')).toBe(false)
         expect(calls.some((call) => call.method === 'eq' && call.column === 'member_id' && call.value === user.id)).toBe(hasMemberFilter)
         expect(calls.some((call) => call.column === 'expires_at' && ['gt', 'gte', 'eq'].includes(call.method))).toBe(false)
         expect(calls.some((call) => call.method === 'eq' && call.column === 'status')).toBe(false)

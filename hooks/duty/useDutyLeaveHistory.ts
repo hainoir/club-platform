@@ -42,9 +42,12 @@ export function useDutyLeaveHistory(supabase: DutySupabaseClient, user: DutyUser
                 query = query.eq('member_id', currentUser.id);
             }
 
+            // Take the most recently created rows, then the card groups upcoming vs past.
+            // Ordering by expires_at before the limit can drop a newly filed near-term leave
+            // behind 100 older, later-dated rows.
             const { data, error } = await query
-                .order('expires_at', { ascending: false })
                 .order('created_at', { ascending: false })
+                .order('id', { ascending: false })
                 .limit(HISTORY_LIMIT)
                 .returns<LeaveWithMember[]>();
 
