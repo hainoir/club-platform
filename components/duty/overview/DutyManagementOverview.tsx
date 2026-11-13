@@ -4,6 +4,7 @@ import { CheckCircle2, Clock3, KeyRound, ListChecks, TriangleAlert } from "lucid
 
 import { WeeklyProgressCard } from "@/components/dashboard/WeeklyProgressCard"
 import { AbsentMembersCard } from "@/components/duty/attendance/AttendancePanels"
+import { SignInHistoryCard } from "@/components/duty/attendance/SignInHistoryCard"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { RosterWithMember } from "@/hooks/useDuty"
@@ -277,6 +278,7 @@ export function DutyManagementOverview({
             <WeeklyProgressCard stats={weekdayStats} />
 
             <AbsentMembersCard rosters={activeRosters} />
+            <SignInHistoryCard />
         </div>
     )
 }
