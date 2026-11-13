@@ -39,7 +39,7 @@
 - `volunteer_for_duty_swap(p_swap_id uuid)`：成员响应一条公共或定向给自己的待处理代班。
 - `return_duty_swap_to_hall(p_swap_id uuid)`：申请人或管理员把一条已接单或定向代班退回到公共待处理状态。
 - `confirm_key_transfer(p_transfer_id uuid, p_confirmer_id uuid)`：由接收方确认钥匙交接。
-- `expire_studio_sessions(p_now timestamptz default now())`：对开始时段结束超过 10 分钟的活跃自习会话执行认证后的过期清理。
+- `expire_studio_sessions()`：对开始时段结束超过 10 分钟的活跃自习会话执行认证后的过期清理。2026-10-26 加固迁移已移除 `p_now` / `timestamptz` 重载；函数使用 `statement_timestamp()`。
 - `submit_duty_sign_in(p_latitude double precision, p_longitude double precision, p_accuracy double precision, p_device_info text default null)`：当前登录成员提交一次值班签到。成员身份来自会话，不接受调用方传入的 `member_id`。写入的 `sign_in_time` 就是本次窗口判断使用的 `duty_sign_in_instant()`，上海日期由触发器从该时刻算出。普通登录会话里这个时刻是 `now()`。上海日期已有记录时返回 `already_signed_in`，成功返回 `signed_in`。拒绝时的 `HINT`：`out_of_range`、`insufficient_accuracy`、`invalid_coordinates`、`invalid_accuracy`、`geofence_unconfigured`、`holiday`、`outside_shift_window`、`not_rostered`。节次窗口与 `lib/duty/duty-time.ts` 的 `getDutyPeriodByMinutes` 相同，比首页按钮的上课时间略宽。
 - `current_member_id()`：解析当前登录用户对应的 `members.id`。前端重复签到预检和值班提醒都用它，不用调用方传入的用户 id。
 - `mark_duty_sign_in_invalid(p_log_id uuid, p_reason text)`：管理员把一条已核验签到标为无效，并写审计。
