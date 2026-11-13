@@ -30,8 +30,8 @@ const admin: AppUser = {
     name: '管',
 };
 
-function setup(user: AppUser, rows: unknown[] = [], error: { message: string } | null = null) {
-    const supabase = createDutySupabase({ results: { duty_logs: { data: rows, error } } });
+function setup(user: AppUser, rows: unknown[] = [], error: { message: string } | null = null, memberId = user.id) {
+    const supabase = createDutySupabase({ memberId, results: { duty_logs: { data: rows, error } } });
     harness.client = supabase.client;
     useUserStore.setState({ user, isInitialized: true });
     render(<SignInHistoryCard />);
@@ -80,6 +80,7 @@ describe('duty sign-in history', () => {
         const supabase = setup(member);
         await waitFor(() => expect(supabase.calls.some((call) => call.method === 'limit')).toBe(true));
 
+        expect(supabase.rpc).toHaveBeenCalledWith('current_member_id');
         expect(supabase.calls).toContainEqual(expect.objectContaining({
             table: 'duty_logs', method: 'eq', column: 'member_id', value: 'member-1',
         }));
@@ -103,13 +104,25 @@ describe('duty sign-in history', () => {
             expect(selection).not.toContain(forbidden);
         }
         expect(supabase.calls.every((call) => !['insert', 'update', 'delete'].includes(call.method))).toBe(true);
-        expect(supabase.rpc).not.toHaveBeenCalled();
+        expect(supabase.rpc).toHaveBeenCalledTimes(1);
+        expect(supabase.rpc).not.toHaveBeenCalledWith('submit_duty_sign_in', expect.anything());
+    });
+
+    it('filters member history by current_member_id when it differs from the store user id', async () => {
+        const supabase = setup({ ...member, id: 'auth-user' }, [], null, 'legacy-member');
+        await waitFor(() => expect(supabase.calls.some((call) => call.method === 'limit')).toBe(true));
+        expect(supabase.rpc).toHaveBeenCalledWith('current_member_id');
+        expect(supabase.calls).toContainEqual(expect.objectContaining({
+            table: 'duty_logs', method: 'eq', column: 'member_id', value: 'legacy-member',
+        }));
+        expect(supabase.calls.some((call) => call.method === 'eq' && call.column === 'member_id' && call.value === 'auth-user')).toBe(false);
     });
 
     it('does not apply the member filter for admins', async () => {
         const supabase = setup(admin);
         await waitFor(() => expect(supabase.calls.some((call) => call.method === 'limit')).toBe(true));
         expect(supabase.calls.some((call) => call.table === 'duty_logs' && call.method === 'eq' && call.column === 'member_id')).toBe(false);
+        expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
     it('shows a visible error when the query fails', async () => {

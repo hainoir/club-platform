@@ -47,7 +47,14 @@ export function useDutySignInHistory(supabase: SupabaseBrowserClient, user: AppU
                     .lte('sign_in_date', today);
 
                 if (!isAdmin) {
-                    query = query.eq('member_id', memberId!);
+                    // duty_logs.member_id follows current_member_id(), which can
+                    // differ from the AppUser id when a historical email match is used.
+                    const { data: signedInMemberId, error: memberError } = await supabase.rpc('current_member_id');
+                    if (memberError) throw memberError;
+                    if (typeof signedInMemberId !== 'string' || signedInMemberId.length === 0) {
+                        throw new Error('missing_member');
+                    }
+                    query = query.eq('member_id', signedInMemberId);
                 }
 
                 const { data, error: queryError } = await query
