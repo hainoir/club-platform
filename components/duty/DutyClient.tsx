@@ -6,9 +6,12 @@ import { Loader2, RefreshCw, KeyRound } from 'lucide-react';
 import { StudioMembersCard } from '@/components/duty/attendance/AttendancePanels';
 import { DutyTable, SimpleMember } from '@/components/duty/roster/DutyTable';
 import { LeaveModal } from '@/components/duty/leave/LeaveModal';
+import { CompensationScheduleCard } from '@/components/duty/leave/CompensationScheduleCard';
 import { SwapModal } from '@/components/duty/swaps/SwapModal';
 import { Button } from '@/components/ui/button';
 import { useDuty, RosterWithMember } from '@/hooks/useDuty';
+import { useDutyCompensations } from '@/hooks/duty/useDutyCompensations';
+import { useSupabase } from '@/hooks/shared/useSupabase';
 import { filterRostersForDutyAvailability } from '@/lib/duty/duty-leaves';
 import { isAdminRole, useUserStore } from '@/store/useUserStore';
 
@@ -44,6 +47,25 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
 
     const { user } = useUserStore();
     const isAdmin = isAdminRole(user?.role);
+    const supabase = useSupabase();
+    const { compensations, isLoading: isLoadingCompensations, hasError: compensationError, refreshCompensations } =
+        useDutyCompensations(supabase, user);
+
+    const submitLeaveAndRefresh = React.useCallback(async (...args: Parameters<typeof submitLeave>) => {
+        const submitted = await submitLeave(...args);
+        if (submitted) void refreshCompensations();
+        return submitted;
+    }, [refreshCompensations, submitLeave]);
+
+    const approveLeaveAndRefresh = React.useCallback(async (...args: Parameters<typeof approvePendingLeave>) => {
+        await approvePendingLeave(...args);
+        void refreshCompensations();
+    }, [approvePendingLeave, refreshCompensations]);
+
+    const deleteLeaveAndRefresh = React.useCallback(async (...args: Parameters<typeof deletePendingLeave>) => {
+        await deletePendingLeave(...args);
+        void refreshCompensations();
+    }, [deletePendingLeave, refreshCompensations]);
 
     const activeRosters = React.useMemo(
         () => filterRostersForDutyAvailability(rosters, approvedLeaves),
@@ -96,9 +118,9 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                                 approvedLeaves={approvedLeaves}
                                 pendingLeaves={pendingLeaves}
                                 swaps={swaps}
-                                submitLeave={submitLeave}
-                                approvePendingLeave={approvePendingLeave}
-                                deletePendingLeave={deletePendingLeave}
+                                submitLeave={submitLeaveAndRefresh}
+                                approvePendingLeave={approveLeaveAndRefresh}
+                                deletePendingLeave={deleteLeaveAndRefresh}
                                 respondToSwap={respondToSwap}
                                 rejectSwap={rejectSwap}
                                 isSwapping={isSwapping}
@@ -107,6 +129,12 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
                             />
                         </div>
                     </div>
+
+                    <CompensationScheduleCard
+                        compensations={compensations}
+                        isLoading={isLoadingCompensations}
+                        hasError={compensationError}
+                    />
 
                     <KeyHoldersSummary rosters={rosters} />
                     <StudioMembersCard rosters={activeRosters} allowSelfStudy={false} />
