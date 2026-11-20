@@ -3,7 +3,7 @@ import { zhCN } from "date-fns/locale"
 import { CheckCircle2, Clock3, KeyRound, ListChecks, TriangleAlert } from "lucide-react"
 
 import { WeeklyProgressCard } from "@/components/dashboard/WeeklyProgressCard"
-import { AbsentMembersCard } from "@/components/duty/attendance/AttendancePanels"
+import { DutySignInAdminSection } from "@/components/duty/attendance/DutySignInAdminSection"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { RosterWithMember } from "@/hooks/useDuty"
@@ -276,7 +276,7 @@ export function DutyManagementOverview({
 
             <WeeklyProgressCard stats={weekdayStats} />
 
-            <AbsentMembersCard rosters={activeRosters} />
+            <DutySignInAdminSection rosters={rosters} absentRosters={activeRosters} />
         </div>
     )
 }
