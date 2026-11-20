@@ -6,6 +6,7 @@ import { Loader2, RefreshCw, KeyRound } from 'lucide-react';
 import { StudioMembersCard } from '@/components/duty/attendance/AttendancePanels';
 import { DutyTable, SimpleMember } from '@/components/duty/roster/DutyTable';
 import { LeaveModal } from '@/components/duty/leave/LeaveModal';
+import { LeaveHistoryCard } from '@/components/duty/leave/LeaveHistoryCard';
 import { SwapModal } from '@/components/duty/swaps/SwapModal';
 import { Button } from '@/components/ui/button';
 import { useDuty, RosterWithMember } from '@/hooks/useDuty';
@@ -110,6 +111,7 @@ export default function DutyClient({ initialData, initialMembers }: DutyClientPr
 
                     <KeyHoldersSummary rosters={rosters} />
                     <StudioMembersCard rosters={activeRosters} allowSelfStudy={false} />
+                    <LeaveHistoryCard refreshKey={`${pendingLeaves.map((leave) => leave.id).join(',')}|${approvedLeaves.map((leave) => leave.id).join(',')}`} />
                 </div>
 
                 <div className="min-w-0 space-y-4 overflow-hidden lg:col-span-3">

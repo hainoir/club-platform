@@ -16,7 +16,7 @@ export type QueryResult = {
 
 export type DutyCall = {
     table: string
-    method: 'select' | 'insert' | 'delete' | 'eq' | 'gte'
+    method: 'select' | 'insert' | 'delete' | 'eq' | 'gte' | 'gt' | 'order' | 'limit'
     payload?: unknown
     column?: string
     value?: unknown
@@ -56,8 +56,8 @@ export function createDutySupabase(options: CreateDutySupabaseOptions = {}) {
             error: null,
         }
         const query = {
-            select() {
-                calls.push({ table, method: 'select' })
+            select(columns?: string) {
+                calls.push({ table, method: 'select', payload: columns })
                 return query
             },
             insert(payload: unknown) {
@@ -76,11 +76,17 @@ export function createDutySupabase(options: CreateDutySupabaseOptions = {}) {
                 calls.push({ table, method: 'gte', column, value })
                 return query
             },
-            gt() {
+            gt(column: string, value: unknown) {
+                calls.push({ table, method: 'gt', column, value })
                 return query
             },
-            limit() {
-                return Promise.resolve(result)
+            order(column: string, options?: unknown) {
+                calls.push({ table, method: 'order', column, value: options })
+                return query
+            },
+            limit(value: number) {
+                calls.push({ table, method: 'limit', value })
+                return query
             },
             maybeSingle() {
                 return Promise.resolve(result)
